@@ -1,0 +1,270 @@
+#!/bin/bash
+
+#set -x 
+
+source config
+
+declare -a command_vector
+declare -A subarray_list
+declare -a resources_all
+declare -a resources_up
+declare -a resources_standby
+
+# TODO: could load array of available roaches 
+
+function check_resources()
+{
+  unset resources_up
+  unset resources_standby
+
+# TODO: more checking could be done, in particular retrieve list of active groups
+
+  for array in ${subarray_list[*]} ; do 
+    file=${CORR_DIR}/${array}
+    for board in $(grep '^ *servers_' $file | cut -f2 -d= | tr -s , ' ' ) ; do
+      # TODO: check if it is in resources
+      $board=$array
+
+      found=no
+      for check in ${resources_up[*]} ; do 
+        if [ "${check}" = "${board}" ] ; then
+          found=yes
+        fi
+      done
+
+      if [ "${found}" != "yes" ] ; then
+        kcpmsg "resource ${board} allocated to ${array} but not marked usable"
+      fi
+
+      resources_up+=(${board})
+    done
+  done
+
+  for board in ${resources_all[*]} ; do
+    standby=yes
+    for up in ${resources_up[*]} ; do
+      if [ "${board}" = "${up}" ] ; then
+        standby=no
+      fi
+    done
+    if [ "${standby}" = "yes" ] ; then
+      resources_standby+=(${board})
+    fi
+  done
+}
+
+function lk_get_result()
+{
+  as=$2
+  get=$1
+
+  while read cmd code extra ; do 
+    case "${cmd}" in 
+      (\#${get})
+        echo "#${as} ${code} ${extra}"
+        ;;
+      (\!${get})
+        echo "!${as} ${code} ${extra}"
+        return 
+        ;;
+    esac
+  done
+
+}
+
+function array_list()
+{
+  shift
+
+  echo ?listener-list
+  while read cmd label port host ; do 
+    case "${cmd}" in 
+      (\#listener-list)
+        compound=${subarray_list[$label]}
+        if [ -n "${compound}" ] ; then
+          echo "#array-list ${label} ${host}:${port} ${compound/-/ }"
+        fi
+        ;;
+      (\!listener-list)
+        echo "!array-list ${label}"
+        return 
+        ;;
+    esac
+  done
+}
+
+function array_assign()
+{
+  shift
+
+  if [ "$#" -lt 3 ] ; then
+    echo "insufficient parameters"
+    return
+  fi
+
+  key=$1
+
+  # TODO: should query the running listeners 
+  if [ -n "${subarray_list[$key]}" ] ; then
+    kcpmsg "array ${key} already in use"
+    echo "!array-assign fail"
+    return
+  fi
+
+  shift
+
+  unset t
+
+  while [ -n "$1" ] ; do
+    t=${t}${t:+-}${1}
+    shift
+  done
+
+  subarray_list[$key]=$t
+
+  echo "!array-assign ok"
+}
+
+function array_halt()
+{
+  shift
+
+  key=$1
+
+  if [ -z "${key}" ] ; then
+    kcpmsg "need a subarray to destroy"
+    echo "!array-halt fail"
+    return
+  fi
+
+  if [ -z "${subarray_list[$key]}" ] ; then
+    kcpmsg "no state available for array ${key}"
+    echo "!array-halt fail"
+    return
+  fi
+
+  echo "my state for $key is ${subarray_list[$key]}"
+
+  unset subarray_list[$key]
+
+  for board in ${resources_up[*]} ; do
+    if [ "${!board}" = "$key" ] ; then
+      unset ${board}
+    fi
+  done
+
+  echo "?group-halt ${key}"
+
+  lk_get_result group-halt array-halt
+}
+
+function resource_list()
+{
+  shift
+
+  for board in ${resources_up[*]} ; do
+    echo "#resource-list $board up ${!board}"
+  done
+
+  for board in ${resources_standby[*]} ; do
+    echo "#resource-list $board standby"
+  done
+
+  echo "!resource-list ok"
+}
+
+function resource_mark()
+{
+  shift
+
+  if [ "$#" -lt 2 ] ; then
+    kcpmsg "insufficient arguments"
+    echo "!resource-mark fail"
+    return
+  fi
+
+  found=no
+  for board in ${resources_all[*]} ; do
+    if [ "${board}" = "${1}" ] ; then
+      found=yes
+    fi
+  done
+
+  if [ "$found" != "yes" ] ; then
+    kcpmsg "unknown resource ${1}"
+    echo "!resource-mark fail"
+    return
+  fi
+
+  case "${2}" in
+    (up) 
+      resources_up+=($1)
+      resources_standby=(${resources_standby[*]/$1/})
+      ;;
+    (standby) 
+      if [ -n "${!1}" ] ; then
+        kcpmsg "refusing to release resource $1 held by ${!1}"
+        echo "!resource-mark fail"
+        return
+      fi
+      resources_standby+=($1)
+      resources_up=(${resources_up[*]/$1/})
+      ;;
+    (*) 
+      kcpmsg "unknown marking ${2} for resource ${1}"
+      echo "!resource-mark fail"
+      return
+      ;;
+  esac
+
+  echo "!resource-mark ok"
+}
+
+resources_standby=(${resources_all[*]})
+
+while read line ; do 
+
+  i=0;
+  rest=${line}
+  while [ -n "${rest}" ] ; do
+    command_vector[$i]=${rest%% *}
+    update=${rest#* }
+    if [ "${update}" = "${rest}" ] ; then
+      rest=""
+    else 
+      rest=${update}
+    fi
+    i=$[i+1]
+  done
+
+  max=$i
+  cmd=${command_vector[0]}
+
+  case "${cmd}" in
+    (\?array-list) 
+      array_list ${command_vector[@]}
+      ;;
+    (\?array-assign) 
+      array_assign ${command_vector[@]}
+      ;;
+    (\?array-halt) 
+      array_halt ${command_vector[@]}
+      ;;
+    (\?resource-list) 
+      resource_list ${command_vector[@]}
+      ;;
+    (\?resource-mark) 
+      resource_mark ${command_vector[@]}
+      ;;
+    (*)
+      kcpmsg "got unsupported request ${cmd}"
+      ;;
+  esac
+
+  i=0
+  while [ ${i} -lt ${max} ] ; do
+    unset command_vector[$i]
+    i=$[i+1]
+  done
+  
+done

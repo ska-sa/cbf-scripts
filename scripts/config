@@ -1,0 +1,4 @@
+CORR_DIR=/etc/corr
+CORR_TEMPLATE=/usr/local/lib/kcs/templates
+
+resources_all=(R0 R1 R2 R3)
