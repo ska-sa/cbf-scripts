@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -x
+
+export KATCP_SERVER=localhost:7147
+
+kcpcmd listener-create setup 7000 
+
+export KATCP_SERVER=localhost:7000
+
+kcpcmd group-create primary 
+kcpcmd listener-create primary 7001 0.0.0.0 primary
+
+export KATCP_SERVER=localhost:7001
+
+kcpcmd client-exec primary primary primary
+
+kcpcmd forward-symbolic resource-mark primary
+kcpcmd forward-symbolic resource-list primary
+kcpcmd forward-symbolic array-halt primary
+kcpcmd forward-symbolic array-list primary
+kcpcmd forward-symbolic array-assign primary

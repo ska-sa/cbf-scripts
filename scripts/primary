@@ -2,17 +2,38 @@
 
 #set -x 
 
-source config
-
 declare -a command_vector
 declare -A subarray_list
 declare -a resources_all
 declare -a resources_up
 declare -a resources_standby
+declare -a instruments_deployed
+declare -A instruments_sizes
+declare -A instruments_streams
 
-# TODO: could load array of available roaches 
+source config
 
-function check_resources()
+function static_checks()
+{
+
+  instruments_sizes[rts]=2
+  instruments_streams[rts]="X:Y"
+
+  for instrument in ${instruments_deployed[*]} ; do
+    template=${CORR_TEMPLATE}/${instrument}
+    need=${instrument}_need
+    # TODO: calculate boards required from template, put it in need
+
+    # TODO: work out the data stream names
+  done
+
+  resources_all=(R0 R1 R2 R3)
+  resources_standby=(${resources_all[*]})
+
+  # TODO: work out what roaches we have, maybe from hosts
+}
+
+function dynamic_checks()
 {
   unset resources_up
   unset resources_standby
@@ -61,11 +82,19 @@ function lk_get_result()
   while read cmd code extra ; do 
     case "${cmd}" in 
       (\#${get})
-        echo "#${as} ${code} ${extra}"
+        if [ -n "${as}" ] ; then
+          echo "#${as} ${code} ${extra}"
+        fi
         ;;
       (\!${get})
-        echo "!${as} ${code} ${extra}"
-        return 
+        if [ -n "${as}" ] ; then
+          echo "!${as} ${code} ${extra}"
+        fi
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+          return 1
+        fi
         ;;
     esac
   done
@@ -119,6 +148,21 @@ function array_assign()
     t=${t}${t:+-}${1}
     shift
   done
+
+  echo "?group-create $key"
+  if ! lk_get_result group-create ; then
+    echo "!array-assign fail"
+    return
+  fi
+
+  echo "?listener-create ${key} 0 0.0.0.0"
+  if ! lk_get_result listener-create ; then
+    echo "?group-halt ${key}"
+    echo "!array-assign fail"
+    return
+  fi
+
+  kcpmsg "have ${resources_up[*]} boards left to give"
 
   subarray_list[$key]=$t
 
@@ -220,7 +264,52 @@ function resource_mark()
   echo "!resource-mark ok"
 }
 
-resources_standby=(${resources_all[*]})
+function instrument_list()
+{
+  shift
+
+  for instrument in ${instruments_deployed[*]} ; do 
+    t=${instruments_streams[${instrument}]}
+    echo "#instrument-list ${instrument} ${t/:/ }"
+  done
+
+  echo "!instrument-list ok"
+}
+
+function instrument_probe()
+{
+  shift
+
+  if [ "$#" -lt 1 ] ; then
+    kcpmsg "insufficient arguments"
+    echo "!instrument-probe fail"
+    return
+  fi
+
+  instrument=$1
+
+  need=${instruments_sizes[${instrument}]}
+
+  if [ -z "${need}" ]  ; then
+    kcpmsg "no information about instrument ${instrument} found"
+    echo "!instrument-probe fail"
+    return
+  fi
+
+  have=${#resources_up[*]}
+
+  if [ "${have}" -lt "${need}" ] ; then
+    kcpmsg "would need ${need} boards but only have ${have}"
+    echo "!instrument-probe ok oversubscribed"
+    return
+  fi
+
+  kcpmsg "would allocate ${need} boards of ${have} available"
+
+  echo "!instrument-probe ok"
+}
+
+static_checks
 
 while read line ; do 
 
@@ -255,6 +344,12 @@ while read line ; do
       ;;
     (\?resource-mark) 
       resource_mark ${command_vector[@]}
+      ;;
+    (\?instrument-list) 
+      instrument_list ${command_vector[@]}
+      ;;
+    (\?instrument-probe) 
+      instrument_probe ${command_vector[@]}
       ;;
     (*)
       kcpmsg "got unsupported request ${cmd}"
