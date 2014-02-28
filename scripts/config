@@ -1,5 +1,0 @@
-CORR_DIR=/etc/corr
-CORR_TEMPLATE=/usr/local/lib/kcs/templates
-
-instruments_deployed=(rts)
-

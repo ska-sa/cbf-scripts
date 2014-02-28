@@ -1,0 +1,69 @@
+#!/bin/bash
+
+NAME=cmc
+
+CONFIGVAR=${NAME^^*}_CONFIG
+
+export KATCP_LABEL=${NAME}
+
+# Try and find a config file, any config file ... 
+for dir in /etc ../misc misc ; do
+  if [ -f ${dir}/${NAME}.conf ] ; then
+    export ${CONFIGVAR}=${dir}/${NAME}.conf
+  fi
+done
+
+if [ -f "${!CONFIGVAR}" ] ; then
+  source ${!CONFIGVAR}
+else
+  kcpmsg -l error "unable to locate config file ${NAME}.conf"
+  exit 2
+fi
+
+if [ "${state}" = "production" ] ; then
+  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
+  LOGFLAGS="-a 10"
+  LOGFILE=/var/log/${NAME}.kcplog
+  ERRFILE=/var/log/${NAME}.debug
+else 
+  set -x
+  export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
+  #LOGFLAGS="-t -l trace"
+  LOGFLAGS="-t"
+  LOGFILE=/tmp/${NAME}.kcplog
+  ERRFILE=/tmp/${NAME}.debug
+fi
+
+export KATCP_SERVER=localhost:${old_port}
+
+if kcpcmd -t 2 watchdog >& /dev/null ; then
+  if [ "${state}" = "production" ] ; then
+    kcpmsg -l error "${NAME} already running"
+    exit 2
+  else
+    kcpmsg -l warn "${NAME} already running"
+  fi 
+else 
+  sleep 0.5
+  kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
+fi
+
+kcpcmd listener-create setup ${setup_port} 127.0.0.1 
+export KATCP_SERVER=localhost:${setup_port}
+
+kcpcmd group-create primary 
+kcpcmd listener-create primary ${primary_port} 0.0.0.0 primary
+export KATCP_SERVER=localhost:${primary_port}
+
+kcplog ${LOGFLAGS} -d -o ${LOGFILE}
+
+kcpcmd scope global group primary
+
+kcpcmd client-exec primary primary ${NAME}-primary
+
+
+kcpcmd forward-symbolic resource-mark primary
+kcpcmd forward-symbolic resource-list primary
+kcpcmd forward-symbolic array-halt primary
+kcpcmd forward-symbolic array-list primary
+kcpcmd forward-symbolic array-assign primary
