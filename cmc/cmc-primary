@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#set -x 
+set -x 
 
 declare -a command_vector
 declare -a instruments_deployed
@@ -10,9 +10,8 @@ declare -A instruments_sizes
 declare -A instruments_streams
 
 # sanity checks scan running correlators
-declare -a resources_all
-declare -a resources_up
-declare -a resources_standby
+declare -A resource_set
+declare -A resource_use
 
 if [ -n "${CMC_CONFIG}" ] ; then
   source "${CMC_CONFIG}"
@@ -24,28 +23,29 @@ fi
 function static_checks()
 {
 
+  # Resource hardcoded currently, in future:
+  # TODO: work out what roaches we have, maybe from hosts
+  resource_set=([R0]=standby [R1]=standby [R2]=standby [R3]=standby)
+
+  # instrument parameters hardcoded, work out from template in future
   instruments_sizes[rts]=2
   instruments_streams[rts]="X:Y"
 
   for instrument in ${instruments_deployed[*]} ; do
     template=${CORR_TEMPLATE}/${instrument}
-    need=${instrument}_need
-    # TODO: calculate boards required from template, put it in need
 
-    # TODO: work out the data stream names
+    # TODO: calculate boards required from template, put it size
+    # TODO: work out the data stream names, put it in streams
+    # TOOD: work out resources, add them to set ? 
   done
-
-  # Resource hardcoded currently, in future:
-  # TODO: work out what roaches we have, maybe from hosts
-  resources_all=(R0 R1 R2 R3)
-  resources_standby=(${resources_all[*]})
 
 }
 
 function dynamic_checks()
 {
-  unset resources_up
-  unset resources_standby
+  result=0
+
+  unset resource_use
 
 # TODO: more checking could be done, in particular retrieve list of active groups
 
@@ -54,34 +54,28 @@ function dynamic_checks()
     file=${CORR_DIR}/${array}
     for board in $(grep '^ *servers_' $file | cut -f2 -d= | tr -s , ' ' ) ; do
       # TODO: check if it is in resources
-      $board=$array
 
-      found=no
-      for check in ${resources_up[*]} ; do 
-        if [ "${check}" = "${board}" ] ; then
-          found=yes
-        fi
-      done
-
-      if [ "${found}" != "yes" ] ; then
-        kcpmsg "resource ${board} allocated to ${array} but not marked usable"
+      if [ -n "${resource_use[${board}]}" ] ; then
+        kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
+        result=1
       fi
 
-      resources_up+=(${board})
+      resource_use+=([${board}]=${array})
+
+      if [ -z "${resource_set[${board}]}" ] ; then
+        kcpmsg -l warn "unknown resource ${board} used in array ${array}"
+        resource_set+=([${board}]="up"):
+      fi
+
+      if [ "${resource_set[${board}]}" != "up" ] ; then
+        kcpmsg -l warn "resource ${board} allocated to array ${array} despite not marked up"
+        result=1
+        resource_set[${board}]="up"
+      fi
+
     done
   done
 
-  for board in ${resources_all[*]} ; do
-    standby=yes
-    for up in ${resources_up[*]} ; do
-      if [ "${board}" = "${up}" ] ; then
-        standby=no
-      fi
-    done
-    if [ "${standby}" = "yes" ] ; then
-      resources_standby+=(${board})
-    fi
-  done
 }
 
 function lk_get_result()
@@ -172,7 +166,7 @@ function array_assign()
     return
   fi
 
-  kcpmsg "have ${resources_up[*]} boards left to give"
+#  kcpmsg "have ${resources_up[*]} boards left to give"
 
   subarray_list[$key]=$t
 
@@ -201,9 +195,9 @@ function array_halt()
 
   unset subarray_list[$key]
 
-  for board in ${resources_up[*]} ; do
-    if [ "${!board}" = "$key" ] ; then
-      unset ${board}
+  for board in ${!resource_use[*]} ; do
+    if [ "${resource_use[${board}]}" = "$key" ] ; then
+      unset resource_use[${board}]
     fi
   done
 
@@ -216,15 +210,27 @@ function resource_list()
 {
   shift
 
-  for board in ${resources_up[*]} ; do
-    echo "#resource-list $board up ${!board}"
-  done
+  # TODO: invoke dynamic_checks
 
-  for board in ${resources_standby[*]} ; do
-    echo "#resource-list $board standby"
-  done
+  if [ -n "$1" ] ; then
 
-  echo "!resource-list ok"
+    if [ -z "${resource_set[$1]}" ] ; then
+      kcpmsg "resource $1 not found"
+      echo "!resource-list fail"
+      return 1
+    fi
+
+    echo "#resource-list $1 ${resource_set[$1]} ${resource_use[$1]}"
+
+  else
+
+    for board in ${!resource_set[*]} ; do
+      echo "#resource-list ${board} ${resource_set[${board}]} ${resource_use[${board}]}"
+    done
+
+    echo "!resource-list ok"
+
+  fi
 }
 
 function resource_mark()
@@ -234,17 +240,10 @@ function resource_mark()
   if [ "$#" -lt 2 ] ; then
     kcpmsg "insufficient arguments"
     echo "!resource-mark fail"
-    return
+    return 1
   fi
 
-  found=no
-  for board in ${resources_all[*]} ; do
-    if [ "${board}" = "${1}" ] ; then
-      found=yes
-    fi
-  done
-
-  if [ "$found" != "yes" ] ; then
+  if [ -z "${resource_set[$1]}" ] ; then
     kcpmsg "unknown resource ${1}"
     echo "!resource-mark fail"
     return
@@ -252,22 +251,20 @@ function resource_mark()
 
   case "${2}" in
     (up) 
-      resources_up+=($1)
-      resources_standby=(${resources_standby[*]/$1/})
+      resource_set[$1]="up"
       ;;
     (standby) 
-      if [ -n "${!1}" ] ; then
-        kcpmsg "refusing to release resource $1 held by ${!1}"
+      if [ -n "${resource_use[$1]}" ] ; then
+        kcpmsg "refusing to release resource $1 held by array ${resource_use[$1]}"
         echo "!resource-mark fail"
         return
       fi
-      resources_standby+=($1)
-      resources_up=(${resources_up[*]/$1/})
+      resource_set[$1]="standby"
       ;;
     (*) 
       kcpmsg "unknown marking ${2} for resource ${1}"
       echo "!resource-mark fail"
-      return
+      return 1
       ;;
   esac
 
@@ -306,7 +303,18 @@ function instrument_probe()
     return
   fi
 
-  have=${#resources_up[*]}
+  unset resource_free
+  declare -a resource_free
+
+  for board in ${!resource_set[*]} ; do
+    if [ "${resource_set[${board}]}" = "up" -a -z "${resource_use[${board}]}" ] ; then
+      resource_free+=(${board})
+    fi
+  done
+
+
+  echo ${resource_free[*]}
+  have=${#resource_free[*]}
 
   if [ "${have}" -lt "${need}" ] ; then
     kcpmsg "would need ${need} boards but only have ${have}"
