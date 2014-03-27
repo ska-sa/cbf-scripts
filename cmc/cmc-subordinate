@@ -48,7 +48,10 @@ while read line ; do
       capture_start ${command_vector[@]}
       ;;
     (*)
-      kcpmsg "got unsupported request ${cmd}"
+      if [ "${cmd:0:1}" = '?' ] ; then
+        kcpmsg "cmc subordinate got unsupported request ${cmd}"
+        echo "!${cmd:1} fail"
+      fi
       ;;
   esac
 

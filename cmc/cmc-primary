@@ -375,7 +375,10 @@ while read line ; do
       instrument_probe ${command_vector[@]}
       ;;
     (*)
-      kcpmsg "got unsupported request ${cmd}"
+      if [ "${cmd:0:1}" = '?' ] ; then
+        kcpmsg "cmc primary got unsupported request ${cmd}"
+        echo "!${cmd:1} fail"
+      fi
       ;;
   esac
 
