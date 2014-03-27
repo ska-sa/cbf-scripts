@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -x 
+
+declare -a command_vector
+declare -a array_inputs
+
+if [ -n "${CMC_CONFIG}" ] ; then
+  source "${CMC_CONFIG}"
+else
+  kcpmsg "running standalone"
+  source ../misc/cmc.conf
+fi
+
+array_inputs=($*)
+
+kcpmsg "launching subarray of size ${#array_inputs[*]}"
+
+while read line ; do 
+
+  i=0;
+  rest=${line}
+  while [ -n "${rest}" ] ; do
+    command_vector[$i]=${rest%% *}
+    update=${rest#* }
+    if [ "${update}" = "${rest}" ] ; then
+      rest=""
+    else 
+      rest=${update}
+    fi
+    i=$[i+1]
+  done
+
+  max=$i
+  cmd=${command_vector[0]}
+
+  case "${cmd}" in
+    (\?capture-list) 
+      capture_list ${command_vector[@]}
+      ;;
+    (\?capture-destination) 
+      capture_destination ${command_vector[@]}
+      ;;
+    (\?capture-stop) 
+      capture_stop ${command_vector[@]}
+      ;;
+    (\?capture-start) 
+      capture_start ${command_vector[@]}
+      ;;
+    (*)
+      kcpmsg "got unsupported request ${cmd}"
+      ;;
+  esac
+
+  i=0
+  while [ ${i} -lt ${max} ] ; do
+    unset command_vector[$i]
+    i=$[i+1]
+  done
+  
+done
