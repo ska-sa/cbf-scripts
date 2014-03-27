@@ -20,12 +20,24 @@ else
   source ../misc/cmc.conf
 fi
 
+function load_roaches()
+{
+  unset resorce_set
+  declare -A resource_set
+
+  for roach in $(grep roach /var/lib/misc/dnsmasq.leases | cut -f4 -d ' ') ; do
+    resource_set[$roach]=standby
+  done
+}
+
 function static_checks()
 {
 
   # Resource hardcoded currently, in future:
   # TODO: work out what roaches we have, maybe from hosts
-  resource_set=([R0]=standby [R1]=standby [R2]=standby [R3]=standby)
+  #resource_set=([R0]=standby [R1]=standby [R2]=standby [R3]=standby)
+
+  load_roaches
 
   # instrument parameters hardcoded, work out from template in future
   instruments_sizes[rts]=2
@@ -52,28 +64,32 @@ function dynamic_checks()
 
   for array in ${subarray_list[*]} ; do 
     file=${CORR_DIR}/${array}
-    for board in $(grep '^ *servers_' $file | cut -f2 -d= | tr -s , ' ' ) ; do
-      # TODO: check if it is in resources
+    if [ -f ${file} ] ; then
+      for board in $(grep '^ *servers_' $file | cut -f2 -d= | tr -s , ' ' ) ; do
+        # TODO: check if it is in resources
 
-      if [ -n "${resource_use[${board}]}" ] ; then
-        kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
-        result=1
-      fi
+        if [ -n "${resource_use[${board}]}" ] ; then
+          kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
+          result=1
+        fi
 
-      resource_use+=([${board}]=${array})
+        resource_use+=([${board}]=${array})
 
-      if [ -z "${resource_set[${board}]}" ] ; then
-        kcpmsg -l warn "unknown resource ${board} used in array ${array}"
-        resource_set+=([${board}]="up"):
-      fi
+        if [ -z "${resource_set[${board}]}" ] ; then
+          kcpmsg -l warn "unknown resource ${board} used in array ${array}"
+          resource_set+=([${board}]="up"):
+        fi
 
-      if [ "${resource_set[${board}]}" != "up" ] ; then
-        kcpmsg -l warn "resource ${board} allocated to array ${array} despite not marked up"
-        result=1
-        resource_set[${board}]="up"
-      fi
+        if [ "${resource_set[${board}]}" != "up" ] ; then
+          kcpmsg -l warn "resource ${board} allocated to array ${array} despite not marked up"
+          result=1
+          resource_set[${board}]="up"
+        fi
 
-    done
+      done
+    else
+      kcpmsg -l warn "no corr config for ${array} found"
+    fi
   done
 
 }
@@ -256,7 +272,14 @@ function resource_mark()
 
   case "${2}" in
     (up) 
-      resource_set[$1]="up"
+      if ping -W 2 -n -q -c 1 $1 >& /dev/null ; then
+        resource_set[$1]="up"
+      else
+        kcpmsg -l error "resource $1 unresponsive"
+        resource_set[$1]="standby"
+        echo "!resource-mark fail"
+        return 1
+      fi
       ;;
     (standby) 
       if [ -n "${resource_use[$1]}" ] ; then
