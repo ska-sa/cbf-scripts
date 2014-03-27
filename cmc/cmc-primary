@@ -22,11 +22,23 @@ fi
 
 function load_roaches()
 {
-  unset resorce_set
-  declare -A resource_set
+  unset tmp_set
+  declare -A tmp_set
 
-  for roach in $(grep roach /var/lib/misc/dnsmasq.leases | cut -f4 -d ' ') ; do
-    resource_set[$roach]=standby
+  for board in $(grep roach /var/lib/misc/dnsmasq.leases | cut -f4 -d ' ') ; do
+
+    tmp_set[$board]=standby
+
+    if [ -z  "${resource_set[${board}]}" ] ; then
+      resource_set[$board]=standby
+    fi
+
+  done
+
+  for board in ${!resource_set[*]} ; do
+    if [ -z "${tmp_set[${board}]}" ] ; then
+      unset resource_set[$board]
+    fi
   done
 }
 
