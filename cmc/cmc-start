@@ -45,22 +45,32 @@ if kcpcmd -t 2 watchdog >& /dev/null ; then
   fi 
 else 
   sleep 0.5
-  kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
+
+  if [ "$(whoami)" = "root" ] ; then
+    touch ${ERRFILE}
+    chown ${unprivileged_user:-nobody} ${ERRFILE}
+    su ${unprivileged_user:-nobody} -c "env PATH=$PATH:/usr/local/sbin kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}"
+  else 
+    kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
+  fi 
 fi
 
 kcpcmd listener-create setup ${setup_port} 127.0.0.1 
 export KATCP_SERVER=localhost:${setup_port}
 
 kcpcmd group-create primary 
-kcpcmd listener-create primary ${primary_port} 0.0.0.0 primary
-export KATCP_SERVER=localhost:${primary_port}
+
+kcpcmd forward-symbolic instrument-list primary
+kcpcmd forward-symbolic instrument-probe primary
+
+kcpcmd listener-create primary ${primary_port} ${bind_interface:-0.0.0.0} primary
+export KATCP_SERVER=${bind_interface:-localhost}:${primary_port}
 
 kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 
 kcpcmd scope global group primary
 
 kcpcmd client-exec primary primary ${NAME}-primary
-
 
 kcpcmd forward-symbolic resource-mark primary
 kcpcmd forward-symbolic resource-list primary
