@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x 
-
 declare -a command_vector
 declare -a instruments_deployed
 
