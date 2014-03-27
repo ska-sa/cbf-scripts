@@ -2,15 +2,15 @@ include ../Makefile.inc
 
 # startup routines
 INITDIR = $(CONFPREFIX)/init.d
-INITSCRIPT = cmc.initscript
+INITSCRIPT = $(wildcard *mc.initscript)
 
 # log rotation
 LOGROTATEDIR = $(CONFPREFIX)/logrotate.d
-LOGROTATE = cmc.logrotate
+LOGROTATE = $(wildcard *mc.initscript)
 
 # configuration
 CONFIGDIR = $(CONFPREFIX)
-CONFIG = cmc.conf
+CONFIG = $(wildcard *mc.conf)
 
 all:
 
@@ -24,4 +24,5 @@ install: all
 	$(INSTALL) $(LOGROTATE) $(LOGROTATEDIR)/$(basename $(LOGROTATE))
 
 	$(INSTALL) -d $(CONFIGDIR)
-	$(INSTALL) $(CONFIG) $(CONFIGDIR)/$(CONFIG)
+	if $(TEST) -f $(CONFIGDIR)/$(CONFIG) ; then echo -e '\n**** not overwriting already installed config file ****\n' ; $(DIFF) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; else $(INSTALL) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; fi
+

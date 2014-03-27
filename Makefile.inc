@@ -24,4 +24,7 @@ RM = rm -f
 AR = ar
 ECHO = echo
 
+DIFF = diff -ub
+TEST = test
+
 .PHONY: all clean install

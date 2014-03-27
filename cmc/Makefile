@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-SCRIPTS = cmc-primary cmc-start cmc-stop cmc-subordinate
+SCRIPTS = $(wildcard *mc-*)
 
 all:
 
