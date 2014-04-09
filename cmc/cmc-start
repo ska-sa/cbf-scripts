@@ -72,19 +72,26 @@ kcpcmd scope global group primary
 
 kcpcmd client-exec primary primary ${NAME}-primary
 
-kcpcmd forward-symbolic resource-mark primary
-kcpcmd forward-symbolic resource-list primary
+function kfwd()
+{
+  kcpcmd forward-symbolic $1 $2
+  kcpcmd cmd-help $1 "$3"
+}
 
-kcpcmd forward-symbolic array-halt primary
-kcpcmd forward-symbolic array-list primary
-kcpcmd forward-symbolic array-assign primary
+kfwd resource-mark primary "set availability of a processing resource (?resource-mark resource marking)"
+kfwd resource-list primary "show processing resources (?resource-list [resource])"
+kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
+kfwd array-list    primary "show subarrays (?array-list)"
+kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
 
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
 
-kcpcmd forward-symbolic instrument-list primary
-kcpcmd forward-symbolic instrument-probe primary
+kfwd instrument-list  primary "show fielded instruments (?instrument-list)"
+kfwd instrument-probe primary "check resources for an instrument (?instrument-probe instrument)"
+
 kcpcmd forward-symbolic instrument-activate primary %c $1+
+kcpcmd cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
 kcpcmd forward-symbolic capture-list corr

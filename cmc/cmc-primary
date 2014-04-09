@@ -163,6 +163,9 @@ function array_list()
       (\#listener-list)
         compound=${subarray_list[$label]}
         if [ -n "${compound}" ] ; then
+          if [ "${host}" = "0.0.0.0" ] ; then
+            unset host
+          fi
           echo "#array-list ${label} ${host}:${port} ${compound/-/ }"
         fi
         ;;
@@ -206,6 +209,8 @@ function array_assign()
     echo "!array-assign fail"
     return
   fi
+
+# TODO - retrieve port number for return code
 
   echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
   if ! lk_get_result client-exec ; then
