@@ -24,5 +24,5 @@ install: all
 	$(INSTALL) $(LOGROTATE) $(LOGROTATEDIR)/$(basename $(LOGROTATE))
 
 	$(INSTALL) -d $(CONFIGDIR)
-	if $(TEST) -f $(CONFIGDIR)/$(CONFIG) ; then echo -e '\n**** not overwriting already installed config file ****\n' ; $(DIFF) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; else $(INSTALL) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; fi
+	-if $(TEST) -f $(CONFIGDIR)/$(CONFIG) ; then echo -e '\n**** not overwriting already installed config file ****\n' ; $(DIFF) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; else $(INSTALL) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; fi
 
