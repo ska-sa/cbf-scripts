@@ -14,8 +14,10 @@ else
 fi
 
 if [ -n "$1" ] ; then
-  KATCP_LABEL=$1
-  export KATCP_LABEL
+  export KATCP_LABEL=$1
+  array=$1
+else
+  array=unknown
 fi
 
 shift
@@ -100,3 +102,13 @@ while read line ; do
   done
   
 done
+
+for file in ${CORR_DIR}/${array}-* ; do
+  if [ -f ${file} ] ; then
+    kcpmsg "removing ${file}"
+# stop corr instance ? 
+  fi
+done
+
+
+

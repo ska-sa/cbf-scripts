@@ -18,7 +18,7 @@ declare -A resource_set
 # [board]=subarray
 declare -A resource_use
 
-NAME=cmc
+export KATCP_LABEL=cmc-primary
 
 if [ -n "${CMC_CONFIG}" ] ; then
   source "${CMC_CONFIG}"
@@ -92,33 +92,34 @@ function dynamic_checks()
 # TODO: more checking could be done, in particular retrieve list of active groups
 
   for array in ${subarray_list[*]} ; do 
-    file=${CORR_DIR}/${array}
-    if [ -f ${file} ] ; then
-      for board in $(grep '^ *servers_' $file | cut -f2 -d= | tr -s , ' ' ) ; do
-        # TODO: check if it is in resources
+    for file in ${CORR_DIR}/${array}-* ; do
+      if [ -f ${file} ] ; then
+        for board in $(grep '^ *servers_' $file | cut -f2 -d= | tr -s , ' ' ) ; do
+          # TODO: check if it is in resources
 
-        if [ -n "${resource_use[${board}]}" ] ; then
-          kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
-          result=1
-        fi
+          if [ -n "${resource_use[${board}]}" ] ; then
+            kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
+            result=1
+          fi
 
-        resource_use+=([${board}]=${array})
+          resource_use+=([${board}]=${array})
 
-        if [ -z "${resource_set[${board}]}" ] ; then
-          kcpmsg -l warn "unknown resource ${board} used in array ${array}"
-          resource_set+=([${board}]="up"):
-        fi
+          if [ -z "${resource_set[${board}]}" ] ; then
+            kcpmsg -l warn "unknown resource ${board} used in array ${array}"
+            resource_set+=([${board}]="up"):
+          fi
 
-        if [ "${resource_set[${board}]}" != "up" ] ; then
-          kcpmsg -l warn "resource ${board} allocated to array ${array} despite not marked up"
-          result=1
-          resource_set[${board}]="up"
-        fi
+          if [ "${resource_set[${board}]}" != "up" ] ; then
+            kcpmsg -l warn "resource ${board} allocated to array ${array} despite not marked up"
+            result=1
+            resource_set[${board}]="up"
+          fi
 
-      done
-    else
-      kcpmsg -l warn "no corr config for ${array} found"
-    fi
+        done
+      else
+        kcpmsg -l warn "no corr config ${file} for ${array} found"
+      fi
+    done
   done
 
 }
@@ -206,7 +207,7 @@ function array_assign()
     return
   fi
 
-  echo "?client-exec subordinate ${key} ${NAME}-subordinate ${key} $*"
+  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
   if ! lk_get_result client-exec ; then
     echo "?group-halt ${key}"
     echo "!array-assign fail"
@@ -448,7 +449,7 @@ function instrument_activate()
     i=$[i+1]
   done
 
-  if ! ${NAME}-instrument ${subarray} ${instrument} ${resource-grab[*]} ; then
+  if ! cmc-instrument ${subarray} ${instrument} ${resource-grab[*]} ; then
     kcpmsg "unable to launch instrument"
     echo "!instrument-activate fail"
   fi

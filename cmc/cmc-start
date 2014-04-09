@@ -4,7 +4,7 @@ NAME=cmc
 
 CONFIGVAR=${NAME^^*}_CONFIG
 
-export KATCP_LABEL=${NAME}
+export KATCP_LABEL=cmc-start
 
 # Try and find a config file, any config file ... 
 for dir in /etc ../misc misc ; do

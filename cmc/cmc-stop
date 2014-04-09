@@ -3,7 +3,7 @@
 source /etc/cmc.conf
 
 CONFIG=cmc.conf
-export KATCP_LABEL=cmc
+export KATCP_LABEL=cmc-stop
 
 for dir in /etc ../misc misc ; do
   if [ -f ${dir}/${CONFIG} ] ; then
