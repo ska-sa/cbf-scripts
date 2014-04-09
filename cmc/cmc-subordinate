@@ -25,16 +25,20 @@ shift
 array_inputs=($*)
 kcpmsg "launching subarray of size ${#array_inputs[*]}"
 
-setup_commands=("?foo bar" "?bing baz")
+# setup_commands=("?foo bar" "?bing baz")
 setup_size=${#setup_commands[*]}
 
 setup_current=0
 
-t=${setup_commands[$setup_current]}
-echo $t
-setup_expect=${t%% *}
+if [ ${setup_size} -gt 0 ] ; then
+  t=${setup_commands[$setup_current]}
+  echo $t
+  setup_expect=${t%% *}
+  unset ready
+else
+  ready="true"
+fi
 
-unset ready
 
 while read line ; do 
 
