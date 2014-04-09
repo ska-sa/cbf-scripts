@@ -441,7 +441,7 @@ function instrument_activate()
   if [ "${have}" -lt "${need}" ] ; then
     kcpmsg "would need ${need} boards but only have ${have}"
     echo "!instrument-activate ok oversubscribed"
-    return
+    return 1
   fi
 
   i=0
@@ -454,9 +454,14 @@ function instrument_activate()
     i=$[i+1]
   done
 
-  if ! cmc-instrument ${subarray} ${instrument} ${resource-grab[*]} ; then
+  compound=${subarray_list[$subarray]}
+
+  kcpmsg "about to launch instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound/-/ }"
+  
+  if ! cmc-instrument ${subarray} ${instrument} ${compound/-/ } ${resource_grab[*]} ; then
     kcpmsg "unable to launch instrument"
     echo "!instrument-activate fail"
+    return 1
   fi
 
   for board in ${resource_grab[*]} ; do
