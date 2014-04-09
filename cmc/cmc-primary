@@ -203,7 +203,13 @@ function array_assign()
     return
   fi
 
-  echo "?listener-create ${key} 0 0.0.0.0"
+  if [ "${key}" = "rts" ] ; then
+    port=${rts_port}
+  else
+    port=0
+  fi
+
+  echo "?listener-create ${key} ${port} 0.0.0.0"
   if ! lk_get_result listener-create ; then
     echo "?group-halt ${key}"
     echo "!array-assign fail"
