@@ -1,0 +1,66 @@
+#!/bin/bash
+
+declare -a input_vector
+declare -a resource_set
+
+if [ -n "${CMC_CONFIG}" ] ; then
+  source "${CMC_CONFIG}"
+else
+  kcpmsg "running standalone"
+  source ../misc/cmc.conf
+fi
+
+if [ "$#" -lt 4 ] ; then
+  kcpmsg -l error "insufficient parameters to launch instrument"
+  exit 1
+fi
+
+array=$1
+shift
+
+instrument=$1
+shift
+
+while [ "${1:0:1}" = "M" -o "${1:0:1}" = "m" ] ; do
+  input_vector+=($1)
+  shift
+done
+
+while [ -n "$1" ] ; do
+  resource_set+=($1)
+  shift
+done
+
+file=${CORR_DIR}/${array}
+template=${CORR_TEMPLATE}/${instrument}
+
+kcpmsg -l debug "intending to build ${file} using ${template}"
+kcpmsg -l debug "have been given resources ${resource_set[*]}"
+kcpmsg -l debug "need to use inputs ${input_vector[*]}"
+
+if [ ! -f ${template} ] ; then
+  kcpmsg "unable to locate template ${template}"
+# exit 1
+fi
+
+if [ -f ${file} ] ; then
+  kcpmsg "removing previous config ${file}"
+  rm -f ${file}
+fi
+
+# build config file for corr
+(i=0
+for board in ${resource_set[*]} ; do 
+  echo "#define ROACH${i} $board"
+  i=$[i+1]
+done
+i=0
+for input in ${input_vector[*]} ; do 
+  echo "#define INPUT${i} $input"
+  i=$[i+1]
+done
+cat ${template} ) | gcc -E - > ${file}
+
+# launch corr 
+
+# unclear - have some way of connecting to it ... 

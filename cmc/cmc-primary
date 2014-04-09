@@ -1,15 +1,24 @@
 #!/bin/bash
 
+# internal ... 
 declare -a command_vector
-declare -a instruments_deployed
 
-declare -A subarray_list
+# static lookup up: [N]=name
+declare -a instruments_deployed
+# [name]=resources_needed
 declare -A instruments_sizes
+# [name]=stream1:stream2:...
 declare -A instruments_streams
 
-# sanity checks scan running correlators
+# [array_name]=input1-input2-input2-...
+declare -A subarray_list
+
+# [board]=status
 declare -A resource_set
+# [board]=subarray
 declare -A resource_use
+
+NAME=cmc
 
 if [ -n "${CMC_CONFIG}" ] ; then
   source "${CMC_CONFIG}"
@@ -18,12 +27,23 @@ else
   source ../misc/cmc.conf
 fi
 
+leases=/var/lib/misc/dnsmasq.leases
+if [ ! -f ${leases} ] ; then
+  if [ "${state}" = "production" ] ; then
+    kcpmsg -l fatal "unable to locate a leases file"
+  else
+    leases=../stub/dnsmasq.leases
+  fi
+fi
+
+# support functions 
+
 function load_roaches()
 {
   unset tmp_set
   declare -A tmp_set
 
-  for board in $(grep roach /var/lib/misc/dnsmasq.leases | cut -f4 -d ' ') ; do
+  for board in $(grep roach ${leases} | cut -f4 -d ' ') ; do
 
     tmp_set[$board]=standby
 
@@ -70,7 +90,6 @@ function dynamic_checks()
   unset resource_use
 
 # TODO: more checking could be done, in particular retrieve list of active groups
-
 
   for array in ${subarray_list[*]} ; do 
     file=${CORR_DIR}/${array}
@@ -131,6 +150,8 @@ function lk_get_result()
 
 }
 
+# primary functions
+
 function array_list()
 {
   shift
@@ -185,7 +206,7 @@ function array_assign()
     return
   fi
 
-  echo "?client-exec subordinate ${key} ${NAME}-subordinate $*"
+  echo "?client-exec subordinate ${key} ${NAME}-subordinate ${key} $*"
   if ! lk_get_result client-exec ; then
     echo "?group-halt ${key}"
     echo "!array-assign fail"
@@ -285,10 +306,15 @@ function resource_mark()
       if ping -W 2 -n -q -c 1 $1 >& /dev/null ; then
         resource_set[$1]="up"
       else
-        kcpmsg -l error "resource $1 unresponsive"
-        resource_set[$1]="standby"
-        echo "!resource-mark fail"
-        return 1
+        if [ "${state}" = "production" ] ; then
+          kcpmsg -l error "resource $1 unresponsive"
+          resource_set[$1]="standby"
+          echo "!resource-mark fail"
+          return 1
+        else
+          kcpmsg -l warn "resource $1 not responsive but taking it to be ok"
+          resource_set[$1]="up"
+        fi
       fi
       ;;
     (standby) 
@@ -308,6 +334,8 @@ function resource_mark()
 
   echo "!resource-mark ok"
 }
+
+# subordinate requests
 
 function instrument_list()
 {
@@ -350,7 +378,6 @@ function instrument_probe()
     fi
   done
 
-
   echo ${resource_free[*]}
   have=${#resource_free[*]}
 
@@ -364,6 +391,76 @@ function instrument_probe()
 
   echo "!instrument-probe ok"
 }
+
+function instrument_activate()
+{
+  shift
+
+  if [ "$#" -lt 2 ] ; then
+    kcpmsg "insufficient arguments (special case)"
+    echo "!instrument-activate fail"
+    return
+  fi
+
+  subarray=$1
+
+  instrument=$2
+
+  need=${instruments_sizes[${instrument}]}
+
+  if [ -z "${need}" ]  ; then
+    kcpmsg "no information about instrument ${instrument} found"
+    echo "!instrument-activate fail"
+    return
+  fi
+
+  if [ -z "${subarray_list[${subarray}]}" ] ; then
+    kcpmsg -l error "subarray ${subarray} does not seem to exist"
+    echo "!instrument-activate fail"
+    return
+  fi
+
+  unset resource_free
+  declare -a resource_free
+
+  for board in ${!resource_set[*]} ; do
+    if [ "${resource_set[${board}]}" = "up" -a -z "${resource_use[${board}]}" ] ; then
+      resource_free+=(${board})
+    fi
+  done
+
+  #echo ${resource_free[*]}
+  have=${#resource_free[*]}
+
+  if [ "${have}" -lt "${need}" ] ; then
+    kcpmsg "would need ${need} boards but only have ${have}"
+    echo "!instrument-activate ok oversubscribed"
+    return
+  fi
+
+  i=0
+
+  unset resource_grab
+  declare -a resource_grab
+
+  while [ "$i" -lt "${need}" ] ; do
+    resource_grab[$i]=${resource_free[$i]}
+    i=$[i+1]
+  done
+
+  if ! ${NAME}-instrument ${subarray} ${instrument} ${resource-grab[*]} ; then
+    kcpmsg "unable to launch instrument"
+    echo "!instrument-activate fail"
+  fi
+
+  for board in ${resource_grab[*]} ; do
+    resource_use[${board}]=${subarray}
+  done
+
+  echo "!instrument-activate ok"
+}
+
+# mainloop
 
 static_checks
 
@@ -406,6 +503,9 @@ while read line ; do
       ;;
     (\?instrument-probe) 
       instrument_probe ${command_vector[@]}
+      ;;
+    (\?instrument-activate) 
+      instrument_activate ${command_vector[@]}
       ;;
     (*)
       if [ "${cmd:0:1}" = '?' ] ; then

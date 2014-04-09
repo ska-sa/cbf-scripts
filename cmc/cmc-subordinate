@@ -4,6 +4,7 @@ set -x
 
 declare -a command_vector
 declare -a array_inputs
+declare -a setup_commands
 
 if [ -n "${CMC_CONFIG}" ] ; then
   source "${CMC_CONFIG}"
@@ -12,9 +13,26 @@ else
   source ../misc/cmc.conf
 fi
 
-array_inputs=($*)
+if [ -n "$1" ] ; then
+  KATCP_LABEL=$1
+  export KATCP_LABEL
+fi
 
+shift
+
+array_inputs=($*)
 kcpmsg "launching subarray of size ${#array_inputs[*]}"
+
+setup_commands=("?foo bar" "?bing baz")
+setup_size=${#setup_commands[*]}
+
+setup_current=0
+
+t=${setup_commands[$setup_current]}
+echo $t
+setup_expect=${t%% *}
+
+unset ready
 
 while read line ; do 
 
@@ -48,9 +66,29 @@ while read line ; do
       capture_start ${command_vector[@]}
       ;;
     (*)
-      if [ "${cmd:0:1}" = '?' ] ; then
+      v="${cmd:0:1}"
+      if [ "${v}" = '?' ] ; then
         kcpmsg "cmc subordinate got unsupported request ${cmd}"
         echo "!${cmd:1} fail"
+      elif [ "${v}" = '!' ] ; then
+        if [ -z "${ready}" ] ; then
+          if [ "${cmd:1}" = "${setup_expect:1}" ] ; then
+            if [ "${command_vector[1]}" = "ok" ] ; then
+              setup_current=$[setup_current+1]
+              if [ "${setup_current}" -ge "${setup_size}" ] ; then
+                ready="true"
+              else
+                t=${setup_commands[$setup_current]}
+                echo $t
+                setup_expect=${t%% *}
+              fi
+            else
+              kcpmsg -l fatal "setup request ${setup_commands[$setup_current]} failed thus giving up on initialisation"
+            fi
+          else
+            kcpmsg "unexpected message reply ${cmd}"
+          fi
+        fi
       fi
       ;;
   esac

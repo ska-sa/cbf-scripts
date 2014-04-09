@@ -55,25 +55,50 @@ else
   fi 
 fi
 
+# this is to deal with old katcp logic, new one should be different 
 kcpcmd listener-create setup ${setup_port} 127.0.0.1 
 export KATCP_SERVER=localhost:${setup_port}
 
+# top-level katcp interface
 kcpcmd group-create primary 
-
-kcpcmd forward-symbolic instrument-list primary
-kcpcmd forward-symbolic instrument-probe primary
-
 kcpcmd listener-create primary ${primary_port} ${bind_interface:-0.0.0.0} primary
 export KATCP_SERVER=${bind_interface:-localhost}:${primary_port}
 
+# logging can now be started 
 kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 
+# configure top-level/primary group
 kcpcmd scope global group primary
 
 kcpcmd client-exec primary primary ${NAME}-primary
 
 kcpcmd forward-symbolic resource-mark primary
 kcpcmd forward-symbolic resource-list primary
+
 kcpcmd forward-symbolic array-halt primary
 kcpcmd forward-symbolic array-list primary
 kcpcmd forward-symbolic array-assign primary
+
+# switch back to default/setup, this will be used to clone subordinates
+export KATCP_SERVER=localhost:${setup_port}
+
+kcpcmd forward-symbolic instrument-list primary
+kcpcmd forward-symbolic instrument-probe primary
+kcpcmd forward-symbolic instrument-activate primary %c $1+
+
+# might have to glue all corr-* capture-list output together 
+kcpcmd forward-symbolic capture-list corr
+kcpcmd forward-symbolic capture-destination corr
+kcpcmd forward-symbolic capture-start corr
+kcpcmd forward-symbolic capture-stop corr
+
+kcpcmd forward-symbolic input-labels corr
+kcpcmd forward-symbolic gain corr
+kcpcmd forward-symbolic delays corr
+kcpcmd forward-symbolic frequency-select corr
+kcpcmd forward-symbolic accumulation-length corr
+
+kcpcmd forward-symbolic beam-weights corr
+kcpcmd forward-symbolic beam-passband corr
+
+kcpcmd forward-symbolic quantiser-snapshot corr
