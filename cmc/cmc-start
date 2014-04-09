@@ -90,7 +90,7 @@ export KATCP_SERVER=localhost:${setup_port}
 kfwd instrument-list  primary "show fielded instruments (?instrument-list)"
 kfwd instrument-probe primary "check resources for an instrument (?instrument-probe instrument)"
 
-kcpcmd forward-symbolic instrument-activate primary instrument-activate %c $1+
+kcpcmd forward-symbolic instrument-activate primary instrument-activate %g %1+
 kcpcmd cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
