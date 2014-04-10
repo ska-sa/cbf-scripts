@@ -84,6 +84,10 @@ kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
 kfwd array-list    primary "show subarrays (?array-list)"
 kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
 
+kcpcmd var-declare 'katcp-device*' map,version
+kcpcmd var-set katcp-device ${device_api:-unknown} string :version
+kcpcmd var-set katcp-device ${device_build:-unknown} string :build
+
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
 
@@ -94,16 +98,16 @@ kcpcmd forward-symbolic instrument-activate primary instrument-activate %g %1+
 kcpcmd cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
-kcpcmd forward-symbolic capture-list corr
-kcpcmd forward-symbolic capture-destination corr
-kcpcmd forward-symbolic capture-start corr
-kcpcmd forward-symbolic capture-stop corr
+kfwd capture-list        corr "list data products"
+kfwd capture-destination corr "set data stream destination (?capture-destination stream data-destination)"
+kfwd capture-start       corr "start data stream output (?capture-start stream)"
+kfwd capture-stop        corr "stop data stream output (?capture-stop stream)"
 
-kcpcmd forward-symbolic input-labels corr
-kcpcmd forward-symbolic gain corr
-kcpcmd forward-symbolic delays corr
-kcpcmd forward-symbolic frequency-select corr
-kcpcmd forward-symbolic accumulation-length corr
+kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
+kfwd gain                corr "set gain factors (?gain input [values])"
+kfwd delays              corr "set delay and fringe correction (?delays time [coefficient-set]*)"
+kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
+kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
 
 kcpcmd forward-symbolic beam-weights corr
 kcpcmd forward-symbolic beam-passband corr
