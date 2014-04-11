@@ -26,5 +26,6 @@ ECHO = echo
 
 DIFF = diff -ub
 TEST = test
+SED  = sed
 
 .PHONY: all clean install
