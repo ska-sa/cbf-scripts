@@ -170,7 +170,7 @@ function array_list()
         fi
         ;;
       (\!listener-list)
-        echo "!array-list ${label} ${cmd}"
+        echo "!array-list ${label} ${port}"
         return 
         ;;
     esac
