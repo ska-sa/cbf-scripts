@@ -1,16 +1,21 @@
 #!/bin/bash
 
-source /etc/cmc.conf
+NAME=cmc
 
-CONFIG=cmc.conf
-export KATCP_LABEL=cmc-stop
+export KATCP_LABEL=${NAME}-start
 
-for dir in /etc ../misc misc ; do
-  if [ -f ${dir}/${CONFIG} ] ; then
-    source ${dir}/${CONFIG}
-  fi
-done
+CONFIGVAR=${NAME^^*}_CONFIG
 
+if [ -z "${!CONFIGVAR}" ] ; then
+  export ${CONFIGVAR}=/etc/${NAME}.conf
+fi
+
+if [ -f "${!CONFIGVAR}" ] ; then
+  source ${!CONFIGVAR}
+else
+  kcpmsg -l error "unable to locate config file ${!CONFIGVAR}"
+  exit 2
+fi
 
 if [ -z "${old_port}" ] ; then
   kcpmsg "no control port found"

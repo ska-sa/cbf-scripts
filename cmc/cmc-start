@@ -2,21 +2,18 @@
 
 NAME=cmc
 
+export KATCP_LABEL=${NAME}-start
+
 CONFIGVAR=${NAME^^*}_CONFIG
 
-export KATCP_LABEL=cmc-start
-
-# Try and find a config file, any config file ... 
-for dir in /etc ../misc misc ; do
-  if [ -f ${dir}/${NAME}.conf ] ; then
-    export ${CONFIGVAR}=${dir}/${NAME}.conf
-  fi
-done
+if [ -z "${!CONFIGVAR}" ] ; then
+  export ${CONFIGVAR}=/etc/${NAME}.conf
+fi
 
 if [ -f "${!CONFIGVAR}" ] ; then
   source ${!CONFIGVAR}
 else
-  kcpmsg -l error "unable to locate config file ${NAME}.conf"
+  kcpmsg -l error "unable to locate config file ${!CONFIGVAR}"
   exit 2
 fi
 
@@ -53,6 +50,8 @@ else
   else 
     kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
   fi 
+
+  sleep 0.5
 fi
 
 # this is to deal with old katcp logic, new one should be different 
