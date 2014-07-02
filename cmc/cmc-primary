@@ -256,7 +256,7 @@ function array_halt()
 
   if [ -z "${subarray_list[$key]}" ] ; then
     kcpmsg "no state available for array ${key}"
-    echo "!array-halt fail"
+    echo "!array-halt fail unknown-array"
     return
   fi
 
