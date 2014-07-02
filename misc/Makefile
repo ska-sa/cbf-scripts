@@ -20,7 +20,7 @@ all:
 	       -e 's/^device_api=.*/device_api=$(APIVER)/'     \
 	       $(INITSRC) > $(INITTMP)
 	echo '\n****************************************\n' 
-	$(DIFF) $(INITTMP) $(CONFIG) 
+	@$(DIFF) $(INITTMP) $(CONFIG) 
 	echo '\n****************************************\n' 
 
 clean:
