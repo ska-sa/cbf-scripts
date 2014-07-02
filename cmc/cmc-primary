@@ -170,7 +170,12 @@ function array_list()
         fi
         ;;
       (\!listener-list)
-        echo "!array-list ${label} ${port}"
+        if [ "${port}" = "not-found" ] ; then
+          status="unknown-array"
+        else
+          status="${port}"
+        fi
+        echo "!array-list ${label} ${status}"
         return 
         ;;
     esac
