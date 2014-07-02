@@ -12,11 +12,19 @@ LOGROTATE = $(wildcard *mc.initscript)
 CONFIGDIR = $(CONFPREFIX)
 CONFIG = $(wildcard *mc.conf)
 
-BUILDVERSION=$(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
+INITSRC = $(shell if test -f $(CONFIGDIR)/$(CONFIG) ; then echo $(CONFIGDIR)/$(CONFIG) ; else echo $(CONFIG) ; fi)
+INITTMP = $(CONFIG)-tmp
 
 all:
+	$(SED) -e 's/^device_build=.*/device_build=$(GITVER)/' \
+	       -e 's/^device_api=.*/device_api=$(APIVER)/'     \
+	       $(INITSRC) > $(INITTMP)
+	echo '\n****************************************\n' 
+	$(DIFF) $(INITTMP) $(CONFIG) 
+	echo '\n****************************************\n' 
 
 clean:
+	$(RM) $(INITTMP)
 
 install: all
 	$(INSTALL) -d $(INITDIR)
@@ -26,5 +34,4 @@ install: all
 	$(INSTALL) $(LOGROTATE) $(LOGROTATEDIR)/$(basename $(LOGROTATE))
 
 	$(INSTALL) -d $(CONFIGDIR)
-	-if $(TEST) -f $(CONFIGDIR)/$(CONFIG) ; then echo -e '\n**** not overwriting already installed config file ****\n' ; $(DIFF) $(CONFIG) $(CONFIGDIR)/$(CONFIG) ; echo '\n**** new build $(BUILDVERSION) ****\n' ; else $(SED) -e 's/device_build=.*/device_build=$(BUILDVERSION)/' $(CONFIG) > $(CONFIGDIR)/$(CONFIG) ; fi
-
+	$(INSTALL) $(INITTMP) $(CONFIGDIR)/$(CONFIG)

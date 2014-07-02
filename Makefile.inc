@@ -1,3 +1,6 @@
+APIVER=cmc-1.h
+GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
+
 # install location
 EXEPREFIX=/usr/local
 CONFPREFIX=/etc
@@ -17,7 +20,6 @@ CFLAGS += -ggdb
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc
 
-GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
 
 INSTALL = install
 RM = rm -f
