@@ -1,0 +1,95 @@
+#!/bin/bash
+
+declare -a command_vector
+declare -a array_inputs
+
+export KATCP_LABEL=corr-stub
+
+function unimplemented()
+{
+  kcpmsg -l warn "corr stub saw request ${1:1} not implemented yet"
+  echo "!${1:1} ok"
+}
+
+if [ "$#" -lt 1 ]  ; then 
+  kcpmsg -l error "need a configuration file"
+  exit 1
+fi
+
+config=$1
+
+if [ ! -f ${config} ] ; then
+  kcpmsg -l error "configuration file ${config} not found"
+  exit 1
+fi
+
+while read line ; do 
+
+  i=0;
+  rest=${line}
+  while [ -n "${rest}" ] ; do
+    command_vector[$i]=${rest%% *}
+    update=${rest#* }
+    if [ "${update}" = "${rest}" ] ; then
+      rest=""
+    else 
+      rest=${update}
+    fi
+    i=$[i+1]
+  done
+
+  max=$i
+  cmd=${command_vector[0]}
+
+  case "${cmd}" in
+    (\?capture-list) 
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?capture-destination) 
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?capture-stop) 
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?capture-start) 
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?input-labels) 
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?gain)
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?delays)
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?frequency-select)
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?accumulation-length)
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?beam-weights)
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?beam-passband)
+      unimplemented ${command_vector[@]}
+      ;;
+    (\?quantiser-snapshot)
+      unimplemented ${command_vector[@]}
+      ;;
+    (*)
+      if [ "${cmd:0:1}" = '?' ] ; then
+        kcpmsg "cor stub got unsupported request ${cmd}"
+        echo "!${cmd:1} fail"
+      fi
+      ;;
+  esac
+
+  i=0
+  while [ ${i} -lt ${max} ] ; do
+    unset command_vector[$i]
+    i=$[i+1]
+  done
+  
+done
