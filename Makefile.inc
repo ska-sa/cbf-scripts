@@ -1,4 +1,4 @@
-APIVER=cmc-1.h
+APIVER=cbf-1.h
 GITVER = $(shell git describe --always --tags --dirty 2> /dev/null || echo unknown)
 
 # install location
