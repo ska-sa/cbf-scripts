@@ -19,9 +19,9 @@ all:
 	$(SED) -e 's/^device_build=.*/device_build=$(GITVER)/' \
 	       -e 's/^device_api=.*/device_api=$(APIVER)/'     \
 	       $(INITSRC) > $(INITTMP)
-	echo '\n****************************************\n' 
-	@$(DIFF) $(INITTMP) $(CONFIG) 
-	echo '\n****************************************\n' 
+	@echo '\n****************************************\n' 
+	-$(DIFF) $(INITTMP) $(CONFIG) 
+	@echo '\n****************************************\n' 
 
 clean:
 	$(RM) $(INITTMP)
