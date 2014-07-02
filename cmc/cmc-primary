@@ -171,7 +171,7 @@ function array_list()
         ;;
       (\!listener-list)
         if [ "${port}" = "not-found" ] ; then
-          echo "!array-list ${label} ${port}"
+          echo "!array-list ${label} unknown-array"
         else
           echo "!array-list ${label}"
         fi
