@@ -166,7 +166,7 @@ function array_list()
           if [ "${host}" = "0.0.0.0" ] ; then
             unset host
           fi
-          echo "#array-list ${label} ${host}:${port} ${compound/-/ }"
+          echo "#array-list ${label} ${host}:${port} ${compound//-/ }"
         fi
         ;;
       (\!listener-list)
