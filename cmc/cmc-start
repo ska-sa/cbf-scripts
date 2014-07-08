@@ -87,6 +87,16 @@ kcpcmd var-declare 'katcp-device*' map,version
 kcpcmd var-set katcp-device ${device_api:-unknown} string :version
 kcpcmd var-set katcp-device ${device_build:-unknown} string :build
 
+kcpcmd var-declare "*device-status*" sensor,map
+kcpcmd var-set "*device-status*" ok string :value
+kcpcmd var-set "*device-status*" "correlator master controller health" string :help
+kcpcmd var-set "*device-status*" nominal string :status
+kcpcmd var-set "*device-status*" discrete string :type
+
+kcpcmd var-set "*device-status*" ok       string ":range#0"
+kcpcmd var-set "*device-status*" degraded string ":range#1"
+kcpcmd var-set "*device-status*" fail     string ":range#2"
+
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
 
