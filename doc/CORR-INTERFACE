@@ -5,7 +5,8 @@ the CMC and the CORR package
 The CMC launches a CORR instance on a per subarray/per instrument
 basis (this is fuzzy, interface likely to change). The launched CORR 
 instance should accept a config file and port as parameters, as illustrated 
-in the stub 
+in the stub. Somewhat bad deficiency of the template format as it doesn't
+accept # comments - will try to remedy that
 
 The config file is a CORR config file, with individual roach boards replaced
 by placeholder names ROACH0, ROACH1, ... ROACHn and input ports named similarly
