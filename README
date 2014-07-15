@@ -1,0 +1,12 @@
+
+This is the correlator master controller software package. It provides
+a CMC-CAM interface, using the katcp package. 
+
+
+doc            - documentation 
+
+cmc            - scripts providing the CMC personality
+misc           - init script, config file, lograte, etc
+stub           - a pretend corr server, requires linetd to run
+templates      - pretend (later real ?) corr config files 
+

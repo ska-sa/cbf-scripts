@@ -1,0 +1,18 @@
+
+This document describes the interface internal to the CBF, between
+the CMC and the CORR package
+
+The CMC launches a CORR instance on a per subarray, later per instrument
+basis. The CORR instance should accept a config file and port as parameters,
+as illustrated in the stub 
+
+The config file is a CORR config file, with individual roach boards replaced
+by placeholder names ROACH0, ROACH1, ... ROACHn and input ports named similarly
+INPUT0, INPUT1, ... INPUTm
+
+The port should be interpreted as a TCP/IP4 network port on which the corr
+package listens for KATCP requests. The requests are a subset of those
+defined in the ICD, in particular related to the subordinate intefaces. The
+list can be found in the stub/ directory - the stub code is trivial and
+can be inspected for the list
+
