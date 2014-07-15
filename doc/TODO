@@ -1,0 +1,15 @@
+TODO
+
+* port number output deficient in array assign
+
+* should check kcs group-list for subarray presence
+
+* rts template should be replaced, filled in with proper names
+
+* should determine number of boards programatically
+
+* subordinate device-status should be filled in
+
+DONE
+
+

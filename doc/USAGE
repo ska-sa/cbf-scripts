@@ -1,0 +1,31 @@
+
+
+- telnet to the primary port
+
+  issue a 
+
+    ?resource-list
+
+  request to see the roaches it knows about. Then mark the roaches
+  you are willing to use as up
+
+    ?resource-mark roach020826 up
+    ?resource-mark roach02080F up
+
+    ...
+
+  Then create a subarray. Currently we handle the rts array in a
+  special manner - it shows up at a fixed location
+
+    ?array-assign rts M001 M003
+
+  If this succeeeds, there should now be a suboridnate port
+
+- telnet to the subordinate port
+
+  activate the instrument that you wish to use - this will launch corr
+  and replace the null commands with ones fielded by the particular corr
+  instance
+
+    ?instrument-activate rts
+
