@@ -1,0 +1,88 @@
+#!/bin/bash
+
+declare -a command_vector
+
+export KATCP_LABEL=cmc-null
+
+function nullok()
+{
+  kcpmsg -l info "no instrument selected"
+  echo "!${1:1} ok"
+}
+
+function nullfail()
+{
+  kcpmsg -l warn "no instrument selected, unable to service request ${1:1}"
+  echo "!${1:1} fail"
+}
+
+while read line ; do 
+
+  i=0;
+  rest=${line}
+  while [ -n "${rest}" ] ; do
+    command_vector[$i]=${rest%% *}
+    update=${rest#* }
+    if [ "${update}" = "${rest}" ] ; then
+      rest=""
+    else 
+      rest=${update}
+    fi
+    i=$[i+1]
+  done
+
+  max=$i
+  cmd=${command_vector[0]}
+
+  case "${cmd}" in
+    (\?capture-list) 
+      nullok ${command_vector[@]}
+      ;;
+    (\?capture-destination) 
+      nullfail ${command_vector[@]}
+      ;;
+    (\?capture-stop) 
+      nullfail ${command_vector[@]}
+      ;;
+    (\?capture-start) 
+      nullfail ${command_vector[@]}
+      ;;
+    (\?input-labels) 
+      nullfail ${command_vector[@]}
+      ;;
+    (\?gain)
+      nullfail ${command_vector[@]}
+      ;;
+    (\?delays)
+      nullfail ${command_vector[@]}
+      ;;
+    (\?frequency-select)
+      nullfail ${command_vector[@]}
+      ;;
+    (\?accumulation-length)
+      nullfail ${command_vector[@]}
+      ;;
+    (\?beam-weights)
+      nullfail ${command_vector[@]}
+      ;;
+    (\?beam-passband)
+      nullfail ${command_vector[@]}
+      ;;
+    (\?quantiser-snapshot)
+      nullfail ${command_vector[@]}
+      ;;
+    (*)
+      if [ "${cmd:0:1}" = '?' ] ; then
+        kcpmsg -l error "received unsupported request ${cmd}"
+        echo "!${cmd:1} fail"
+      fi
+      ;;
+  esac
+
+  i=0
+  while [ ${i} -lt ${max} ] ; do
+    unset command_vector[$i]
+    i=$[i+1]
+  done
+  
+done

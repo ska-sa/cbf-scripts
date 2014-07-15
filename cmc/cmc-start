@@ -70,6 +70,7 @@ kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 kcpcmd scope global group primary
 
 kcpcmd client-exec primary primary ${NAME}-primary
+kcpcmd client-exec corr primary ${NAME}-null
 
 function kfwd()
 {

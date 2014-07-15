@@ -3,6 +3,8 @@
 declare -a input_vector
 declare -a resource_set
 
+export KATCP_LABEL=cmc-config
+
 if [ -n "${CMC_CONFIG}" ] ; then
   source "${CMC_CONFIG}"
 else
@@ -31,7 +33,8 @@ while [ -n "$1" ] ; do
   shift
 done
 
-file=${CORR_DIR}/${array}
+name=${array}-${instrument}
+file=${CORR_DIR}/${name}
 template=${CORR_TEMPLATE}/${instrument}
 
 kcpmsg -l debug "intending to build ${file} using ${template}"
@@ -39,12 +42,12 @@ kcpmsg -l debug "have been given resources ${resource_set[*]}"
 kcpmsg -l debug "need to use inputs ${input_vector[*]}"
 
 if [ ! -f ${template} ] ; then
-  kcpmsg "unable to locate template ${template}"
-# exit 1
+  kcpmsg -l error "unable to locate template ${template}"
+  exit 1
 fi
 
 if [ -f ${file} ] ; then
-  kcpmsg "removing previous config ${file}"
+  kcpmsg "removing previous config ${name}"
   rm -f ${file}
 fi
 
@@ -61,6 +64,4 @@ for input in ${input_vector[*]} ; do
 done
 cat ${template} ) | gcc -E - > ${file}
 
-# launch corr 
-
-# unclear - have some way of connecting to it ... 
+kcpmsg "generated config ${name}"

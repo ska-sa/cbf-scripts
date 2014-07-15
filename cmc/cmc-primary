@@ -209,8 +209,10 @@ function array_assign()
 
   if [ "${key}" = "rts" ] ; then
     port=${rts_port}
+    kcpmsg -l info "using hardcoded port ${port} for rts array"
   else
     port=0
+    kcpmsg -l info "will select a free port for array other than rts"
   fi
 
   echo "?listener-create ${key} ${port} 0.0.0.0"
@@ -466,10 +468,32 @@ function instrument_activate()
 
   compound=${subarray_list[$subarray]}
 
-  kcpmsg "about to launch instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound/-/ }"
+  kcpmsg "about to configure instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound/-/ }"
   
-  if ! cmc-instrument ${subarray} ${instrument} ${compound/-/ } ${resource_grab[*]} ; then
-    kcpmsg "unable to launch instrument"
+  if ! cmc-config ${subarray} ${instrument} ${compound/-/ } ${resource_grab[*]} ; then
+    kcpmsg "unable to generate config for instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail"
+    return 1
+  fi
+
+  nextport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
+
+  kcpmsg "selecting port ${nextport} for instrument ${instrument} of array ${subarray}"
+
+  echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
+  if ! lk_get_result client-exec ; then
+    echo "!instrument-activate fail"
+    return 1
+  fi
+
+  echo "?client-connect localhost:${nextport} ${subarray}"
+  if ! lk_get_result client-exec ; then
+    echo "!instrument-activate fail"
+    return 1
+  fi
+
+  echo "?client-rename corr localhost:${nextport}" 
+  if ! lk_get_result client-rename ; then
     echo "!instrument-activate fail"
     return 1
   fi
