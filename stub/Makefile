@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-SCRIPTS = cmc-corr-stub
+SCRIPTS = network-cmc-corr-stub stdin-cmc-corr-stub
 
 all:
 

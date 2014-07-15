@@ -119,7 +119,9 @@ kfwd delays              corr "set delay and fringe correction (?delays time [co
 kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
 kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
 
-kcpcmd forward-symbolic beam-weights corr
-kcpcmd forward-symbolic beam-passband corr
+kfwd beam-weights        corr "future beamformer command"
+kfwd beam-passband       corr "future beamformer command"
 
-kcpcmd forward-symbolic quantiser-snapshot corr
+kfwd quantiser-snapshot  corr "retrieve quantiser data"
+
+kfwd synchronisation-epoch  corr "internal synchronisation interface"

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 declare -a command_vector
-declare -a array_inputs
 
 export KATCP_LABEL=corr-stub
 
@@ -78,6 +77,14 @@ while read line ; do
     (\?quantiser-snapshot)
       unimplemented ${command_vector[@]}
       ;;
+    (\?synchronisation-epoch)
+      unimplemented ${command_vector[@]}
+      ;;
+#    (\?halt)
+#      kcpmsg "got a halt request, exiting"
+#      echo "!halt ok"
+#      exit 0
+#      ;;
     (*)
       if [ "${cmd:0:1}" = '?' ] ; then
         kcpmsg "cor stub got unsupported request ${cmd}"

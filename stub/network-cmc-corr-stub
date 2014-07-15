@@ -1,0 +1,17 @@
+#!/bin/bash
+
+export PATH=$PATH:/usr/local/sbin/
+
+if [ "$#" -lt 2 ] ; then
+  echo "usage: $0 config-file listen-port"
+  exit 1
+fi
+
+if [ ! -f "$1" ] ; then
+  echo "error: no file $1 available"
+  exit 1
+fi
+
+exe=$(whereis -b -B ${PATH//:/ } $(pwd) -f stdin-cmc-corr-stub | cut -f2 -d: )
+
+exec linetd -f -p $2 ${exe} stdin-cmc-corr-stub $1
