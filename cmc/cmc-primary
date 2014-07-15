@@ -486,8 +486,10 @@ function instrument_activate()
     return 1
   fi
 
+  sleep 0.5
+
   echo "?client-connect localhost:${nextport} ${subarray}"
-  if ! lk_get_result client-exec ; then
+  if ! lk_get_result client-connect ; then
     echo "!instrument-activate fail"
     return 1
   fi
