@@ -1,0 +1,26 @@
+
+The CMC package relies on the C KATCP package to do most of the
+heavy lifting in order to to keep as much in common between the 
+CMC, DMC and maybe TMC. 
+
+The CMC personality is a kcs server customisation with minor shell 
+augmentation:
+
+  cmc-start   
+  cmc-stop        - setup and shutdown routines - startup defines
+                    commands and variables inside to the katcp server
+                    and launches the set of interfaces
+
+  cmc-primary     - code to service the CMC primary requests, and also
+                    a few subordinate requests where resource management
+                    is shared across arrays and instruments
+
+  cmc-config      - script to generate a CORR config file from a 
+                    matching template, uses the C macro preprocessor
+
+  cmc-subordinate - currently mainly unused subordinate handler (most of
+                    the work is done by CORR) - may be needed to aggregate
+                    responses from multiple instruments in future
+
+  cmc-null        - empty placeholder to field requests 
+                    when no instrument has been defined

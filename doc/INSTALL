@@ -1,0 +1,36 @@
+
+You will require the katcp package - at least
+
+  kcs, kcplog, kcpcmd and kcpmsg
+
+in your path, with all the experimenal duplex stuff enabled
+
+For the stub you will also need linetd-1.4
+
+Installation involves a 
+
+  make install 
+  
+as root from the top-level directory
+
+Note that the make install will not clobber your existing 
+/etc/cmc.conf settings - it will show you a diff of the items
+it has preserved, if new items get added to the sample config
+these will have to be copied across manually
+
+The config file just contains a set of variables (note no space 
+between = and its fields). "state=development" will make the CMC 
+ignore certain errors 
+
+New linux systems have new but rubbish init replacements, there
+might be some tricks needed to add the startup script into
+that infrastructure
+
+The command cmc-start should launch the controller, cmc-stop will
+shut it down. 
+
+If the CMC is run as root it will drop to nobody, thus the 
+corr config directory (/etc/corr) should be writable, maybe use
+the sticky bit
+
+
