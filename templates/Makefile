@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-TEMPLATES = rts
+TEMPLATES = c8n856M4k
 
 all:
 

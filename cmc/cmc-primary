@@ -177,19 +177,34 @@ function validate_instruments()
 {
   # TODO: split into validate*size and validata*stream ? 
 
-  # instrument parameters hardcoded, work out from template in future
-
-  instruments_sizes[rts]=2
-  instruments_streams[rts]="X:Y"
+  if [ "${#instruments_deployed[@]}" -le 0 ] ; then
+    kcpmsg -l fatal "no instruments deployed"
+    return
+  fi
 
   for instrument in ${instruments_deployed[*]} ; do
     template=${CORR_TEMPLATE}/${instrument}
 
-    # cat $template  | tr '[,=' '\n' | grep ROACH[0-9] | sort -n | tail -1
+    if [ -f ${template} ] ; then
 
-    # TODO: calculate boards required from template, put it size
-    # TODO: work out the data stream names, put it in streams
-    # TOOD: work out resources, add them to set ? 
+      top=$(cat $template  | tr ',=' '\n' | grep ROACH[0-9] | sort -n | tail -1 | tr -dc [0-9])
+
+      if [ -z "${top}" ] ; then
+        kcpmsg -l fatal "unable to determine resource requirements for instrument ${instrument}"
+      else 
+        instruments_sizes[${instrument}]=$[top+1]
+
+        kcpmsg "instrument ${instrument} requires ${instruments_sizes[${instrument}]} resources"
+      fi
+
+      # instrument parameters hardcoded, work out from template in future
+      # TODO: work out the data stream names, put it in streams
+      instruments_streams[c8n856M4k]="X:Y"
+
+    else
+      kcpmsg -l fatal "no template available for instrument ${instrument}"
+    fi
+
   done
 
 }
@@ -290,7 +305,6 @@ function array_assign()
 
   key=$1
 
-  # TODO: should query the running listeners 
   if [ -n "${subarray_list[$key]}" ] ; then
     kcpmsg "array ${key} already in use"
     echo "!array-assign fail"
