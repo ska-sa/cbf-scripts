@@ -62,6 +62,6 @@ for input in ${input_vector[*]} ; do
   echo "#define INPUT${i} $input"
   i=$[i+1]
 done
-cat ${template} ) | gcc -E - > ${file}
+grep -v '^ *#' ${template} ) | gcc -E - > ${file}
 
 kcpmsg "generated config ${name}"
