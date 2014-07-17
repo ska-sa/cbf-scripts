@@ -224,6 +224,28 @@ function lk_get_result()
 
 }
 
+function make_sensors()
+{
+  echo "?var-declare ${1}*device-status* sensor,map"
+  lk_get_result var-declare
+
+  echo "?var-set ${1}*device-status* ok string :value"
+  lk_get_result var-set
+  echo "?var-set ${1}*device-status* ${1:-system}\_health string :help"
+  lk_get_result var-set
+  echo "?var-set ${1}*device-status* nominal string :status"
+  lk_get_result var-set
+  echo "?var-set ${1}*device-status* discrete string :type"
+  lk_get_result var-set
+
+  echo "?var-set ${1}*device-status* ok       string :range#0"
+  lk_get_result var-set
+  echo "?var-set ${1}*device-status* degraded string :range#1"
+  lk_get_result var-set
+  echo "?var-set ${1}*device-status* fail     string :range#2"
+  lk_get_result var-set
+}
+
 #################################################################################
 # primary requests 
 
@@ -327,6 +349,8 @@ function array_assign()
   done
 
   subarray_list[$key]=$t
+
+  make_sensors ${key}
 
   echo "!array-assign ok"
 }
