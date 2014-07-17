@@ -101,7 +101,7 @@ function validate_resource_use()
 
         kcpmsg -l debug "checking config ${file}"
 
-        for board in $(grep '^ *servers_' ${file} | cut -f2 -d= | tr -s , ' ' ) ; do
+        for board in $(grep '^ *hosts' ${file} | cut -f2 -d= | tr -s , ' ' ) ; do
 
           if [ -n "${resource_use[${board}]}" ] ; then
             kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
