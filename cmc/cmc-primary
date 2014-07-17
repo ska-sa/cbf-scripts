@@ -144,10 +144,10 @@ function validate_resource_set()
     tmp_set[$board]=standby
 
     if [ -z "${resource_set[${board}]}" ] ; then
-      if ping -W 2 -n -q -c 1 $1 >& /dev/null ; then
-        resource_set[$board]=up
+      if ping -W 2 -n -q -c 1 ${board} >& /dev/null ; then
+        resource_set[${board}]=up
       else 
-        resource_set[$board]=standby
+        resource_set[${board}]=standby
       fi
       # TODO: launch the matching sensor monitor
     fi
@@ -160,7 +160,7 @@ function validate_resource_set()
     if [ -z "${tmp_set[${board}]}" ] ; then
       if [ -z "${resource_use[${board}]}" ] ; then
         if [ "${resource_set[${board}]}" = "standby" ] ; then
-          if ! ping -W 2 -n -q -c 1 $1 >& /dev/null ; then
+          if ! ping -W 2 -n -q -c 1 ${board} >& /dev/null ; then
             if [ "${state}" = "production" ] ; then
               kcpmsg -l warn "dropping resource ${board} as unreachable, unregistered, unused and inactive"
               unset resource_set[$board]
