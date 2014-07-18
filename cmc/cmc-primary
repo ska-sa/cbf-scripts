@@ -390,7 +390,7 @@ function array_halt()
     return
   fi
 
-  echo "my state for $key is ${subarray_list[$key]}"
+  kcpmsg "my state for $key is ${subarray_list[$key]}"
 
   unset subarray_list[$key]
 
