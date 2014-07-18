@@ -12,7 +12,7 @@ else
   source ../misc/cmc.conf
 fi
 
-if [ "$#" -lt 4 ] ; then
+if [ "$#" -lt 5 ] ; then
   kcpmsg -l error "insufficient parameters to launch instrument"
   exit 1
 fi
@@ -23,7 +23,10 @@ shift
 instrument=$1
 shift
 
-while [ "${1:0:1}" = "M" -o "${1:0:1}" = "m" ] ; do
+port=$1
+shift
+
+while [ "${1:0:5}" != "roach" ] ; do
   input_vector+=($1)
   shift
 done
@@ -52,14 +55,15 @@ if [ -f ${file} ] ; then
 fi
 
 # build config file for corr
-(i=0
+(echo "#define PORT ${port}"
+i=0
 for board in ${resource_set[*]} ; do 
-  echo "#define ROACH${i} $board"
+  echo "#define ROACH${i} ${board}"
   i=$[i+1]
 done
 i=0
 for input in ${input_vector[*]} ; do 
-  echo "#define INPUT${i} $input"
+  echo "#define INPUT${i} ${input}"
   i=$[i+1]
 done
 grep -v '^ *#' ${template} ) | cpp - > ${file}
