@@ -297,7 +297,8 @@ function array_assign()
   shift
 
   if [ "$#" -lt 3 ] ; then
-    echo "insufficient parameters"
+    kcpmsg "insufficient parameters"
+    echo "!array-assign fail"
     return
   fi
 
@@ -446,7 +447,7 @@ function resource_mark()
   if [ -z "${resource_set[$1]}" ] ; then
     kcpmsg -l error "unknown resource ${1}"
     echo "!resource-mark fail"
-    return
+    return 1
   fi
 
   case "${2}" in
