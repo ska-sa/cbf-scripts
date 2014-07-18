@@ -366,7 +366,7 @@ function array_assign()
 
   make_sensors ${key}
 
-  echo "!array-assign ok"
+  echo "!array-assign ok ${port}"
 }
 
 function array_halt()
