@@ -12,8 +12,8 @@ pcnt_bits = 48
 hosts = ROACH0,ROACH1
 bitstream = /home/paulp/projects/code/shiny-octo-wookie/mkat/feng/feng_rx_test/bit_files/feng_rx_test_2014_Jun_05_1818.fpg
 # names and IPs of the sources to the f-engines
-source_names = INPUT0,INPUT1
-source_mcast_ips = 214.0.3.1,214.0.3.2
+source_names = ant0,ant1
+source_mcast_ips = INPUT0,INPUT1
 # how many bits per ADC sample
 sample_bits = 10
 # how many parallel ADC samples do we get per digitiser clock?

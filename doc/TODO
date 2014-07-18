@@ -2,18 +2,24 @@
 
 * port number output deficient in array assign
 
-* rts template should be replaced, filled in with proper names
-
-* should determine number of boards programatically
-
 * wrapper to kill corr at the correct point
 
+* should work on stream detail from template
+
 *** DONE ***
+
+Thu Jul 17 16:28:01 SAST 2014
+* rts template should be replaced, filled in with proper names
+
+Thu Jul 17 16:27:35 SAST 2014
+* should determine number of boards programatically
 
 Thu Jul 17 10:54:44 SAST 2014
 * subordinate device-status should be filled in
 
 Thu Jul 17 10:11:49 SAST 2014
 * should check kcs group-list for subarray presence
+
+
 
 
