@@ -239,7 +239,7 @@ function lk_get_result()
 
 }
 
-function make_sensors()
+function make_subarray_sensors()
 {
   echo "?var-declare ${1}*device-status* sensor,map"
   lk_get_result var-declare
@@ -259,6 +259,51 @@ function make_sensors()
   lk_get_result var-set
   echo "?var-set ${1}*device-status* fail     string :range#2"
   lk_get_result var-set
+}
+
+# name, help, type, units, value, status
+
+function make_plain_sensor()
+{
+  echo "?var-declare ${1} sensor,map"
+  lk_get_result var-declare
+
+  echo "?var-set ${1} ${2// /\\_} string :help"
+  lk_get_result var-set
+  echo "?var-set ${1} ${3} string :type"
+  lk_get_result var-set
+  echo "?var-set ${1} ${4} string :units"
+  lk_get_result var-set
+
+  echo "?var-set ${1} ${4} string :value"
+  lk_get_result var-set
+  echo "?var-set ${1} ${5} string :status"
+  lk_get_result var-set
+}
+
+function make_instrument_sensors()
+{
+  file=${CORR_DIR}/${1}-${2}
+
+  bandwidth=$(grep '^ *bandwidth *=' ${file}  | cut -f2 -d= )
+  centerfrequency=$(grep '^ *true_cf *=' ${file}  | cut -f2 -d= )
+  channels=$(grep '^ *n_chans *=' ${file}  | cut -f2 -d= )
+
+  if [ -z "${bandwidth}" ] ; then
+    kcpmsg -l error "unable to determine bandwidth for instrument ${1} in array ${2}"
+  fi
+
+  if [ -z "${centerfrequency}" ] ; then
+    kcpmsg -l error "unable to determine centerfrequency for instrument ${1} in array ${2}"
+  fi
+
+  if [ -z "${channels}" ] ; then
+    kcpmsg -l error "unable to determine channels for instrument ${1} in array ${2}"
+  fi
+
+  make_plain_sensor "${1}*${2}.bandwidth*"       "bandwidth of ${2}"          integer Hz ${bandwidth} nominal
+  make_plain_sensor "${1}*${2}.centerfrequency*" "true sky frequency of ${2}" integer Hz ${centerfrequency} nominal
+  make_plain_sensor "${1}*${2}.channels*"        "channels in ${2}"           integer none ${channels} nominal
 }
 
 #################################################################################
@@ -365,7 +410,7 @@ function array_assign()
 
   subarray_list[$key]=$t
 
-  make_sensors ${key}
+  make_subarray_sensors ${key}
 
   echo "!array-assign ok ${port}"
 }
@@ -493,7 +538,7 @@ function instrument_list()
 
   for instrument in ${instruments_deployed[*]} ; do 
     t=${instruments_streams[${instrument}]}
-    echo "#instrument-list ${instrument} ${t/:/ }"
+    echo "#instrument-list ${instrument} ${t//:/ }"
   done
 
   echo "!instrument-list ok"
@@ -589,13 +634,13 @@ function instrument_activate()
 
   compound=${subarray_list[$subarray]}
 
-  kcpmsg "about to configure instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound/-/ }"
+  kcpmsg "about to configure instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound//-/ }"
   
   nextport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
 
   kcpmsg "selecting port ${nextport} for instrument ${instrument} of array ${subarray}"
 
-  if ! cmc-config ${subarray} ${instrument} ${nextport} ${compound/-/ } ${resource_grab[*]} ; then
+  if ! cmc-config ${subarray} ${instrument} ${nextport} ${compound//-/ } ${resource_grab[*]} ; then
     kcpmsg -l error "unable to generate config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
     return 1
@@ -634,6 +679,8 @@ function instrument_activate()
     kcpmsg "assigning resource ${board} to ${subarray}"
     resource_use[${board}]=${subarray}
   done
+
+  make_instrument_sensors ${subarray} ${instrument}
 
   kcpmsg -l warn "waiting for arp to stabilise ... patience"
 

@@ -42,6 +42,8 @@ while read line ; do
 
   case "${cmd}" in
     (\?capture-list) 
+      echo "#capture-list c856M4k 214.0.3.43:1234"
+
       unimplemented ${command_vector[@]}
       ;;
     (\?capture-destination) 
