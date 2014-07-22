@@ -22,6 +22,7 @@ if [ "${state}" = "production" ] ; then
   LOGFLAGS="-a 10"
   LOGFILE=/var/log/${NAME}.kcplog
   ERRFILE=/var/log/${NAME}.debug
+  cd /var/log
 else 
   set -x
   export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
@@ -29,6 +30,7 @@ else
   LOGFLAGS="-t"
   LOGFILE=/tmp/${NAME}.kcplog
   ERRFILE=/tmp/${NAME}.debug
+  cd /tmp
 fi
 
 export KATCP_SERVER=localhost:${old_port}
