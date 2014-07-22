@@ -10,7 +10,7 @@ pcnt_bits = 48
 
 [fengine]
 hosts = ROACH0,ROACH1
-bitstream = /home/paulp/projects/code/shiny-octo-wookie/mkat/feng/feng_rx_test/bit_files/feng_rx_test_2014_Jun_05_1818.fpg
+bitstream = /srv/bofs/feng/feng_rx_test_2014_Jun_05_1818.fpg
 # names and IPs of the sources to the f-engines
 source_names = input0,input1
 source_mcast_ips = INPUT0,INPUT1
@@ -49,7 +49,7 @@ network_latency_adjust = 0
 
 [xengine]
 hosts = ROACH2,ROACH3
-bitstream = /home/paulp/projects/code/shiny-octo-wookie/mkat/xeng/x_rx_reorder/bit_files/x_rx_reorder_2014_Jun_03_1136.fpg
+bitstream = /srv/bofs/xeng/r2_2f_4x_4a_4k_r366_2014_Jul_22_0003.fpg
 # Number of X engines per host
 x_per_fpga = 2
 # Number of spectra to integrate in DRAM
