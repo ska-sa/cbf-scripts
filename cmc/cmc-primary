@@ -601,13 +601,19 @@ function instrument_activate()
     return 1
   fi
 
-  echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
+  echo "?client-exec ${subarray}-${instrument} ${subarray} corr2_servlet.py -p ${nextport}"
   if ! lk_get_result client-exec ; then
     echo "!instrument-activate fail"
     return 1
   fi
 
-  sleep 1
+  sleep 2
+
+  if kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
+    kcpmsg -l error "unable load config for instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail"
+    return 1
+  fi
 
   echo "?client-connect localhost:${nextport} ${subarray}"
   if ! lk_get_result client-connect ; then
@@ -627,6 +633,9 @@ function instrument_activate()
     kcpmsg "assigning resource ${board} to ${subarray}"
     resource_use[${board}]=${subarray}
   done
+
+  kcpmsg -l warn "waiting for arp to stabilise ... patience"
+  sleep 200
 
   echo "!instrument-activate ok"
 }
