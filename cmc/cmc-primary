@@ -601,7 +601,8 @@ function instrument_activate()
     return 1
   fi
 
-  echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
+#echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
+  echo "?client-exec ${subarray}-${instrument} ${subarray} corr2-servlet" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
   if ! lk_get_result client-exec ; then
     echo "!instrument-activate fail"
     return 1
@@ -627,6 +628,9 @@ function instrument_activate()
     kcpmsg "assigning resource ${board} to ${subarray}"
     resource_use[${board}]=${subarray}
   done
+
+  kcpmsg -l warn "waiting for arp to stabilise ... patience"
+  sleep 10
 
   echo "!instrument-activate ok"
 }
