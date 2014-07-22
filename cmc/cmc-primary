@@ -275,9 +275,9 @@ function make_plain_sensor()
   echo "?var-set ${1} ${4} string :units"
   lk_get_result var-set
 
-  echo "?var-set ${1} ${4} string :value"
+  echo "?var-set ${1} ${5} string :value"
   lk_get_result var-set
-  echo "?var-set ${1} ${5} string :status"
+  echo "?var-set ${1} ${6} string :status"
   lk_get_result var-set
 }
 
