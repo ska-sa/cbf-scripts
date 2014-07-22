@@ -199,7 +199,7 @@ function validate_instruments()
 
       # instrument parameters hardcoded, work out from template in future
       # TODO: work out the data stream names, put it in streams
-      instruments_streams[c8n856M4k]="X:Y"
+      instruments_streams[c8n856M4k]="c856M4k"
 
     else
       kcpmsg -l fatal "no template available for instrument ${instrument}"
