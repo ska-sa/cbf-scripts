@@ -301,9 +301,15 @@ function make_instrument_sensors()
     kcpmsg -l error "unable to determine channels for instrument ${1} in array ${2}"
   fi
 
-  make_plain_sensor "${1}*${2}.bandwidth*"       "bandwidth of ${2}"          integer Hz ${bandwidth} nominal
-  make_plain_sensor "${1}*${2}.centerfrequency*" "true sky frequency of ${2}" integer Hz ${centerfrequency} nominal
-  make_plain_sensor "${1}*${2}.channels*"        "channels in ${2}"           integer none ${channels} nominal
+  t=${instruments_streams[${2}]}
+
+  for stream in ${t//:/ } ; do 
+
+    make_plain_sensor "${1}*${stream}.bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bandwidth} nominal
+    make_plain_sensor "${1}*${stream}.centerfrequency*" "true sky frequency of ${stream}" integer Hz ${centerfrequency} nominal
+    make_plain_sensor "${1}*${stream}.channels*"        "channels in ${stream}"           integer none ${channels} nominal
+
+  done
 }
 
 #################################################################################
