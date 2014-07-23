@@ -68,7 +68,8 @@ while read line ; do
       unimplemented ${command_vector[@]}
       ;;
     (\?accumulation-length)
-      unimplemented ${command_vector[@]}
+      kcpmsg -l warn "real accumulation values will be rounded"
+      echo "!accumulation-length ok ${command_vector[1]}"
       ;;
     (\?beam-weights)
       unimplemented ${command_vector[@]}
