@@ -9,11 +9,12 @@ mcnt_bits = 48
 pcnt_bits = 48
 
 [fengine]
-hosts = ROACH0,ROACH1
-bitstream = /srv/bofs/feng/feng_rx_test_2014_Jun_05_1818.fpg
+hosts = ROACH0,ROACH1,ROACH2,ROACH3
+#bitstream = /srv/bofs/feng/feng_rx_test_2014_Jun_05_1818.fpg
+bitstream = /srv/bofs/feng/r2_256w_4k_32x_r434_2014_Jul_21_1700.fpg
 # names and IPs of the sources to the f-engines
-source_names = input0,input1
-source_mcast_ips = INPUT0,INPUT1
+source_names = input0,input1,input2,input3
+source_mcast_ips = INPUT0,INPUT1,INPUT2,INPUT3
 # how many bits per ADC sample
 sample_bits = 10
 # how many parallel ADC samples do we get per digitiser clock?
@@ -23,22 +24,22 @@ bandwidth = 856000000
 # the centre frequency on the sky
 true_cf = 1284000000
 # Number of antennas in the design
-n_ants = 8
-# Number of f-engines per host
-f_per_fpga = 2
+n_ants = 4
 # number of inputs from number of FFTs, inputs / polarisations = antennas
-num_pols = 2
+inputs_per_fengine = 2
+# Number of f-engines, each processing num_pols, per host
+f_per_fpga = 1
 # Number of channels produced by the f-engine
 n_chans = 4096
 # FFT shifting schedule in decimal. A binary '1' shifts, a zero does not.
 fft_shift = 252
 # The fixed-point format post FFT in the F engines
-quant_format = 4.3
+quant_format = 8.7
 # Packet length of 10Gbe exchange data in 64 bit words.
-10gbe_pkt_len = 64
+10gbe_pkt_len = 128
 # IP and port for 10Gbe cores
-10gbe_start_ip = 10.0.0.128
-10gbe_start_port = 8888
+10gbe_start_ip = 10.0.0.150
+10gbe_start_port = 7777
 # SPEAD flavour, string in the form XX,YY. Default: 64,48. See the SPEAD documentation for details.
 spead_flavour = 64,48
 # Equalisation settings:
@@ -48,20 +49,23 @@ min_load_time = 23
 network_latency_adjust = 0
 
 [xengine]
-hosts = ROACH2,ROACH3
+hosts = ROACH4,ROACH5,ROACH6,ROACH7,ROACH8,ROACH9,ROACH10,ROACH11,ROACH12,ROACH13
 bitstream = /srv/bofs/xeng/r2_2f_4x_4a_4k_r366_2014_Jul_22_0003.fpg
 # Number of X engines per host
-x_per_fpga = 2
-# Number of spectra to integrate in DRAM
-accumulation_len = 3051
+x_per_fpga = 4
+# Number of spectra to integrate in QDR
+accumulation_len = 1526
 # Number of accumulations performed in the X engine cores
-xeng_accumulation_len = 128
+xeng_accumulation_len = 256 
 # IP and port for 10Gbe cores
-10gbe_start_ip = 10.0.0.150
-10gbe_start_port = 8888
+10gbe_start_ip = 10.0.0.110
+10gbe_start_port = 8778
 # data product names and destinations
 output_products = cross_products
-output_destination_ip = 214.0.3.43
+output_destination_ip = 10.1.0.1
 output_destination_port = 1234
 # Packet length of 10Gbe exchange data in 64 bit words.
 10gbe_pkt_len = 128
+# SPEAD receiver for output data
+rx_udp_port = 7148
+rx_meta_ip = 127.0.0.1
