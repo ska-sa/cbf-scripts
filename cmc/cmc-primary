@@ -187,7 +187,7 @@ function validate_instruments()
 
     if [ -f ${template} ] ; then
 
-      top=$(cat $template  | tr ',=' '\n' | grep ROACH[0-9] | sort -n | tail -1 | tr -dc [0-9])
+      top=$(cat $template  | tr ',=' '\n' | grep ROACH[0-9] | tr -dc [0-9] | sort -n | tail -1)
 
       if [ -z "${top}" ] ; then
         kcpmsg -l fatal "unable to determine resource requirements for instrument ${instrument}"
