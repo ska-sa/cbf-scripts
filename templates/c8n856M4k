@@ -1,7 +1,7 @@
 # NB: section names are case sensitive, but option names are NOT!
 
 [FxCorrelator]
-katcp_port = PORT
+katcp_port = 7147
 sample_rate_hz = 800000000
 # Number of bits used in the F engine for timekeeping (the master counter)
 mcnt_bits = 48
