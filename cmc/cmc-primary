@@ -655,7 +655,7 @@ function instrument_activate()
   fi
 
 #echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
-  echo "?client-exec ${subarray}-${instrument} ${subarray} corr2_servlet.py -p ${nextport}"
+  echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun corr2_servlet.py -p ${nextport}"
   if ! lk_get_result client-exec ; then
     echo "!instrument-activate fail"
     return 1
