@@ -36,7 +36,12 @@ while read line ; do
 
   case "${cmd}" in
     (\?capture-list) 
-      nullok ${command_vector[@]}
+      if [ ${max} -lt 2 ] ; then
+        nullok ${command_vector[@]}
+      else 
+        kcpmsg -l warn "no instrument selected, no streams available"
+        echo "!capture-list fail unknown-stream"
+      fi
       ;;
     (\?capture-destination) 
       nullfail ${command_vector[@]}
