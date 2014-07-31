@@ -49,7 +49,7 @@ min_load_time = 23
 network_latency_adjust = 0
 
 [xengine]
-hosts = ROACH4,ROACH5,ROACH6,ROACH7,ROACH8,ROACH9,ROACH10,ROACH11,ROACH12,ROACH13
+hosts = ROACH4,ROACH5,ROACH6,ROACH7,ROACH8,ROACH9,ROACH10,ROACH11
 bitstream = /srv/bofs/xeng/r2_2f_4x_4a_4k_r366_2014_Jul_22_0003.fpg
 # Number of X engines per host
 x_per_fpga = 4
