@@ -663,8 +663,8 @@ function instrument_activate()
 
   sleep 2
 
-  if kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
-    kcpmsg -l error "unable load config for instrument ${instrument} in subarray ${subarray}"
+  if ! kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
+    kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
     return 1
   fi
