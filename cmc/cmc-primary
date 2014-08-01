@@ -669,6 +669,12 @@ function instrument_activate()
     return 1
   fi
 
+  if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
+    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail"
+    return 1
+  fi
+
   echo "?client-connect localhost:${nextport} ${subarray}"
   if ! lk_get_result client-connect ; then
     echo "!instrument-activate fail"
