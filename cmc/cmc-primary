@@ -669,6 +669,8 @@ function instrument_activate()
     return 1
   fi
 
+  kcpmsg -l warn "waiting for initialisation ... patience"
+
   if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
@@ -695,10 +697,6 @@ function instrument_activate()
   done
 
   make_instrument_sensors ${subarray} ${instrument}
-
-  kcpmsg -l warn "waiting for arp to stabilise ... patience"
-
-  sleep 200
 
   echo "!instrument-activate ok"
 }
