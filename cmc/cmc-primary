@@ -209,7 +209,7 @@ function validate_instruments()
       else 
         instruments_inputs[${instrument}]=$[top+1]
 
-        kcpmsg "instrument ${instrument} requires ${instruments_inputs[${instrument}]} resources"
+        kcpmsg "instrument ${instrument} requires ${instruments_inputs[${instrument}]} inputs"
       fi
 
       # instrument parameters hardcoded, work out from template in future
