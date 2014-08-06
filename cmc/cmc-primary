@@ -354,6 +354,7 @@ function array_assign()
   fi
 
   validate_subarray_list
+  validate_instruments
 
   key=$1
 
@@ -376,6 +377,22 @@ function array_assign()
   done
 
   shift
+
+  match=0
+
+  for instrument in ${instruments_deployed[*]} ; do
+    if [ ${instruments_sizes[${instrument}]} = "$#" ] ; then
+      match=$[match+1]
+    fi
+  done
+
+  if [ "${match}" -le "0" ] ; then
+    kcpmsg -l error "no instruments available for a subarray having $# inputs"
+    echo "!array-assign fail"
+    return
+  fi
+
+  kcpmsg -l info "have ${match} instruments on offer for array of $# inputs"
 
   echo "?group-create $key"
   if ! lk_get_result group-create ; then
