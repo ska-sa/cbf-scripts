@@ -52,6 +52,9 @@ while read line ; do
     (\?capture-start) 
       nullfail ${command_vector[@]}
       ;;
+    (\?capture-meta) 
+      nullfail ${command_vector[@]}
+      ;;
     (\?input-labels) 
       nullfail ${command_vector[@]}
       ;;

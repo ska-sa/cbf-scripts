@@ -114,6 +114,7 @@ kfwd capture-list        corr "list data products"
 kfwd capture-destination corr "set data stream destination (?capture-destination stream data-destination)"
 kfwd capture-start       corr "start data stream output (?capture-start stream)"
 kfwd capture-stop        corr "stop data stream output (?capture-stop stream)"
+kfwd capture-meta        corr "reissue stream meta-data (?capture-meta stream)"
 
 kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
 kfwd gain                corr "set gain factors (?gain input [values])"

@@ -64,6 +64,9 @@ while read line ; do
     (\?capture-destination) 
       capture_destination ${command_vector[@]}
       ;;
+    (\?capture-meta) 
+      capture_meta ${command_vector[@]}
+      ;;
     (\?capture-stop) 
       capture_stop ${command_vector[@]}
       ;;
