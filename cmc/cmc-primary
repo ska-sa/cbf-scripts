@@ -294,6 +294,9 @@ function make_plain_sensor()
   lk_get_result var-set
   echo "?var-set ${1} ${6} string :status"
   lk_get_result var-set
+
+  echo "?broadcast ${1} interface-changed sensor-list"
+  lk_get_result broadcast
 }
 
 function make_instrument_sensors()
@@ -325,6 +328,9 @@ function make_instrument_sensors()
     make_plain_sensor "${1}*${stream}.channels*"        "channels in ${stream}"           integer none ${channels} nominal
 
   done
+
+  echo "?broadcast ${1} interface-changed sensor-list"
+  lk_get_result broadcast
 }
 
 #################################################################################
