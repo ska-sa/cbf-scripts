@@ -127,4 +127,4 @@ kfwd beam-passband       corr "future beamformer command"
 
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
 
-kfwd synchronisation-epoch  corr "internal synchronisation interface"
+kfwd digitiser-synch-epoch corr "internal synchronisation interface"
