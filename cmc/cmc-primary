@@ -730,6 +730,15 @@ function instrument_activate()
     return 1
   fi
 
+  if [ -n "${dmc_address}" ] ; then
+    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -l dmc "${dmc_address}" -l cmc -"
+    if ! lk_get_result client-exec ; then
+      kcpmsg -l warn "unable to launch dmc synchronisation helper"
+    fi
+  else
+    kcpmsg -l warn "no dmc defined thus synchronisation"
+  fi
+
   for board in ${resource_grab[*]} ; do
     kcpmsg "assigning resource ${board} to ${subarray}"
     resource_use[${board}]=${subarray}
