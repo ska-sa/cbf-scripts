@@ -731,7 +731,7 @@ function instrument_activate()
   fi
 
   if [ -n "${dmc_address}" ] ; then
-    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -l dmc "${dmc_address}" -l cmc -"
+    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -l dmc "${dmc_address}" -l cmc - -e cmc-dmc"
     if ! lk_get_result client-exec ; then
       kcpmsg -l warn "unable to launch dmc synchronisation helper"
     fi
