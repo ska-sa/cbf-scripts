@@ -6,7 +6,7 @@ INITSCRIPT = $(wildcard *mc.initscript)
 
 # log rotation
 LOGROTATEDIR = $(CONFPREFIX)/logrotate.d
-LOGROTATE = $(wildcard *mc.initscript)
+LOGROTATE = $(wildcard *mc.logrotate)
 
 # configuration
 CONFIGDIR = $(CONFPREFIX)
