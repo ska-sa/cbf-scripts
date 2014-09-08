@@ -1,0 +1,79 @@
+#!/bin/bash
+
+export KATCP_LABEL=cmc-dmc
+
+if [ -n "${CMC_CONFIG}" ] ; then
+  source "${CMC_CONFIG}"
+else
+  source ../misc/cmc.conf
+fi
+
+function lk_get_result()
+{
+  as=$2
+  get=$1
+
+  while read cmd code extra ; do 
+    case "${cmd}" in 
+      (\#${get})
+        if [ -n "${as}" ] ; then
+          echo "#${as} ${code} ${extra}"
+        fi
+        ;;
+      (\!${get})
+        if [ -n "${as}" ] ; then
+          echo "!${as} ${code} ${extra}"
+        fi
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+          return 1
+        fi
+        ;;
+    esac
+  done
+}
+
+last="null"
+
+echo "?log-level fatal"
+if ! lk_get_result log-level ; then
+  exit 1
+fi 
+
+echo "?sensor-sampling synchronisation-epoch auto"
+# if ! lk_get_result sensor-sampling ; then
+#  exit 1
+# fi 
+
+while true ; do
+
+  read -a line
+
+  if [ "${line[0]}" = "#sensor-status" -a "${line[3]}" = "synchronisation-epoch" -a "${line[4]}" = "nominal" ] ; then
+
+    if [ "${last}" != "${line[5]}" ] ; then
+  
+      echo "?switch cmc" 
+      if ! lk_get_result switch ; then
+        exit 1
+      fi
+
+      echo "?digitiser-synch-epoch ${line[5]}"
+      if ! lk_get_result digitiser-synch-epoch ; then
+        exit 1
+      fi
+
+      echo "?switch dmc" 
+      if ! lk_get_result switch ; then
+        exit 1
+      fi
+
+      last = ${line[5]}
+
+    fi
+  else 
+    sleep 1
+  fi
+
+done
