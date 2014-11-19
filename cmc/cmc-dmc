@@ -46,9 +46,7 @@ echo "?sensor-sampling synchronisation-epoch auto"
 #  exit 1
 # fi 
 
-while true ; do
-
-  read -a line
+while read -a line ; do
 
   if [ "${line[0]}" = "#sensor-status" -a "${line[3]}" = "synchronisation-epoch" -a "${line[4]}" = "nominal" ] ; then
 
