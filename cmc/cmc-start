@@ -65,11 +65,11 @@ kcpcmd group-create primary
 kcpcmd listener-create primary ${primary_port} ${bind_interface:-0.0.0.0} primary
 export KATCP_SERVER=${bind_interface:-localhost}:${primary_port}
 
-# logging can now be started 
-kcplog ${LOGFLAGS} -d -o ${LOGFILE}
-
 # configure top-level/primary group
 kcpcmd scope global group primary
+
+# logging can now be started 
+kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 
 kcpcmd client-exec primary primary ${NAME}-primary
 kcpcmd client-exec corr primary ${NAME}-null
