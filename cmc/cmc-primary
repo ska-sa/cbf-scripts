@@ -327,9 +327,10 @@ function make_instrument_sensors()
     make_plain_sensor "${1}*${stream}.bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bandwidth} nominal
     make_plain_sensor "${1}*${stream}.centerfrequency*" "true sky frequency of ${stream}" integer Hz ${centerfrequency} nominal
     make_plain_sensor "${1}*${stream}.channels*"        "channels in ${stream}"           integer none ${channels} nominal
-    make_plain_sensor "${1}*synchronisation-epoch"      "last synchronisation time"       integer seconds ${channels} unknown
 
   done
+
+  make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       integer seconds 0 unknown
 
   echo "?broadcast ${1} interface-changed sensor-list"
   lk_get_result broadcast
