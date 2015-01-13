@@ -59,8 +59,11 @@ while read -a line ; do
 
       echo "?digitiser-synch-epoch ${line[5]}"
       if ! lk_get_result digitiser-synch-epoch ; then
+        echo "#sensor-status $(date +%s).000 1 synchronisation-epoch error 1"
         exit 1
       fi
+
+      echo "#sensor-status ${line[1]} 1 synchronisation-epoch ${line[4]} ${line[5]}"
 
       echo "?switch dmc" 
       if ! lk_get_result switch ; then
