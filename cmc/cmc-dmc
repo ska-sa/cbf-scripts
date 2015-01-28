@@ -36,8 +36,8 @@ function lk_get_result()
 
 last="null"
 
-echo "?log-level fatal"
-if ! lk_get_result log-level ; then
+echo "?log-limit fatal"
+if ! lk_get_result log-limit ; then
   exit 1
 fi 
 
