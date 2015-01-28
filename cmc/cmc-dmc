@@ -54,12 +54,13 @@ while read -a line ; do
   
       echo "?switch cmc" 
       if ! lk_get_result switch ; then
+        kcpmsg -l error "problem switching cmc"
         exit 1
       fi
 
       echo "?digitiser-synch-epoch ${line[5]}"
       if ! lk_get_result digitiser-synch-epoch ; then
-        echo "#sensor-status $(date +%s).000 1 synchronisation-epoch error 1"
+        echo "#sensor-status ${line[1]} 1 synchronisation-epoch error 0"
         exit 1
       fi
 
@@ -67,6 +68,7 @@ while read -a line ; do
 
       echo "?switch dmc" 
       if ! lk_get_result switch ; then
+        kcpmsg -l error "problem switching back to dmc"
         exit 1
       fi
 
@@ -74,7 +76,7 @@ while read -a line ; do
 
     fi
   else 
-    sleep 1
+    sleep 0.1
   fi
 
 done
