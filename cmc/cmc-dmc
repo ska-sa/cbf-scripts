@@ -38,7 +38,7 @@ last="null"
 
 echo "?log-limit fatal"
 if ! lk_get_result log-limit ; then
-  exit 1
+  kcpmsg -l warn "unable to reduce verbosity"
 fi 
 
 echo "?sensor-sampling synchronisation-epoch auto"
