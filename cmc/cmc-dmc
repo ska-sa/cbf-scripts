@@ -50,7 +50,7 @@ function inform_transition()
 
 
 state="ask-limit"
-stall=no
+stall="no"
 quick="yes"
 
 while true ; do
@@ -121,8 +121,6 @@ while true ; do
       ;;
     (return-dmc)
       reply_transition switch wait-dmc in-cmc
-      echo "?switch dmc"
-      state="to-cmc"
       ;;
     (bad-dmc)
       echo "#sensor-status $(date +%s).000 1 synchronisation-epoch unknown 0"
