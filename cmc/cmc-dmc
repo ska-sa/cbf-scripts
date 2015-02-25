@@ -8,75 +8,132 @@ else
   source ../misc/cmc.conf
 fi
 
-function lk_get_result()
+function reply_transition()
 {
-  as=$2
-  get=$1
+  prefix=$1
+  success=$2
+  fail=$3
 
-  while read cmd code extra ; do 
-    case "${cmd}" in 
-      (\#${get})
-        if [ -n "${as}" ] ; then
-          echo "#${as} ${code} ${extra}"
-        fi
-        ;;
-      (\!${get})
-        if [ -n "${as}" ] ; then
-          echo "!${as} ${code} ${extra}"
-        fi
-        if [ "${code}" = "ok" ] ; then
-          return 0
-        else
-          return 1
-        fi
-        ;;
-    esac
-  done
+  if [ "${line[0]:0:1}" != '\!' ] ; then
+    match=\!${prefix}
+  else
+    match=${prefix}
+  fi
+
+  if [ "${line[0]}" = "${match}" ] ; then
+    if [ "${line[1]}" = "ok" ] ; then
+      state=${success}
+    else
+      sleep 1
+      state=${fail}
+    fi
+    quick="yes"
+  fi
 }
 
-last="null"
+function inform_transition()
+{
+  prefix=$1
+  next=$2
 
-echo "?log-limit fatal"
-if ! lk_get_result log-limit ; then
-  kcpmsg -l warn "unable to reduce verbosity"
-fi 
-
-echo "?sensor-sampling synchronisation-epoch auto"
-# if ! lk_get_result sensor-sampling ; then
-#  exit 1
-# fi 
-
-while read -a line ; do
-
-  if [ "${line[0]}" = "#sensor-status" -a "${line[3]}" = "synchronisation-epoch" -a "${line[4]}" = "nominal" ] ; then
-
-    if [ "${last}" != "${line[5]}" ] ; then
-  
-      echo "?switch cmc" 
-      if ! lk_get_result switch ; then
-        kcpmsg -l error "problem switching cmc"
-        exit 1
-      fi
-
-      echo "?digitiser-synch-epoch ${line[5]}"
-      if ! lk_get_result digitiser-synch-epoch ; then
-        echo "#sensor-status ${line[1]} 1 synchronisation-epoch error 0"
-        exit 1
-      fi
-
-      echo "#sensor-status ${line[1]} 1 synchronisation-epoch ${line[4]} ${line[5]}"
-
-      echo "?switch dmc" 
-      if ! lk_get_result switch ; then
-        kcpmsg -l error "problem switching back to dmc"
-        exit 1
-      fi
-
-      last = ${line[5]}
-
-    fi
-  else 
-    sleep 0.1
+  if [ "${line[0]:0:1}" != '\#' ] ; then
+    match=\#${prefix}
+  else
+    match=${prefix}
   fi
+
+  if [ "${line[0]}" = "${match}" ] ; then
+    state=${next}
+    quick="yes"
+  fi
+}
+
+
+state="ask-limit"
+stall=no
+quick="yes"
+
+while true ; do
+
+  if [ "${quick}" = "yes" ] ; then
+    quick="no"
+  else
+    if ! read -a line ; then
+      exit 1
+    fi
+  fi
+
+  case "${state}" in
+    (ask-limit)
+      echo "?log-limit fatal"
+      state="get-limit"
+      ;;
+    (get-limit)
+      reply_transition log-limit ask-sampling ask-limit
+      ;;
+    (ask-sampling)
+      echo "?sensor-sampling synchronisation-epoch auto"
+      state="check-sampling"
+      ;;
+    (check-sampling)
+      stall=yes
+      reply_transition sensor-sampling wait-dmc ask-sampling
+      inform_transition sensor-status save-sensor
+      ;;
+    (fixup-sampling)
+      stall=no
+      reply_transition sensor-sampling ask-cmc ask-sampling
+      inform_transition sensor-status save-sensor
+      ;;
+    (wait-dmc)
+      stall=no
+      inform_transition sensor-status save-sensor
+      inform_transition switch bad-dmc
+      ;;
+    (save-sensor)
+      if [ "${line[3]}" = "synchronisation-epoch" ] ; then
+        status=${line[4]}
+        value=${line[5]}
+        when=${line[1]}
+
+        if [ -n "${value}" ] ; then
+          if [ "${stall}" = "yes" ] ; then
+            state="fixup-sampling"
+          else
+            state="ask-cmc"
+            quick="yes"
+          fi
+        fi
+      fi
+      ;;
+    (ask-cmc)
+      echo "?switch cmc"
+      state="to-cmc"
+      ;;
+
+    (to-cmc)
+      reply_transition switch in-cmc ask-sampling 
+      ;;
+    (in-cmc)
+      echo "#sensor-status ${when} 1 synchronisation-epoch ${status} ${value}"
+      echo "?switch dmc"
+      state="return-dmc"
+      ;;
+    (return-dmc)
+      reply_transition switch wait-dmc in-cmc
+      echo "?switch dmc"
+      state="to-cmc"
+      ;;
+    (bad-dmc)
+      echo "#sensor-status $(date +%s).000 1 synchronisation-epoch unknown 0"
+      kcpmsg -l error "dmc unreachable thus synchronisation epoch unknown"
+# TODO - handle this better 
+      exit 1
+      ;;
+      
+    (*)
+      kcpmsg bad state ${state}
+      ;;
+  esac
 
 done
