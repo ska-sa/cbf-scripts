@@ -112,15 +112,22 @@ while true ; do
       ;;
 
     (to-cmc)
-      reply_transition switch in-cmc ask-sampling 
+      reply_transition switch tell-cmc ask-sampling 
       ;;
-    (in-cmc)
+    (tell-cmc)
+      echo "?digitiser-synch-epoch ${value}"
+      state="confirm-cmc"
+      ;;
+    (confirm-cmc)
+      reply_transition digitiser-synch-epoch leave-cmc tell-cmc
+      ;;
+    (leave-cmc)
       echo "#sensor-status ${when} 1 synchronisation-epoch ${status} ${value}"
       echo "?switch dmc"
       state="return-dmc"
       ;;
     (return-dmc)
-      reply_transition switch wait-dmc in-cmc
+      reply_transition switch wait-dmc leave-cmc
       ;;
     (bad-dmc)
       echo "#sensor-status $(date +%s).000 1 synchronisation-epoch unknown 0"
