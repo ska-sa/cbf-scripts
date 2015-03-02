@@ -6,4 +6,4 @@ all:
 
 install: all
 	$(INSTALL) -d $(EXEPREFIX)/lib/cmc/templates
-	$(INSTALL) $(TEMPLATES) $(EXEPREFIX)/lib/cmc/templates
+	for name in $(TEMPLATES) ; do if test -f $(EXEPREFIX)/lib/cmc/templates/$$name ; $(DIFF) $$name $(EXEPREFIX)/lib/cmc/templates/$$name ; else $(INSTALL) $$name $(EXEPREFIX)/lib/cmc/templates/ ; fi ; done
