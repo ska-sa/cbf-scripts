@@ -126,6 +126,6 @@ kfwd beam-weights        corr "future beamformer command"
 kfwd beam-passband       corr "future beamformer command"
 
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
-kfwd fft-shift           corr "set the FFT shift value"
+kfwd fft-shift           corr "set the FFT shift value (?fft-shift [value])"
 
 kfwd digitiser-synch-epoch corr "internal synchronisation interface"
