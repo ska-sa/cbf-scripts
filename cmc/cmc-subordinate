@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x 
+#set -x 
 
 declare -a command_vector
 declare -a array_inputs
