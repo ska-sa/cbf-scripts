@@ -74,6 +74,9 @@ kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 kcpcmd client-exec primary primary ${NAME}-primary
 kcpcmd client-exec corr primary ${NAME}-null
 
+# start the ntp monitor
+kcpcmd client-exec time-monitor primary tmon
+
 function kfwd()
 {
   kcpcmd forward-symbolic $1 $2
