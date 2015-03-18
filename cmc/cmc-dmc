@@ -122,7 +122,7 @@ while true ; do
       reply_transition digitiser-synch-epoch leave-cmc tell-cmc
       ;;
     (leave-cmc)
-      echo "#sensor-status ${when} 1 synchronisation-epoch ${status} ${value}"
+      echo "#sensor-status ${when} 1 .synchronisation-epoch ${status} ${value}"
       echo "?switch dmc"
       state="return-dmc"
       ;;
@@ -130,7 +130,7 @@ while true ; do
       reply_transition switch wait-dmc leave-cmc
       ;;
     (bad-dmc)
-      echo "#sensor-status $(date +%s).000 1 synchronisation-epoch unknown 0"
+      echo "#sensor-status $(date +%s).000 1 .synchronisation-epoch unknown 0"
       kcpmsg -l error "dmc unreachable thus synchronisation epoch unknown"
 # TODO - handle this better 
       exit 1
