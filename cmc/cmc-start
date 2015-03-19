@@ -33,6 +33,8 @@ else
   cd /tmp
 fi
 
+ulimit -c unlimited
+
 export KATCP_SERVER=localhost:${old_port}
 
 if kcpcmd -t 2 watchdog >& /dev/null ; then
