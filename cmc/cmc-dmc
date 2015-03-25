@@ -52,6 +52,8 @@ function inform_transition()
 state="ask-limit"
 stall="no"
 quick="yes"
+# there, gone, left
+dmc="there"
 
 while true ; do
 
@@ -62,6 +64,8 @@ while true ; do
       exit 1
     fi
   fi
+
+  echo "#state ${state}"
 
   case "${state}" in
     (ask-limit)
@@ -84,6 +88,7 @@ while true ; do
       stall=no
       reply_transition sensor-sampling ask-cmc ask-sampling
       inform_transition sensor-status save-sensor
+      inform_transition switch bad-dmc
       ;;
     (wait-dmc)
       stall=no
@@ -103,6 +108,7 @@ while true ; do
             state="ask-cmc"
             quick="yes"
           fi
+          dmc="there"
         fi
       fi
       ;;
@@ -110,7 +116,6 @@ while true ; do
       echo "?switch cmc"
       state="to-cmc"
       ;;
-
     (to-cmc)
       reply_transition switch tell-cmc ask-sampling 
       ;;
@@ -122,20 +127,34 @@ while true ; do
       reply_transition digitiser-synch-epoch leave-cmc tell-cmc
       ;;
     (leave-cmc)
-      echo "#sensor-status ${when} 1 .synchronisation-epoch ${status} ${value}"
+      if [ "${dmc}" = "there" ] ; then
+        echo "#sensor-status ${when} 1 .synchronisation-epoch ${status} ${value}"
+      fi
+      state="ask-dmc"
+      quick="yes"
+      ;;
+    (ask-dmc)
       echo "?switch dmc"
       state="return-dmc"
       ;;
     (return-dmc)
-      reply_transition switch wait-dmc leave-cmc
+      if [ "${dmc}" = "there" ] ; then
+        reply_transition switch wait-dmc bad-dmc
+      else
+        reply_transition switch ask-limit bad-dmc
+      fi
       ;;
     (bad-dmc)
-      echo "#sensor-status $(date +%s).000 1 .synchronisation-epoch unknown 0"
-      kcpmsg -l error "dmc unreachable thus synchronisation epoch unknown"
-# TODO - handle this better 
-      exit 1
+      if [ "${dmc}" = "there" ] ; then
+        echo "#sensor-status $(date +%s).000 1 .synchronisation-epoch unknown 0"
+        kcpmsg -l error "dmc unreachable thus synchronisation epoch unknown"
+        dmc="gone"
+      elif [ "${dmc}" = "gone" ] ; then
+        dmc="left"
+      fi
+      state="ask-dmc"
+      quick="yes"
       ;;
-      
     (*)
       kcpmsg bad state ${state}
       ;;
