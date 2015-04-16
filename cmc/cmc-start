@@ -77,7 +77,7 @@ kcpcmd client-exec primary primary ${NAME}-primary
 kcpcmd client-exec corr primary ${NAME}-null
 
 # start the ntp monitor
-kcpcmd client-exec time-monitor primary tmon
+kcpcmd client-exec time primary tmon
 
 function kfwd()
 {

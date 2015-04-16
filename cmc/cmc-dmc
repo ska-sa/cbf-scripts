@@ -55,6 +55,12 @@ quick="yes"
 # there, gone, left
 dmc="there"
 
+if tty >& /dev/null ; then
+  debug="yes"
+else
+  debug="no"
+fi
+
 while true ; do
 
   if [ "${quick}" = "yes" ] ; then
@@ -65,7 +71,9 @@ while true ; do
     fi
   fi
 
-  echo "#state ${state}"
+  if [ "${debug}" = "yes" ] ; then
+    echo "#state ${state}"
+  fi
 
   case "${state}" in
     (ask-limit)
