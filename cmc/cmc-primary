@@ -212,9 +212,11 @@ function validate_instruments()
         kcpmsg "instrument ${instrument} requires ${instruments_inputs[${instrument}]} inputs"
       fi
 
-      # instrument parameters hardcoded, work out from template in future
-      # TODO: work out the data stream names, put it in streams
-      instruments_streams[c8n856M4k]="c856M4k"
+      instruments_streams[${instruments}]=$(grep '^ *output_products' $template | cut -f2 -d = | tr -s ',' ':' )
+
+      if [ -z "${instruments_streams[${instruments}]}" ; then
+        kcpmsg -l error "no data products discoverable in instrument ${instrument}"
+      fi
 
     else
       kcpmsg -l fatal "no template available for instrument ${instrument}"
@@ -667,7 +669,8 @@ function instrument_activate()
 
   if [ "${have}" -lt "${need}" ] ; then
     kcpmsg -l warn "would need ${need} boards but only have ${have}"
-    echo "!instrument-activate ok oversubscribed"
+    #echo "!instrument-activate ok oversubscribed"
+    echo "!instrument-activate fail"
     return 1
   fi
 
