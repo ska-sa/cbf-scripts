@@ -707,6 +707,13 @@ function instrument_activate()
 
   sleep 2
 
+  echo "?client-connect localhost:${nextport} ${subarray}"
+  if ! lk_get_result client-connect ; then
+    echo "!instrument-activate fail"
+    # TODO: kill the corr instance to release resources
+    return 1
+  fi
+
   if ! kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
@@ -718,13 +725,6 @@ function instrument_activate()
   if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
-    return 1
-  fi
-
-  echo "?client-connect localhost:${nextport} ${subarray}"
-  if ! lk_get_result client-connect ; then
-    echo "!instrument-activate fail"
-    # TODO: kill the corr instance to release resources
     return 1
   fi
 
