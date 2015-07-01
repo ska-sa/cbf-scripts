@@ -214,7 +214,7 @@ function validate_instruments()
 
       instruments_streams[${instrument}]=$(grep '^ *output_products' $template | cut -f2 -d = | tr -s ',' ':' )
 
-      if [ -z "${instruments_streams[${instrument}]}" ; then
+      if [ -z "${instruments_streams[${instrument}]}" ] ; then
         kcpmsg -l error "no data products discoverable in instrument ${instrument}"
       fi
 
