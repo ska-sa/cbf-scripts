@@ -17,9 +17,9 @@ case "$1" in
     fi
   ;;
   (del)
-    echo "del"
+    logger "deleting $2"
   ;;
   (old)
-    echo "old"
+    logger "updating $2"
   ;; 
 esac
