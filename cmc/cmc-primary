@@ -190,6 +190,8 @@ function validate_instruments()
   for instrument in ${instruments_deployed[*]} ; do
     template=${CORR_TEMPLATE}/${instrument}
 
+    kcpmsg -l debug "checking templates for instrument ${instrument}"
+
     if [ -f ${template} ] ; then
 
       top=$(cat $template  | tr ',=' '\n' | grep ROACH[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
@@ -216,6 +218,8 @@ function validate_instruments()
 
       if [ -z "${instruments_streams[${instrument}]}" ] ; then
         kcpmsg -l error "no data products discoverable in instrument ${instrument}"
+      else 
+        kcpmsg -l debug "streams for ${instrument} are ${instruments_streams[${instrument}]}"
       fi
 
     else
@@ -500,7 +504,7 @@ function array_assign()
       echo "!array-assign fail"
       return
     fi
-    port=${result}
+    port=${result%% *}
   fi 
 
   echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
