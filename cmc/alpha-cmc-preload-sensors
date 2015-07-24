@@ -1,0 +1,48 @@
+#!/bin/bash
+
+SOURCE=192.168.4.36:7201
+TARGET=localhost:9001
+
+export KATCP_SERVER=${TARGET}
+
+function get_katcp_reply()
+{
+  get=$1
+
+  while read cmd code extra ; do
+    case "${cmd}" in
+      (\#${get})
+        ;;
+      (\!${get})
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+          return 1
+        fi
+        ;;
+      (\!*)
+        kcpmsg -l warn "discarding unexpected response ${cmd}"
+        ;;
+      (\?*)
+        kcpmsg -l fatal "rejecting untimely request ${cmd}, still busy servicing ${get}"
+        echo "!${cmd:1} fail"
+        ;;
+
+    esac
+  done
+}
+
+
+
+kcpcmd -r client-connect ${SOURCE}
+kcpcmd -r client-config fixed ${SOURCE}
+
+(echo "?sensor-list" ; sleep 2) | nc -q 4 ${SOURCE%%:*} ${SOURCE##*:} | grep '^#sensor-list' | (while read -r tag name help units type extra ; do
+    kcpcmd -r var-declare "${name}*" sensor,map
+    kcpcmd -r var-set     "${name}" "${help//\\_/ }" string :help | cat -A
+    kcpcmd -r var-set     "${name}" "${units//\\_/ }" string :units
+    kcpcmd -r var-set     "${name}" "${type}" string :type
+    kcpcmd -r var-set     "${name}" unknown string :value
+    kcpcmd -r relay ${SOURCE} relay ${SOURCE} sensor-sampling "${name}" event
+done)
+
