@@ -28,12 +28,12 @@ fi
 if [ "${state/tmp-log/}" != "${state}" ] ; then
   export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/tmp/${NAME}.kcplog
-  ERRFILE=/tmp/${NAME}.debug
+  ERRFILE=/tmp/${NAME}.log
   cd /tmp
 else 
   export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/var/log/${NAME}.kcplog
-  ERRFILE=/var/log/${NAME}.debug
+  ERRFILE=/var/log/${NAME}.log
   cd /var/log
 fi
 
