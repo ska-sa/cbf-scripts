@@ -34,12 +34,12 @@ else
   source ../misc/cmc.conf
 fi
 
-leases=/var/lib/misc/dnsmasq.leases
+leases=${LEASE_FILE:-/var/lib/misc/dnsmasq.leases}
 if [ ! -f ${leases} ] ; then
-  if [ "${state}" = "production" ] ; then
-    kcpmsg -l fatal "unable to locate a leases file"
-  else
+  if [ "${state/missing-roaches/}" != "${state}" ] ; then
     leases=../stub/dnsmasq.leases
+  else
+    kcpmsg -l fatal "unable to locate leases file ${LEASE_FILE}"
   fi
 fi
 
@@ -166,7 +166,7 @@ function validate_resource_set()
       if [ -z "${resource_use[${board}]}" ] ; then
         if [ "${resource_set[${board}]}" = "standby" ] ; then
           if ! ping -W 2 -n -q -c 1 ${board} >& /dev/null ; then
-            if [ "${state}" = "production" ] ; then
+            if [ "${state/missing-roaches/}" = "${state}" ] ; then
               kcpmsg -l warn "dropping resource ${board} as unreachable, unregistered, unused and inactive"
               unset resource_set[$board]
               # TODO: stop the matching sensor monitor
@@ -613,14 +613,14 @@ function resource_mark()
       if ping -W 2 -n -q -c 1 $1 >& /dev/null ; then
         resource_set[$1]="up"
       else
-        if [ "${state}" = "production" ] ; then
+        if [ "${state/missing-roaches/}" != "${state}" ] ; then
+          kcpmsg -l warn "resource $1 not responsive but taking it to be ok"
+          resource_set[$1]="up"
+        else
           kcpmsg -l error "resource $1 unresponsive"
           resource_set[$1]="standby"
           echo "!resource-mark fail"
           return 1
-        else
-          kcpmsg -l warn "resource $1 not responsive but taking it to be ok"
-          resource_set[$1]="up"
         fi
       fi
       ;;
@@ -693,7 +693,7 @@ function instrument_probe()
 
   kcpmsg "would allocate ${need} boards of ${have} available"
 
-  echo "!instrument-probe ok"
+  echo "!instrument-probe ok sufficient"
 }
 
 function instrument_activate()
@@ -734,7 +734,7 @@ function instrument_activate()
   if [ "${have}" -lt "${need}" ] ; then
     kcpmsg -l warn "would need ${need} boards but only have ${have}"
     #echo "!instrument-activate ok oversubscribed"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail oversubscribed"
     return 1
   fi
 
@@ -774,20 +774,14 @@ function instrument_activate()
   echo "?client-connect localhost:${nextport} ${subarray}"
   if ! get_katcp_reply client-connect ; then
     echo "!instrument-activate fail"
+    echo "?client-halt ${subarray}-${instrument}"
+    get_katcp_reply client-halt 
     # TODO: kill the corr instance to release resources
     return 1
   fi
 
   if ! kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
-    echo "!instrument-activate fail"
-    return 1
-  fi
-
-  kcpmsg -l warn "waiting for initialisation ... patience"
-
-  if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
-    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
     return 1
   fi
@@ -803,9 +797,19 @@ function instrument_activate()
     echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
     if ! get_katcp_reply client-exec ; then
       kcpmsg -l warn "unable to launch dmc synchronisation helper"
+    else
+      sleep 1
     fi
   else
     kcpmsg -l warn "no dmc defined thus synchronisation"
+  fi
+
+  kcpmsg -l warn "waiting for initialisation ... patience"
+
+  if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
+    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail"
+    return 1
   fi
 
   for board in ${resource_grab[*]} ; do

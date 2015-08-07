@@ -17,20 +17,24 @@ else
   exit 2
 fi
 
-if [ "${state}" = "production" ] ; then
-  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
-  LOGFLAGS="-a 10"
-  LOGFILE=/var/log/${NAME}.kcplog
-  ERRFILE=/var/log/${NAME}.debug
-  cd /var/log
-else 
+if [ "${state/verbose-log/}" != "${state}" ] ; then
   set -x
-  export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   #LOGFLAGS="-t -l trace"
   LOGFLAGS="-t"
+else
+  LOGFLAGS="-a 10"
+fi
+
+if [ "${state/tmp-log/}" != "${state}" ] ; then
+  export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/tmp/${NAME}.kcplog
   ERRFILE=/tmp/${NAME}.debug
   cd /tmp
+else 
+  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
+  LOGFILE=/var/log/${NAME}.kcplog
+  ERRFILE=/var/log/${NAME}.debug
+  cd /var/log
 fi
 
 ulimit -c unlimited
@@ -38,25 +42,21 @@ ulimit -c unlimited
 export KATCP_SERVER=localhost:${old_port}
 
 if kcpcmd -t 2 watchdog >& /dev/null ; then
-  if [ "${state}" = "production" ] ; then
-    kcpmsg -l error "${NAME} already running"
-    exit 2
-  else
-    kcpmsg -l warn "${NAME} already running"
-  fi 
-else 
-  sleep 0.5
-
-  if [ "$(whoami)" = "root" ] ; then
-    touch ${ERRFILE}
-    chown ${unprivileged_user:-nobody} ${ERRFILE}
-    su ${unprivileged_user:-nobody} -c "env PATH=$PATH:/usr/local/sbin kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}"
-  else 
-    kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
-  fi 
-
-  sleep 0.5
+  kcpmsg -l error "${NAME} already running"
+  exit 2
 fi
+
+sleep 0.5
+
+if [ "$(whoami)" = "root" ] ; then
+  touch ${ERRFILE}
+  chown ${unprivileged_user:-nobody} ${ERRFILE}
+  su ${unprivileged_user:-nobody} -c "env PATH=$PATH:/usr/local/sbin kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}"
+else 
+  kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
+fi 
+
+sleep 0.5
 
 # this is to deal with old katcp logic, new one should be different 
 kcpcmd listener-create setup ${setup_port} 127.0.0.1 
