@@ -798,7 +798,8 @@ function instrument_activate()
     if ! get_katcp_reply client-exec ; then
       kcpmsg -l warn "unable to launch dmc synchronisation helper"
     else
-      sleep 1
+      kcpmsg "launching synchronisation dmc monitor"
+      sleep 2
     fi
   else
     kcpmsg -l warn "no dmc defined thus synchronisation"

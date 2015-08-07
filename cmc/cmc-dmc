@@ -24,7 +24,7 @@ function reply_transition()
     if [ "${line[1]}" = "ok" ] ; then
       state=${success}
     else
-      sleep 1
+      sleep 0.5
       state=${fail}
     fi
     quick="yes"
