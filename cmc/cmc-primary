@@ -498,13 +498,13 @@ function array_assign()
       echo "!array-assign fail"
       return
     fi
-    if [ "${result}" -le "0" ] ; then
-      kcpmsg -l error "unable to determine port for ${key}"
+    port=${result%% *}
+    if [ "${port}" -le "0" ] ; then
+      kcpmsg -l error "unable to determine port for ${key} - got ${result}"
       echo "?group-halt ${key}"
       echo "!array-assign fail"
       return
     fi
-    port=${result%% *}
   fi 
 
   echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
