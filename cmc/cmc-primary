@@ -328,7 +328,7 @@ function make_subarray_sensors()
   echo "?var-declare ${1}*instrument-state* sensor,map"
   get_katcp_reply var-declare
 
-  echo "?var-set ${1}*instrument-state* ${1:-system}\_ string :help"
+  echo "?var-set ${1}*instrument-state* ${1:-system}\_instrument\_state string :help"
   get_katcp_reply var-set
   echo "?var-set ${1}*instrument-state* string string :type"
   get_katcp_reply var-set
@@ -400,10 +400,16 @@ function make_instrument_sensors()
 
 function adjust_instrument_sensors()
 {
-  echo "?var-set ${1}*device-status* $1 string :status"
+  subarray=${1}
+  status=${2}
+
+  echo "?var-set ${status}*device-status* ${status} string :status"
   get_katcp_reply var-set
 
-  case "${1}" in 
+  echo "?var-set ${subarray}*instrument-state* ${status} string :status"
+  get_katcp_reply var-set
+
+  case "${status}" in 
     (nominal)
       value="ok"
     ;;
@@ -415,14 +421,12 @@ function adjust_instrument_sensors()
     ;;
   esac
 
-  echo "?var-set ${1}*device-status* ${value} string :value"
+  echo "?var-set ${subarray}*device-status* ${value} string :value"
   get_katcp_reply var-set
 
-  echo "?var-set ${1}*instrument-state* $1 string :status"
-  get_katcp_reply var-set
-
-  if [ "$#" -gt 1 ] ; then
-    echo "?var-set ${1}*instrument-state* $2 string :value"
+  if [ "$#" -gt 2 ] ; then
+    instrument=${3}
+    echo "?var-set ${subarray}*instrument-state* ${instrument} string :value"
     get_katcp_reply var-set
   fi
 }
@@ -810,7 +814,7 @@ function instrument_activate()
   echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun corr2_servlet.py -p ${nextport}"
   if ! get_katcp_reply client-exec ; then
     echo "!instrument-activate fail"
-    adjust_instrument_sensors error
+    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
@@ -821,14 +825,14 @@ function instrument_activate()
     echo "!instrument-activate fail"
     echo "?client-halt ${subarray}-${instrument}"
     get_katcp_reply client-halt 
-    adjust_instrument_sensors error
+    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
   if ! kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
-    adjust_instrument_sensors error
+    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
@@ -836,7 +840,7 @@ function instrument_activate()
   if ! get_katcp_reply client-rename ; then
     # TODO: kill the corr instance to release resources
     echo "!instrument-activate fail"
-    adjust_instrument_sensors error
+    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
@@ -858,7 +862,7 @@ function instrument_activate()
   if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail"
-    adjust_instrument_sensors error
+    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
@@ -887,7 +891,7 @@ function instrument_activate()
 
   echo "!instrument-activate ok"
 
-  adjust_instrument_sensors ${status} ${instrument}
+  adjust_instrument_sensors ${subarray} ${status} ${instrument}
 }
 
 #################################################################################
