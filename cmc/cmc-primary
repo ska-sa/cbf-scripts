@@ -403,7 +403,7 @@ function adjust_instrument_sensors()
   subarray=${1}
   status=${2}
 
-  echo "?var-set ${status}*device-status* ${status} string :status"
+  echo "?var-set ${subarray}*device-status* ${status} string :status"
   get_katcp_reply var-set
 
   echo "?var-set ${subarray}*instrument-state* ${status} string :status"
@@ -806,7 +806,7 @@ function instrument_activate()
   if ! cmc-config ${subarray} ${instrument} ${nextport} ${compound//-/ } ${resource_grab[*]} ; then
     kcpmsg -l error "unable to generate config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
-    adjust_instrument_sensors error
+    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
