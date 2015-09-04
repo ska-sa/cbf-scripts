@@ -260,7 +260,7 @@ function get_katcp_reply()
         ;;
       (\?*)
         kcpmsg -l fatal "rejecting untimely request ${cmd}, still busy servicing ${get}"
-        echo "!${cmd:1} fail"
+        echo "!${cmd:1} fail busy"
         ;;
 
     esac
@@ -296,7 +296,7 @@ function get_katcp_inform()
         ;;
       (\?*)
         kcpmsg -l fatal "rejecting untimely request ${cmd}, still busy servicing ${get}"
-        echo "!${cmd:1} fail"
+        echo "!${cmd:1} fail busy"
         ;;
 
     esac
@@ -468,7 +468,7 @@ function array_assign()
 
   if [ "$#" -lt 3 ] ; then
     kcpmsg "insufficient parameters"
-    echo "!array-assign fail"
+    echo "!array-assign fail usage"
     return
   fi
 
@@ -479,7 +479,7 @@ function array_assign()
 
   if [ -n "${subarray_list[$key]}" ] ; then
     kcpmsg "array ${key} already in use"
-    echo "!array-assign fail"
+    echo "!array-assign fail already-exists"
     return
   fi
 
@@ -489,7 +489,7 @@ function array_assign()
         kcpmsg -l debug "removing old config ${file}"
       else 
         kcpmsg -l error "unable to remove old config file ${file}"
-        echo "!array-assign fail"
+        echo "!array-assign fail read-logs"
         return
       fi
     fi
@@ -507,7 +507,7 @@ function array_assign()
 
   if [ "${match}" -le "0" ] ; then
     kcpmsg -l error "no instruments available for a subarray of $# inputs"
-    echo "!array-assign fail"
+    echo "!array-assign fail unsupported-size"
     return
   fi
 
@@ -515,7 +515,7 @@ function array_assign()
 
   echo "?group-create $key"
   if ! get_katcp_reply group-create ; then
-    echo "!array-assign fail"
+    echo "!array-assign fail read-logs"
     return
   fi
 
@@ -530,7 +530,7 @@ function array_assign()
   echo "?listener-create ${key} ${port} 0.0.0.0"
   if ! get_katcp_reply listener-create ; then
     echo "?group-halt ${key}"
-    echo "!array-assign fail"
+    echo "!array-assign fail network"
     return
   fi
 
@@ -540,14 +540,14 @@ function array_assign()
     result=0
     if ! get_katcp_inform listener-list ${key} ; then
       echo "?group-halt ${key}"
-      echo "!array-assign fail"
+      echo "!array-assign fail read-logs"
       return
     fi
     port=${result%% *}
     if [ "${port}" -le "0" ] ; then
       kcpmsg -l error "unable to determine port for ${key} - got ${result}"
       echo "?group-halt ${key}"
-      echo "!array-assign fail"
+      echo "!array-assign fail read-logs"
       return
     fi
   fi 
@@ -555,7 +555,7 @@ function array_assign()
   echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
   if ! get_katcp_reply client-exec ; then
     echo "?group-halt ${key}"
-    echo "!array-assign fail"
+    echo "!array-assign fail task-start"
     return
   fi
 
@@ -581,7 +581,7 @@ function array_halt()
 
   if [ -z "${key}" ] ; then
     kcpmsg -l error "need a subarray to destroy"
-    echo "!array-halt fail"
+    echo "!array-halt fail usage"
     return
   fi
 
@@ -589,7 +589,7 @@ function array_halt()
 
   if [ -z "${subarray_list[$key]}" ] ; then
     kcpmsg -l error "no state available for array ${key}"
-    echo "!array-halt fail unknown-array"
+    echo "!array-halt fail unknown-item"
     return
   fi
 
@@ -620,7 +620,7 @@ function resource_list()
 
     if [ -z "${resource_set[$1]}" ] ; then
       kcpmsg -l error "resource $1 not found"
-      echo "!resource-list fail"
+      echo "!resource-list fail unknown-item"
       return 1
     fi
 
@@ -643,13 +643,13 @@ function resource_mark()
 
   if [ "$#" -lt 2 ] ; then
     kcpmsg -l error "insufficient arguments"
-    echo "!resource-mark fail"
+    echo "!resource-mark fail usage"
     return 1
   fi
 
   if [ -z "${resource_set[$1]}" ] ; then
     kcpmsg -l error "unknown resource ${1}"
-    echo "!resource-mark fail"
+    echo "!resource-mark fail unknown-item"
     return 1
   fi
 
@@ -664,7 +664,7 @@ function resource_mark()
         else
           kcpmsg -l error "resource $1 unresponsive"
           resource_set[$1]="standby"
-          echo "!resource-mark fail"
+          echo "!resource-mark fail read-logs"
           return 1
         fi
       fi
@@ -672,14 +672,14 @@ function resource_mark()
     (standby) 
       if [ -n "${resource_use[$1]}" ] ; then
         kcpmsg -l error "refusing to release resource $1 held by array ${resource_use[$1]}"
-        echo "!resource-mark fail"
+        echo "!resource-mark fail in-use"
         return
       fi
       resource_set[$1]="standby"
       ;;
     (*) 
       kcpmsg -l error "unknown marking ${2} for resource ${1}"
-      echo "!resource-mark fail"
+      echo "!resource-mark fail usage"
       return 1
       ;;
   esac
@@ -708,7 +708,7 @@ function instrument_probe()
 
   if [ "$#" -lt 1 ] ; then
     kcpmsg -l error "insufficient arguments"
-    echo "!instrument-probe fail"
+    echo "!instrument-probe fail usage"
     return
   fi
 
@@ -724,7 +724,7 @@ function instrument_probe()
 
   if [ -z "${need}" ]  ; then
     kcpmsg -l error "no information about instrument ${instrument} found"
-    echo "!instrument-probe fail"
+    echo "!instrument-probe fail unknown-item"
     return
   fi
 
@@ -749,7 +749,7 @@ function instrument_activate()
 
   if [ "$#" -lt 2 ] ; then
     kcpmsg -l error "insufficient arguments (special case)"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail usage"
     return
   fi
 
@@ -766,13 +766,13 @@ function instrument_activate()
 
   if [ -z "${need}" ]  ; then
     kcpmsg -l error "no information about instrument ${instrument} found"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail unknown-item"
     return
   fi
 
   if [ -z "${subarray_list[${subarray}]}" ] ; then
     kcpmsg -l error "subarray ${subarray} does not seem to exist"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail unknown-item"
     return
   fi
 
@@ -805,7 +805,7 @@ function instrument_activate()
 
   if ! cmc-config ${subarray} ${instrument} ${nextport} ${compound//-/ } ${resource_grab[*]} ; then
     kcpmsg -l error "unable to generate config for instrument ${instrument} in subarray ${subarray}"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors error
     return 1
   fi
@@ -813,7 +813,7 @@ function instrument_activate()
 #echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
   echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun corr2_servlet.py -p ${nextport}"
   if ! get_katcp_reply client-exec ; then
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail task-start"
     adjust_instrument_sensors ${subarray} error
     return 1
   fi
@@ -822,7 +822,7 @@ function instrument_activate()
 
   echo "?client-connect localhost:${nextport} ${subarray}"
   if ! get_katcp_reply client-connect ; then
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail network"
     echo "?client-halt ${subarray}-${instrument}"
     get_katcp_reply client-halt 
     adjust_instrument_sensors ${subarray} error
@@ -831,7 +831,7 @@ function instrument_activate()
 
   if ! kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
     return 1
   fi
@@ -839,7 +839,7 @@ function instrument_activate()
   echo "?client-rename corr localhost:${nextport}" 
   if ! get_katcp_reply client-rename ; then
     # TODO: kill the corr instance to release resources
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
     return 1
   fi
@@ -861,7 +861,7 @@ function instrument_activate()
 
   if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
-    echo "!instrument-activate fail"
+    echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
     return 1
   fi
@@ -946,7 +946,7 @@ while read line ; do
     (*)
       if [ "${cmd:0:1}" = '?' ] ; then
         kcpmsg -l warn "cmc primary got unsupported request ${cmd}"
-        echo "!${cmd:1} fail"
+        echo "!${cmd:1} fail unknown-item"
       fi
       ;;
   esac
