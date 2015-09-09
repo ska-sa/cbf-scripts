@@ -931,14 +931,21 @@ function instrument_activate()
 
     kcpmsg "selecting ${extraport} for sensor"
 
-    echo "?client-exec ${subarray}-${instrument}-sensors ${subarray} kcprun -n CORR2INI=${CORR_DIR}/${subarray}-${instrument} corr2_sensor_servlet.py -p ${extraport}"
+    echo "?client-exec monitor-${subarray}-${instrument} ${subarray} kcprun -n CORR2INI=${CORR_DIR}/${subarray}-${instrument} corr2_sensor_servlet.py -p ${extraport}"
 
     if ! get_katcp_reply client-exec ; then
       kcpmsg -l warn "unable to launch sensors for instrument ${instrument} in ${subarray} but going on anyway"
       status=warn
     fi
 
-    echo "?client-config fixed"
+    sleep 1
+
+    echo "?client-connect localhost:${extraport} ${subarray}-sensors"
+    if ! get_katcp_reply client-connect ; then
+      status=warn
+    fi
+
+    echo "?client-config fixed ${subarray}-sensors"
     if ! get_katcp_reply client-config ; then
       kcpmsg -l warn "unable to configure sensor monitor"
       status=warn
@@ -946,7 +953,7 @@ function instrument_activate()
 
     kcpmsg "about to interrogate servlet sensors"
 
-    activate_servlet_sensors ${subarray}-${instrument}-sensors
+    activate_servlet_sensors ${subarray}-sensors
 
   else
     kcpmsg -l warn "sensor servlet inhibited by configuration"
