@@ -944,6 +944,8 @@ function instrument_activate()
       status=warn
     fi
 
+    kcpmsg "about to interrogate servlet sensors"
+
     activate_servlet_sensors ${subarray}-${instrument}-sensors
 
   else
@@ -960,6 +962,9 @@ function instrument_activate()
 
 validate_instruments
 validate_resource_set
+
+echo "?log-limit fatal"
+get_katcp_reply log-limit
 
 while read line ; do 
 
