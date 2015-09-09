@@ -443,7 +443,7 @@ function activate_servlet_sensors()
 
   while read cmd code extra ; do 
     case "${cmd}" in 
-      (\#sensor-list) 
+      (\#relay) 
         if [ "${state}" != "query" ] ; then
           kcpmsg -l error "encountered late sensor list inform message"
           return 1
