@@ -431,6 +431,59 @@ function adjust_instrument_sensors()
   fi
 }
 
+function activate_servlet_sensors()
+{
+  declare -a vector
+
+  i=0
+  state=query
+  remote=$1
+
+  echo "?relay ${remote} relay ${remote} sensor-list"
+
+  while read cmd code extra ; do 
+    case "${cmd}" in 
+      (\#sensor-list) 
+        if [ "${state}" != "query" ] ; then
+          kcpmsg -l error "encountered late sensor list inform message"
+          return 1
+        fi
+        vector[${#vector[@]}]=${code}
+        ;;
+      (\!relay) 
+
+        if [ "${code}" != "ok" ] ; then
+          kcpmsg -l error "unable to activate sensor retrieval"
+          return 1
+        fi
+
+        if [ "${state}" = "query" ] ; then
+          state=ask
+          if [ -n "${extra}" ] ; then
+            if [ "${extra}" != "${#vector[@]}" ] ; then
+              kcpmsg -l error "problem - sensor logic claims ${extra} sensors but only returned ${#vector[@]}"
+              return 1
+            fi
+          fi
+        fi
+
+        if [ "$i" -lt "${#vector[@]}" ] ; then
+          kcpmsg -l debug "selecting auto strategy for sensor ${vector[$i]} number $i of ${#vector[@]} (${vector[*]})"
+          echo "?relay ${remote} relay ${remote} sensor-sampling ${vector[$i]} auto"
+          i=$[i+1]
+        else 
+          kcpmsg "found and loaded $i sensors"
+          return 0
+        fi
+        ;;
+      (\?*)
+        kcpmsg -l error "rejecting untimely request ${cmd}, still busy interrogating sensors"
+        echo "!${cmd:1} busy"
+        ;;
+    esac
+  done
+}
+
 #################################################################################
 # primary requests 
 
@@ -884,6 +937,14 @@ function instrument_activate()
       kcpmsg -l warn "unable to launch sensors for instrument ${instrument} in ${subarray} but going on anyway"
       status=warn
     fi
+
+    echo "?client-config fixed"
+    if ! get_katcp_reply client-config ; then
+      kcpmsg -l warn "unable to configure sensor monitor"
+      status=warn
+    fi
+
+    activate_servlet_sensors ${subarray}-${instrument}-sensors
 
   else
     kcpmsg -l warn "sensor servlet inhibited by configuration"
