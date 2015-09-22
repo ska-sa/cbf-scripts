@@ -12,7 +12,7 @@ case "$1" in
   (add|old)
     if [ "${4:0:5}" = "roach" ] ; then
       if ! ps ax | grep -q "[kK]cplog.*${4}" ; then
-        kcplog -a 7 -k -s ${4}:7147 -d -o /var/log/${4}.kcplog
+        kcplog -p -a 7 -k -s ${4}:7147 -d -o /var/log/${4}.kcplog
       fi
     fi
   ;;

@@ -468,7 +468,7 @@ function activate_servlet_sensors()
         fi
 
         if [ "$i" -lt "${#vector[@]}" ] ; then
-          kcpmsg -l debug "selecting auto strategy for sensor ${vector[$i]} number $i of ${#vector[@]} (${vector[*]})"
+          kcpmsg -l debug "selecting auto strategy for sensor ${vector[$i]} number $i of ${#vector[@]}"
           echo "?relay ${remote} relay ${remote} sensor-sampling ${vector[$i]} auto"
           i=$[i+1]
         else 
