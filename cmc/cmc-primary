@@ -576,8 +576,19 @@ function array_assign()
     port=${rts_port}
     kcpmsg "using hardcoded port ${port} for rts array"
   else
-    port=0
-    kcpmsg "will select a free port for array other than rts"
+    t="${key//[^0-9]/}"
+    if [ "$t" -gt 0 ] ; then
+      port=$[base_port+t]
+      if [ "$port" -gt "${base_port}" ] ; then
+        kcpmsg "selecting name derived port ${port}"
+      else
+        kcpmsg -l warn "malformed port ${port}, falling back to automatic selection"
+        port=0
+      fi
+    else 
+      kcpmsg "will select a free port for array other than rts"
+      port=0
+    fi
   fi
 
   echo "?listener-create ${key} ${port} 0.0.0.0"
