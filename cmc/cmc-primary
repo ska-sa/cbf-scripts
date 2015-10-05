@@ -893,7 +893,7 @@ function instrument_activate()
     return 1
   fi
 
-  if ! kcpcmd -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
+  if ! kcpcmd -k -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
@@ -923,7 +923,7 @@ function instrument_activate()
 
   kcpmsg -l warn "waiting for initialisation ... patience"
 
-  if ! kcpcmd -t 300 -r -s localhost:${nextport} initialise ; then 
+  if ! kcpcmd -k -t 300 -r -s localhost:${nextport} initialise ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
