@@ -893,7 +893,7 @@ function instrument_activate()
     return 1
   fi
 
-  if ! kcpcmd -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
+  if ! kcpcmd -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
