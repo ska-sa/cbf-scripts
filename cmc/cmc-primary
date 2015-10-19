@@ -637,12 +637,12 @@ function array_assign()
     fi
   fi 
 
-  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
-  if ! get_katcp_reply client-exec ; then
-    echo "?group-halt ${key}"
-    echo "!array-assign fail task-start"
-    return
-  fi
+#  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
+#  if ! get_katcp_reply client-exec ; then
+#    echo "?group-halt ${key}"
+#    echo "!array-assign fail task-start"
+#    return
+#  fi
 
   unset t
 
