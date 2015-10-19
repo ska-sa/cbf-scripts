@@ -115,6 +115,3 @@ for file in ${CORR_DIR}/${array}-* ; do
 # stop corr instance ? 
   fi
 done
-
-
-
