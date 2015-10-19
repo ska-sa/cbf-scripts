@@ -903,6 +903,11 @@ function instrument_activate()
     return 1
   fi
 
+  echo "?client-config client ${subarray}-${instrument}"
+  if ! get_katcp_reply client-config ; then
+    status=warn
+  fi
+
   sleep 2
 
   echo "?client-connect localhost:${nextport} ${subarray}"
@@ -972,6 +977,11 @@ function instrument_activate()
 
     if ! get_katcp_reply client-exec ; then
       kcpmsg -l warn "unable to launch sensors for instrument ${instrument} in ${subarray} but going on anyway"
+      status=warn
+    fi
+
+    echo "?client-config client monitor-${subarray}-${instrument}"
+    if ! get_katcp_reply client-config ; then
       status=warn
     fi
 
