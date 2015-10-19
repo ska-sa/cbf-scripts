@@ -394,6 +394,27 @@ function make_instrument_sensors()
 
   make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       integer seconds 0 unknown
 
+  for fpg in $(grep '^ *bitstream' "$file") ; do 
+    if [ -f "$fpg" ] ; then
+      t=${fpg##*/}
+      prefix=${t%%.*}
+
+      echo "?var-declare ${1}*gateware.${prefix}.user* version,string"
+      get_katcp_reply var-declare
+      echo "?var-declare ${1}*gateware.${prefix}.library* version,string"
+      get_katcp_reply var-declare
+
+      for revision in $(grep 'meta.*77777.*commit-hash'  "$fpg"  | tr -s '\t' ' '  | tr -s ' ' | cut -f 4,5 -d ' ' | tr ' ' '=' ) ; do 
+        if [ "$revision" = "${v/lib//}" ] ; then 
+          echo "?var-set ${1}*gateware.${prefix}.user* ${revision##*=} string" 
+        else
+          echo "?var-set ${1}*gateware.${prefix}.library* ${revision##*=} string" 
+        fi
+        get_katcp_reply var-set
+      done
+    fi
+  done
+
   echo "?broadcast ${1} interface-changed sensor-list"
   get_katcp_reply broadcast
 }
@@ -893,6 +914,11 @@ function instrument_activate()
     return 1
   fi
 
+  echo "?client-config client localhost:${nextport}"
+  if ! get_katcp_reply client-config ; then
+    status=warn
+  fi
+
   if ! kcpcmd -k -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
@@ -953,6 +979,11 @@ function instrument_activate()
 
     echo "?client-connect localhost:${extraport} ${subarray}"
     if ! get_katcp_reply client-connect ; then
+      status=warn
+    fi
+
+    echo "?client-config client localhost:${extraport}"
+    if ! get_katcp_reply client-config ; then
       status=warn
     fi
 
