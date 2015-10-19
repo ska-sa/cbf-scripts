@@ -43,6 +43,10 @@ if [ ! -f ${leases} ] ; then
   fi
 fi
 
+if [ "${state/verbose-log/}" != "${state}" ] ; then
+    set -x
+fi
+
 #################################################################################
 # checking functions
 
