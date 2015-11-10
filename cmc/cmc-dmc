@@ -25,6 +25,7 @@ function reply_transition()
       state=${success}
       backoff=0
     else
+      state=${fail}
       sleep 0.1 ${backoff}
       backoff=$[backoff+1]
     fi
