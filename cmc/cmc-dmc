@@ -23,9 +23,10 @@ function reply_transition()
   if [ "${line[0]}" = "${match}" ] ; then
     if [ "${line[1]}" = "ok" ] ; then
       state=${success}
+      backoff=0
     else
-      sleep 0.5
-      state=${fail}
+      sleep 0.1 ${backoff}
+      backoff=$[backoff+1]
     fi
     quick="yes"
   fi
