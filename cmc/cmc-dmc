@@ -128,6 +128,7 @@ while true ; do
       reply_transition switch tell-cmc ask-sampling 
       ;;
     (tell-cmc)
+      kcpmsg "attempting to set sync epoch to ${value}"
       echo "?digitiser-synch-epoch ${value}"
       state="confirm-cmc"
       ;;
