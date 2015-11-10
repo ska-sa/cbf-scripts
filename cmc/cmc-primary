@@ -201,7 +201,11 @@ function validate_instruments()
       top=$(cat $template  | tr ',=' '\n' | grep ROACH[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
 
       if [ -z "${top}" ] ; then
-        kcpmsg -l fatal "unable to determine resource requirements for instrument ${instrument}"
+        if [ "${state/missing-roaches/}" != "${state}" ] ; then
+          kcpmsg -l warn "unable to determine roaches needed for ${instrument}, assuming it hardcodes them"
+        else
+          kcpmsg -l fatal "unable to determine resource requirements for instrument ${instrument}"
+        fi 
       else 
         instruments_sizes[${instrument}]=$[top+1]
 
