@@ -88,6 +88,7 @@ while true ; do
     (ask-sampling)
       echo "?sensor-sampling synchronisation-epoch auto"
       state="check-sampling"
+      kcpmsg "asking dmc to tell us the epoch"
       ;;
     (check-sampling)
       stall=yes
