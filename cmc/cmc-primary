@@ -993,7 +993,7 @@ function instrument_activate()
       status=warn
     fi
 
-    sleep 1
+    sleep 2
 
     echo "?client-connect localhost:${extraport} ${subarray}"
     if ! get_katcp_reply client-connect ; then
