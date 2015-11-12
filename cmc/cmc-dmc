@@ -63,6 +63,8 @@ else
   debug="no"
 fi
 
+kcpmsg "launching epoch monitor"
+
 while true ; do
 
   if [ "${quick}" = "yes" ] ; then
