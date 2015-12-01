@@ -41,7 +41,7 @@ ulimit -c unlimited
 
 export KATCP_SERVER=localhost:${old_port}
 
-if kcpcmd -t 2 watchdog >& /dev/null ; then
+if kcpcmd -i -t 2 watchdog >& /dev/null ; then
   kcpmsg -l error "${NAME} already running"
   exit 2
 fi
@@ -57,7 +57,7 @@ else
 fi 
 
 timeout=10
-while ! kcpcmd -t 2 watchdog > /dev/null ; do
+while ! kcpcmd -i -t 2 watchdog > /dev/null ; do
   if  [ "${timeout}" -gt 0 ] ; then
     sleep 0.5
     timeout=$[timeout-1]
@@ -68,31 +68,31 @@ while ! kcpcmd -t 2 watchdog > /dev/null ; do
 done
 
 # this is to deal with old katcp logic, new one should be different 
-kcpcmd listener-create setup ${setup_port} 127.0.0.1 
+kcpcmd -i listener-create setup ${setup_port} 127.0.0.1 
 export KATCP_SERVER=localhost:${setup_port}
 
 # top-level katcp interface
-kcpcmd group-create primary 
-kcpcmd listener-create primary ${primary_port} ${bind_interface:-0.0.0.0} primary
+kcpcmd -i group-create primary 
+kcpcmd -i listener-create primary ${primary_port} ${bind_interface:-0.0.0.0} primary
 export KATCP_SERVER=${bind_interface:-localhost}:${primary_port}
 
 # configure top-level/primary group
-kcpcmd scope global group primary
+kcpcmd -i scope global group primary
 
 # logging can now be started 
 kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 
-kcpcmd client-exec primary primary ${NAME}-primary
-kcpcmd client-exec corr primary ${NAME}-null
+kcpcmd -i client-exec primary primary ${NAME}-primary
+kcpcmd -i client-exec corr primary ${NAME}-null
 
 # start the ntp monitor
-kcpcmd client-exec time primary tmon
-kcpcmd client-config client time
+kcpcmd -i client-exec time primary tmon
+kcpcmd -i client-config client time
 
 function kfwd()
 {
-  kcpcmd forward-symbolic $1 $2
-  kcpcmd cmd-help $1 "$3"
+  kcpcmd -i forward-symbolic $1 $2
+  kcpcmd -i cmd-help $1 "$3"
 }
 
 kfwd resource-mark primary "set availability of a processing resource (?resource-mark resource marking)"
@@ -101,19 +101,19 @@ kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
 kfwd array-list    primary "show subarrays (?array-list)"
 kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
 
-kcpcmd var-declare 'katcp-device*' map,version
-kcpcmd var-set katcp-device ${device_api:-unknown} string :version
-kcpcmd var-set katcp-device ${device_build:-unknown} string :build
+kcpcmd -i var-declare 'katcp-device*' map,version
+kcpcmd -i var-set katcp-device ${device_api:-unknown} string :version
+kcpcmd -i var-set katcp-device ${device_build:-unknown} string :build
 
-kcpcmd var-declare "*device-status*" sensor,map
-kcpcmd var-set "*device-status*" ok string :value
-kcpcmd var-set "*device-status*" "correlator master controller health" string :help
-kcpcmd var-set "*device-status*" nominal string :status
-kcpcmd var-set "*device-status*" discrete string :type
+kcpcmd -i var-declare "*device-status*" sensor,map
+kcpcmd -i var-set "*device-status*" ok string :value
+kcpcmd -i var-set "*device-status*" "correlator master controller health" string :help
+kcpcmd -i var-set "*device-status*" nominal string :status
+kcpcmd -i var-set "*device-status*" discrete string :type
 
-kcpcmd var-set "*device-status*" ok       string ":range#0"
-kcpcmd var-set "*device-status*" degraded string ":range#1"
-kcpcmd var-set "*device-status*" fail     string ":range#2"
+kcpcmd -i var-set "*device-status*" ok       string ":range#0"
+kcpcmd -i var-set "*device-status*" degraded string ":range#1"
+kcpcmd -i var-set "*device-status*" fail     string ":range#2"
 
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
@@ -121,8 +121,8 @@ export KATCP_SERVER=localhost:${setup_port}
 kfwd instrument-list  primary "show fielded instruments (?instrument-list)"
 kfwd instrument-probe primary "check resources for an instrument (?instrument-probe instrument)"
 
-kcpcmd forward-symbolic instrument-activate primary instrument-activate %g %1+
-kcpcmd cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
+kcpcmd -i forward-symbolic instrument-activate primary instrument-activate %g %1+
+kcpcmd -i cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
 kfwd capture-list        corr "list data products"
