@@ -56,7 +56,16 @@ else
   kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
 fi 
 
-sleep 0.5
+timeout=10
+while ! kcpcmd -t 2 watchdog > /dev/null ; do
+  if  [ "${timeout}" -gt 0 ] ; then
+    sleep 0.5
+    timeout=$[timeout-1]
+  else 
+    kcpmsg -l error "unable to contact server"
+    exit 2
+  fi
+done
 
 # this is to deal with old katcp logic, new one should be different 
 kcpcmd listener-create setup ${setup_port} 127.0.0.1 
