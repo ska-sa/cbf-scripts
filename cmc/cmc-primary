@@ -412,7 +412,7 @@ function make_instrument_sensors()
       echo "?var-declare ${1}*gateware.${prefix}.library* version,string"
       get_katcp_reply var-declare
 
-      for revision in $(grep 'meta.*77777.*commit_hash'  "$fpg"  | tr -s '\t' ' '  | tr -s ' ' | cut -f 4,5 -d ' ' | tr ' ' '=' ) ; do 
+      for revision in $(grep 'meta.*77777.*commit_hash'  "$fpg"  | tr -s '\t' ' '  | tr -s ' ' | cut -f 4- -d ' ' | tr ' ' '=' ) ; do 
         if [ "$revision" = "${v/lib//}" ] ; then 
           echo "?var-set ${1}*gateware.${prefix}.user* ${revision##*=} string" 
         else
