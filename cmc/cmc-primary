@@ -780,9 +780,7 @@ function resource_mark()
         echo "!resource-mark fail in-use"
         return
       fi
-      if kcpcmd -s "$1" restart ; then
-        kcpmsg -l warn "unable to issue reset to $1"
-      fi
+      kcpcmd -s "$1" restart 
       resource_set[$1]="standby"
       ;;
     (*) 
