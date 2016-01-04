@@ -30,8 +30,6 @@
 
 #define SF_INCREMENT  64
 
-#define DEBUG
-
 struct stringfy{
   char *s_ptr;
   unsigned int s_size;
