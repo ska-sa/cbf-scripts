@@ -229,7 +229,7 @@ int show(FILE *out, char *section, char *key, struct stringfy *ss, struct string
     fprintf(out, "%s=%s\n", ptr_stringfy(sk), ptr_stringfy(sv));
   }
 
-  return 0;
+  return 1;
 }
 
 int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
@@ -237,8 +237,10 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
   int state;
   int c;
   int unusual, line;
-
+  unsigned int matches;
   struct stringfy *ss, *sk, *sv;
+
+  matches = 0;
 
   ss = init_stringfy(NULL, SF_TRIM);
   sk = init_stringfy(NULL, SF_TRIM);
@@ -263,6 +265,7 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
           case '\n' :
           case '\t' :
           case ' '  :
+          case EOF  : /* handled later - do nothing here */
             break;
           case '#'  :
             state = STATE_COMMENT;
@@ -291,6 +294,8 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
                state = STATE_FAIL;
                break;
             }
+          case EOF :
+            break;
           default :
             append_stringfy(ss, c);
             break;
@@ -310,6 +315,8 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
                state = STATE_FAIL;
                break;
             }
+          case EOF : 
+            break;
           default :
             append_stringfy(sk, c);
             break;
@@ -319,11 +326,16 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
         switch(c){
           case '\n' :
           case '\r' :
-            show(out, section, key, ss, sk, sv, flags);
+          case EOF  :
+            if(show(out, section, key, ss, sk, sv, flags) > 0){
+              matches++;
+            }
             state = STATE_START;
             break;
           case '#' :
-            show(out, section, key, ss, sk, sv, flags);
+            if(show(out, section, key, ss, sk, sv, flags) > 0){
+              matches++;
+            }
             state = STATE_COMMENT;
             break;
           default :
@@ -334,6 +346,7 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
       case STATE_COMMENT : 
         switch(c){
           case '\n' :
+          case EOF  : 
             state = STATE_START;
             break;
         }
@@ -343,7 +356,7 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
     switch(c){
       case EOF :
 #ifdef DEBUG
-        fprintf(stderr, "saw eof, ending\n");
+        fprintf(stderr, "saw eof, ending with state %d\n", state);
 #endif
         switch(state){
           case STATE_START :
@@ -369,7 +382,7 @@ int rewrite(FILE *in, FILE *out, char *section, char *key, unsigned int flags)
     return -1;
   }
 
-  return 0;
+  return matches;
 }
 
 void usage(char *app)
@@ -387,6 +400,7 @@ int main(int argc, char **argv)
   int i, j, c;
   int verbose, count, only;
   unsigned int flags;
+  int result, found;
   FILE *fp;
   char *section, *key, *app;
 
@@ -399,6 +413,7 @@ int main(int argc, char **argv)
   flags = 0;
 
   flags |= FLAG_FUSSY;
+  found = 0;
 
   i = j = 1;
   while (i < argc) {
@@ -465,9 +480,13 @@ int main(int argc, char **argv)
         return 4;
       }
 
-      if(rewrite(fp, stdout, section, key, flags) < 0){
+      result = rewrite(fp, stdout, section, key, flags);
+      if(result < 0){
         fclose(fp);
         return 3;
+      }
+      if(result > 0){
+        found = 1;
       }
 
       fclose(fp);
@@ -478,10 +497,14 @@ int main(int argc, char **argv)
   }
 
   if(count == 0){
-    if(rewrite(stdin, stdout, section, key, flags) < 0){
+    result = rewrite(stdin, stdout, section, key, flags);
+    if(result < 0){
       return 3;
+    }
+    if(result > 0){
+      found = 1;
     }
   }
 
-  return 0;
+  return found ? 0 : 1;
 }

@@ -398,9 +398,20 @@ function make_instrument_sensors()
 
   for stream in ${t//:/ } ; do 
 
-    make_plain_sensor "${1}*${stream}.bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bandwidth} nominal
-    make_plain_sensor "${1}*${stream}.centerfrequency*" "true sky frequency of ${stream}" integer Hz ${centerfrequency} nominal
-    make_plain_sensor "${1}*${stream}.channels*"        "channels in ${stream}"           integer none ${channels} nominal
+    bw=$(ike -s ${stream} -k bandwidth ${file})
+    if [ -n "${bw}" ] ; then
+      make_plain_sensor "${1}*${stream}.bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bw} nominal
+    fi
+
+    tf=$(ike -s ${stream} -k true_cf ${file})
+    if [ -n "${tf}" ] ; then
+      make_plain_sensor "${1}*${stream}.centerfrequency*" "true sky frequency of ${stream}" integer Hz ${tf} nominal
+    fi
+
+    cn=$(ike -s ${stream} -k n_chans ${file})
+    if [ -n "${cn}" ] ; then
+      make_plain_sensor "${1}*${stream}.channels*"        "channels in ${stream}"           integer none ${cn} nominal
+    fi
 
   done
 
