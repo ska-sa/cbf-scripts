@@ -1,12 +1,15 @@
 *** TODO ***
 
-* port number output deficient in array assign
-
-* wrapper to kill corr at the correct point
-
-* should work on stream detail from template
+* store more in variables in kcs, rather than in shell variables
 
 *** DONE ***
+
+Tue Feb  2 17:00:47 SAST 2016
+* should work on stream detail from template
+
+Some time 2016
+* port number output deficient in array assign
+* wrapper to kill corr at the correct point
 
 Thu Jul 17 16:28:01 SAST 2014
 * rts template should be replaced, filled in with proper names
