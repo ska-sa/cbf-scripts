@@ -378,42 +378,53 @@ function make_instrument_sensors()
 {
   file=${CORR_DIR}/${1}-${2}
 
-  bandwidth=$(grep '^ *bandwidth *=' ${file}  | cut -f2 -d= )
-  centerfrequency=$(grep '^ *true_cf *=' ${file}  | cut -f2 -d= )
-  channels=$(grep '^ *n_chans *=' ${file}  | cut -f2 -d= )
-
-  if [ -z "${bandwidth}" ] ; then
-    kcpmsg -l error "unable to determine bandwidth for instrument ${1} in array ${2}"
-  fi
-
-  if [ -z "${centerfrequency}" ] ; then
-    kcpmsg -l error "unable to determine centerfrequency for instrument ${1} in array ${2}"
-  fi
-
-  if [ -z "${channels}" ] ; then
-    kcpmsg -l error "unable to determine channels for instrument ${1} in array ${2}"
-  fi
+#   bandwidth=$(grep '^ *bandwidth *=' ${file}  | cut -f2 -d= )
+#   centerfrequency=$(grep '^ *true_cf *=' ${file}  | cut -f2 -d= )
+#   channels=$(grep '^ *n_chans *=' ${file}  | cut -f2 -d= )
+# 
+#   if [ -z "${bandwidth}" ] ; then
+#     kcpmsg -l error "unable to determine bandwidth for instrument ${1} in array ${2}"
+#   fi
+# 
+#   if [ -z "${centerfrequency}" ] ; then
+#     kcpmsg -l error "unable to determine centerfrequency for instrument ${1} in array ${2}"
+#   fi
+# 
+#   if [ -z "${channels}" ] ; then
+#     kcpmsg -l error "unable to determine channels for instrument ${1} in array ${2}"
+#   fi
 
   t=${instruments_streams[${2}]}
+  count=0
 
-  for stream in ${t//:/ } ; do 
+  for stream in fengine ${t//:/ } ; do 
 
     bw=$(ike -s ${stream} -k bandwidth ${file})
-    if [ -n "${bw}" ] ; then
-      make_plain_sensor "${1}*${stream}.bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bw} nominal
-    fi
-
     tf=$(ike -s ${stream} -k true_cf ${file})
-    if [ -n "${tf}" ] ; then
-      make_plain_sensor "${1}*${stream}.centerfrequency*" "true sky frequency of ${stream}" integer Hz ${tf} nominal
+    cn=$(ike -s ${stream} -k n_chans ${file})
+
+    if [ "${stream}" = fengine ] ; then
+      prefix=""
+    else
+      prefix="${stream}."
     fi
 
-    cn=$(ike -s ${stream} -k n_chans ${file})
+    if [ -n "${bw}" ] ; then
+      make_plain_sensor "${1}*${prefix}bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bw} nominal
+      count=$[count+1]
+    fi
+    if [ -n "${tf}" ] ; then
+      make_plain_sensor "${1}*${prefix}centerfrequency*" "true sky frequency of ${stream}" integer Hz ${tf} nominal
+      count=$[count+1]
+    fi
     if [ -n "${cn}" ] ; then
-      make_plain_sensor "${1}*${stream}.channels*"        "channels in ${stream}"           integer none ${cn} nominal
+      make_plain_sensor "${1}*${prefix}channels*"        "channels in ${stream}"           integer none ${cn} nominal
+      count=$[count+1]
     fi
 
   done
+
+  kcpmsg "generated ${count} data stream sensors"
 
   make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       integer seconds 0 unknown
 
