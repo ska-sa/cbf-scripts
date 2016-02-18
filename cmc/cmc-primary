@@ -404,7 +404,7 @@ function make_instrument_sensors()
     cn=$(ike -s ${stream} -k n_chans ${file})
 
     if [ "${stream}" = fengine ] ; then
-      prefix=""
+      prefix="c856M4k."
     else
       prefix="${stream}."
     fi
