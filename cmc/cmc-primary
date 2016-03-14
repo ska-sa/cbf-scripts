@@ -439,7 +439,7 @@ function make_instrument_sensors()
       get_katcp_reply var-declare
 
       for revision in $(grep 'meta.*77777.*commit_hash'  "$fpg"  | tr -s '\t' ' '  | tr -s ' ' | cut -f 4- -d ' ' | tr ' ' '=' ) ; do 
-        if [ "$revision" = "${v/lib//}" ] ; then 
+        if [ "$revision" = "${revision/lib//}" ] ; then 
           echo "?var-set ${1}*gateware.${prefix}.user* ${revision##*=} string" 
         else
           echo "?var-set ${1}*gateware.${prefix}.library* ${revision##*=} string" 
@@ -955,7 +955,7 @@ function instrument_activate()
     status=warn
   fi
 
-  sleep 2
+  sleep 3
 
   echo "?client-connect localhost:${nextport} ${subarray}"
   if ! get_katcp_reply client-connect ; then
