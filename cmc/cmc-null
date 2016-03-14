@@ -79,6 +79,9 @@ while read line ; do
     (\?quantiser-snapshot)
       nullfail ${command_vector[@]}
       ;;
+    (\?digitiser-sync-epoch)
+      nullfail ${command_vector[@]}
+      ;;
     (*)
       if [ "${cmd:0:1}" = '?' ] ; then
         kcpmsg -l error "received unsupported request ${cmd}"

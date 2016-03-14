@@ -1001,7 +1001,7 @@ function instrument_activate()
 
   kcpmsg -l warn "waiting for initialisation ... patience"
 
-  if ! kcpcmd -k -t 300 -r -s localhost:${nextport} initialise ; then 
+  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} initialise ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
