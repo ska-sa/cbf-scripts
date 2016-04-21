@@ -110,7 +110,7 @@ function validate_resource_use()
 
         kcpmsg -l debug "checking config ${file}"
 
-        for board in $(grep '^ *hosts' ${file} | cut -f2 -d= | tr -s , ' ' ) ; do
+        for board in $(grep '^ *hosts' ${file} | cut -f2 -d= | tr -s , ' ' | tr '[:upper:]' '[:lower:]' ) ; do
 
           if [ -n "${resource_use[${board}]}" ] ; then
             kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
@@ -148,7 +148,7 @@ function validate_resource_set()
   # we should never transition from standby->up automatically
   # (other than startup) as this may make board replacement problematic
 
-  for board in $(grep roach ${leases} | cut -f4 -d ' ') ; do
+  for board in $(grep roach ${leases} | cut -f4 -d ' ' | tr '[:upper:]' '[:lower:]' ) ; do
 
     tmp_set[$board]=standby
 
@@ -404,7 +404,7 @@ function make_instrument_sensors()
     cn=$(ike -o -s ${stream} -k n_chans ${file})
 
     if [ "${stream}" = fengine ] ; then
-      prefix="c856M4k."
+      prefix="$(ike -o -s xengine -k output_products ${file} | tr -d ' ')."
     else
       prefix="${stream}."
     fi
