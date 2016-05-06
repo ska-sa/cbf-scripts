@@ -140,8 +140,8 @@ kfwd frequency-select    corr "set the center of the frequency band (?frequency-
 # kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
 kcpcmd -i cmd-alias accumulation-length watchdog
 
-kfwd beam-weights        corr "future beamformer command"
-kfwd beam-passband       corr "future beamformer command"
+kfwd beam-weights        corr "set the beam weigths (?beam-weights tba)"
+kfwd beam-passband       corr "set the beam passband (?beam-passband tba)"
 
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
 kfwd fft-shift           corr "set the FFT shift value (?fft-shift [value])"
