@@ -1003,10 +1003,9 @@ function instrument_activate()
       fi
     else
       kcpmsg -l error "${dmc_address} unable to provide a nominal epoch thus giving up on synchronsation"
-        echo "!instrument-activate fail read-logs"
-        adjust_instrument_sensors ${subarray} error
-        return 1
-      fi
+      echo "!instrument-activate fail read-logs"
+      adjust_instrument_sensors ${subarray} error
+      return 1
     fi
 
     echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
@@ -1017,6 +1016,7 @@ function instrument_activate()
       kcpmsg "launching synchronisation dmc monitor"
       sleep 2
     fi
+
   else
     kcpmsg -l warn "no dmc defined thus synchronisation possible"
   fi
