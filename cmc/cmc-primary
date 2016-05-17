@@ -479,6 +479,8 @@ function adjust_instrument_sensors()
   echo "?var-set ${subarray}*device-status* ${value} string :value"
   get_katcp_reply var-set
 
+# hey, where does this value come from 
+
   if [ "$#" -gt 2 ] ; then
     instrument=${3}
     echo "?var-set ${subarray}*instrument-state* ${instrument} string :value"
@@ -876,6 +878,7 @@ function instrument_probe()
 function instrument_activate()
 {
   shift
+  local epoch
 
   status=nominal
 
@@ -987,6 +990,25 @@ function instrument_activate()
   fi
 
   if [ -n "${dmc_address}" ] ; then
+
+    epoch=$(kcpcmd -r -s ${dmc_address} sensor-value synchronisation-epoch | grep sensor-value | cut -f5- -d ' ')
+    if [ "${epoch% *}" = "nominal" ] ; then
+      if kcpcmd -k -f -r -s localhost:${nextport} digitiser-synch-epoch "${epoch#* }" ; then 
+        kcpmsg "preliminary sync epoch set to ${epoch#* }"
+      else
+        kcpmsg -l error "servlet unwilling to accept epoch ${epoch#* }"
+        echo "!instrument-activate fail read-logs"
+        adjust_instrument_sensors ${subarray} error
+        return 1
+      fi
+    else
+      kcpmsg -l error "${dmc_address} unable to provide a nominal epoch thus giving up on synchronsation"
+        echo "!instrument-activate fail read-logs"
+        adjust_instrument_sensors ${subarray} error
+        return 1
+      fi
+    fi
+
     echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
     if ! get_katcp_reply client-exec ; then
       kcpmsg -l warn "unable to launch dmc synchronisation helper"
@@ -996,7 +1018,7 @@ function instrument_activate()
       sleep 2
     fi
   else
-    kcpmsg -l warn "no dmc defined thus synchronisation"
+    kcpmsg -l warn "no dmc defined thus synchronisation possible"
   fi
 
   kcpmsg -l warn "waiting for initialisation ... patience"
