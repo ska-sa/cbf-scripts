@@ -1014,7 +1014,6 @@ function instrument_activate()
       status=warn
     else
       kcpmsg "launching synchronisation dmc monitor"
-      sleep 2
     fi
 
   else
