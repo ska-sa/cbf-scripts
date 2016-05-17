@@ -1019,7 +1019,7 @@ function instrument_activate()
     fi
 
   else
-    kcpmsg -l warn "no dmc defined thus synchronisation possible"
+    kcpmsg -l warn "no dmc defined thus synchronisation not possible"
   fi
 
   kcpmsg -l warn "waiting for initialisation ... patience"
