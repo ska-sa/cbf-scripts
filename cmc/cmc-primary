@@ -878,7 +878,7 @@ function instrument_probe()
 function instrument_activate()
 {
   shift
-  local epoch
+  local epoch extras
 
   status=nominal
 
@@ -1022,10 +1022,16 @@ function instrument_activate()
     kcpmsg -l warn "no dmc defined thus synchronisation not possible"
   fi
 
-  kcpmsg -l warn "waiting for initialisation $* ... patience"
 
-  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} initialise $* ; then 
-    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray} with options $*"
+  extras="$*"
+  if [ -z "${extras}" ] ; then
+    extras="1 1 1 0"
+  fi
+
+  kcpmsg -l warn "waiting for initialisation ${extras} ... patience"
+
+  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} initialise ${extras} ; then 
+    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray} with options ${extras}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
     return 1
