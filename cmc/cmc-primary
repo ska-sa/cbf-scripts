@@ -1022,10 +1022,10 @@ function instrument_activate()
     kcpmsg -l warn "no dmc defined thus synchronisation not possible"
   fi
 
-  kcpmsg -l warn "waiting for initialisation ... patience"
+  kcpmsg -l warn "waiting for initialisation $* ... patience"
 
   if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} initialise $* ; then 
-    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
+    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray} with options $*"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
     return 1
