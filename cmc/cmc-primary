@@ -1049,7 +1049,7 @@ function instrument_activate()
 
     kcpmsg "selecting ${extraport} for sensor"
 
-    echo "?client-exec monitor-${subarray}-${instrument} ${subarray} kcprun -n CORR2INI=${CORR_DIR}/${subarray}-${instrument} corr2_sensor_servlet.py -p ${extraport}"
+    echo "?client-exec monitor-${subarray}-${instrument} ${subarray} kcprun -e debug -o debug -n CORR2INI=${CORR_DIR}/${subarray}-${instrument} corr2_sensor_servlet.py -p ${extraport}"
 
     if ! get_katcp_reply client-exec ; then
       kcpmsg -l warn "unable to launch sensors for instrument ${instrument} in ${subarray} but going on anyway"
