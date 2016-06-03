@@ -137,8 +137,8 @@ kfwd delays              corr "set delay and fringe correction (?delays time [co
 kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
 
 # request by martin: inhibit accumulation length
-# kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
-kcpcmd -i cmd-alias accumulation-length watchdog
+kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
+#kcpcmd -i cmd-alias accumulation-length watchdog
 
 kfwd beam-weights        corr "set the beam weigths (?beam-weights tba)"
 kfwd beam-passband       corr "set the beam passband (?beam-passband tba)"
