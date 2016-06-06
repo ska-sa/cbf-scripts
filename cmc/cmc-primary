@@ -1025,7 +1025,8 @@ function instrument_activate()
 
   extras="$*"
   if [ -z "${extras}" ] ; then
-    extras="1 1 1 0"
+# warning - hack, this disables qdr callibration
+    extras="1 0 1 0"
   fi
 
   kcpmsg -l warn "waiting for initialisation ${extras} ... patience"
