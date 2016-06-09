@@ -976,7 +976,7 @@ function instrument_activate()
     status=warn
   fi
 
-  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
+  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
@@ -995,7 +995,7 @@ function instrument_activate()
 
     epoch=$(kcpcmd -r -s ${dmc_address} sensor-value synchronisation-epoch | grep sensor-value | cut -f5- -d ' ')
     if [ "${epoch% *}" = "nominal" ] ; then
-      if kcpcmd -k -f -r -s localhost:${nextport} digitiser-synch-epoch "${epoch#* }" ; then 
+      if kcpcmd -i -k -f -r -s localhost:${nextport} digitiser-synch-epoch "${epoch#* }" ; then 
         kcpmsg "preliminary sync epoch set to ${epoch#* }"
       else
         kcpmsg -l error "servlet unwilling to accept epoch ${epoch#* }"
@@ -1023,7 +1023,7 @@ function instrument_activate()
 
   kcpmsg -l warn "waiting for initialisation ${extras} ... patience"
 
-  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} initialise ${extras} ; then 
+  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${nextport} initialise ${extras} ; then 
     kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray} with options ${extras}"
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
