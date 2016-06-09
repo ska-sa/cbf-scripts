@@ -1010,14 +1010,6 @@ function instrument_activate()
       return 1
     fi
 
-    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
-    if ! get_katcp_reply client-exec ; then
-      kcpmsg -l warn "unable to launch dmc synchronisation helper"
-      status=warn
-    else
-      kcpmsg "launching synchronisation dmc monitor"
-    fi
-
   else
     kcpmsg -l warn "no dmc defined thus synchronisation not possible"
   fi
@@ -1036,6 +1028,16 @@ function instrument_activate()
     echo "!instrument-activate fail read-logs"
     adjust_instrument_sensors ${subarray} error
     return 1
+  fi
+
+  if [ -n "${dmc_address}" ] ; then
+    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
+    if ! get_katcp_reply client-exec ; then
+      kcpmsg -l warn "unable to launch dmc synchronisation helper"
+      status=warn
+    else
+      kcpmsg "launching synchronisation dmc monitor"
+    fi
   fi
 
   for board in ${resource_grab[*]} ; do
