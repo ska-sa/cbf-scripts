@@ -142,6 +142,7 @@ kfwd accumulation-length corr "set the integration interval (?accumulation lengt
 
 kfwd beam-weights        corr "set the beam weigths (?beam-weights tba)"
 kfwd beam-passband       corr "set the beam passband (?beam-passband tba)"
+kfwd adc-snapshot        corr "retrieve and adc snapshot (?adc-snapshot input-label [time])"
 
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
 kfwd fft-shift           corr "set the FFT shift value (?fft-shift [value])"
