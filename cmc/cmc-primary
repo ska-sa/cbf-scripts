@@ -320,7 +320,7 @@ function update_git_versions()
 {
   local v
   
-  v=$(git --git-dir ${BITSTREAM_DIR:-/srv/mkat_fpga}/.git describe --always --tags --long --dirty)
+  v=$(cd ${BITSTREAM_DIR:-/srv/mkat_fpga} ; git describe --always --tags --long --dirty)
 
   if [ -n "${v}" ] ; then
     echo "?var-declare gateware-images* version,string"
@@ -331,7 +331,7 @@ function update_git_versions()
   fi
 
 
-  v=$(git --git-dir ${CORR_TEMPLATE}/.git describe --always --tags --long --dirty)
+  v=$(cd ${CORR_TEMPLATE} ; git describe --always --tags --long --dirty)
 
   if [ -n "${v}" ] ; then
     echo "?var-declare correlator-configs* version,string"
