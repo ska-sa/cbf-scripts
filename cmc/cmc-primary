@@ -338,18 +338,6 @@ function update_git_versions()
 
 function make_subarray_sensors()
 {
-  local v
-
-  v=$(git --git-dir ${BITSTREAM_DIR:-/srv/mkat_fpga}/.git describe --always --tags --long --dirty)
-
-  if [ -n "${v}" ] ; then
-    echo "?var-declare ${1}*gateware-installation* version,string"
-    get_katcp_reply var-declare
-
-    echo "?var-set ${1}*gateware-installation* ${v} string" 
-    get_katcp_reply var-set
-  fi
-
   echo "?var-declare ${1}*device-status* sensor,map"
   get_katcp_reply var-declare
 
