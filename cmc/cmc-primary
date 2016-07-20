@@ -316,6 +316,32 @@ function get_katcp_inform()
 
 }
 
+function update_git_versions()
+{
+  local v
+  
+  v=$(git --git-dir ${BITSTREAM_DIR:-/srv/mkat_fpga}/.git describe --always --tags --long --dirty)
+
+  if [ -n "${v}" ] ; then
+    echo "?var-declare gateware-images* version,string"
+    get_katcp_reply var-declare
+
+    echo "?var-set gateware-images* ${v} string" 
+    get_katcp_reply var-set
+  fi
+
+
+  v=$(git --git-dir ${CORR_TEMPLATE}/.git describe --always --tags --long --dirty)
+
+  if [ -n "${v}" ] ; then
+    echo "?var-declare correlator-configs* version,string"
+    get_katcp_reply var-declare
+
+    echo "?var-set correlator-configs* ${v} string" 
+    get_katcp_reply var-set
+  fi
+}
+
 function make_subarray_sensors()
 {
   local v
@@ -706,6 +732,9 @@ function array_assign()
   subarray_list[$key]=$t
 
   make_subarray_sensors ${key}
+
+# as good a place as any to refresh things ... 
+  update_git_versions
 
   echo "!array-assign ok ${port}"
 }
@@ -1115,11 +1144,13 @@ function instrument_activate()
 #################################################################################
 # mainloop
 
+echo "?log-limit fatal"
+get_katcp_reply log-limit
+
 validate_instruments
 validate_resource_set
 
-echo "?log-limit fatal"
-get_katcp_reply log-limit
+update_git_versions
 
 while read line ; do 
 
