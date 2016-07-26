@@ -446,7 +446,7 @@ function make_instrument_sensors()
 
   kcpmsg "generated ${count} data stream sensors"
 
-  make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       integer seconds 0 unknown
+  make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       float seconds 0 unknown
 
   for fpg in $(grep '^ *bitstream' "$file") ; do 
     if [ -f "$fpg" ] ; then
