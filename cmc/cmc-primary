@@ -971,7 +971,7 @@ function instrument_activate()
   fi
 
 #echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
-  echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun corr2_servlet.py -p ${nextport}"
+  echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun -o auto corr2_servlet.py -p ${nextport}"
   if ! get_katcp_reply client-exec ; then
     echo "!instrument-activate fail task-start"
     adjust_instrument_sensors ${subarray} error
