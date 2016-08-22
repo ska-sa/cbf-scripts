@@ -133,7 +133,7 @@ kfwd capture-meta        corr "reissue stream meta-data (?capture-meta stream)"
 
 kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
 kfwd gain                corr "set gain factors (?gain input [values])"
-kfwd delays              corr "set delay and fringe correction (?delays time [coefficient-set]*)"
+kfwd delays              corr "set delay and fringe correction (?delays unix-time [coefficient-set]*)"
 kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
 
 # request by martin: inhibit accumulation length
@@ -144,8 +144,8 @@ kfwd beam-weights        corr "set the beam weigths (?beam-weights beam [values]
 kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth centerfrequency:)"
 kfwd beam-quant-gains    corr "set the quantiser gain for a beam (?beam-quant-gain beam [gain])"
 
-kfwd adc-snapshot        corr "retrieve and adc snapshot (?adc-snapshot input-label [time])"
-kfwd transient-buffer-trigger  corr "trigger the transient buffer (?transient-buffer-trigger)"
+kfwd adc-snapshot        corr "retrieve a snapshot of ADC data for a specific input (?adc-snapshot input-label [unix-time])"
+kfwd transient-buffer-trigger  corr "trigger the transient buffer for all inputs (?transient-buffer-trigger)"
 
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
 kfwd fft-shift           corr "set the FFT shift value (?fft-shift [value])"
