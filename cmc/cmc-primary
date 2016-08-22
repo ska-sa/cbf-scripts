@@ -1095,7 +1095,7 @@ function instrument_activate()
     fi
 
     echo "?relay localhost:${extraport} relay localhost:${extraport} watchdog"
-    if ! get_katcp_reply watchdog ; then
+    if ! get_katcp_reply relay ; then
       status=warn
     fi
 
