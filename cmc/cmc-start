@@ -141,7 +141,7 @@ kfwd accumulation-length corr "set the integration interval (?accumulation lengt
 #kcpcmd -i cmd-alias accumulation-length watchdog
 
 kfwd beam-weights        corr "set the beam weigths (?beam-weights beam [values]*)"
-kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth centerfrequency:)"
+kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth centerfrequency)"
 kfwd beam-quant-gains    corr "set the quantiser gain for a beam (?beam-quant-gain beam [gain])"
 
 kfwd adc-snapshot        corr "retrieve a snapshot of ADC data for a specific input (?adc-snapshot input-label [unix-time])"
