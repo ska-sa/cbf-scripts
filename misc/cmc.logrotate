@@ -1,6 +1,7 @@
 /var/log/cmc.kcplog {
   rotate 52
   weekly
+  compress
   postrotate
     /usr/bin/killall -HUP kcplog
   endscript

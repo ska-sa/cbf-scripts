@@ -414,37 +414,37 @@ function make_instrument_sensors()
 #     kcpmsg -l error "unable to determine channels for instrument ${1} in array ${2}"
 #   fi
 
-  t=${instruments_streams[${2}]}
-  count=0
+#   t=${instruments_streams[${2}]}
+#   count=0
 
-  for stream in fengine ${t//:/ } ; do 
-
-    bw=$(ike -o -s ${stream} -k bandwidth ${file})
-    tf=$(ike -o -s ${stream} -k true_cf ${file})
-    cn=$(ike -o -s ${stream} -k n_chans ${file})
-
-    if [ "${stream}" = fengine ] ; then
-      prefix="$(ike -o -s xengine -k output_products ${file} | tr -d ' ')."
-    else
-      prefix="${stream}."
-    fi
-
-    if [ -n "${bw}" ] ; then
-      make_plain_sensor "${1}*${prefix}bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bw} nominal
-      count=$[count+1]
-    fi
-    if [ -n "${tf}" ] ; then
-      make_plain_sensor "${1}*${prefix}centerfrequency*" "true sky frequency of ${stream}" integer Hz ${tf} nominal
-      count=$[count+1]
-    fi
-    if [ -n "${cn}" ] ; then
-      make_plain_sensor "${1}*${prefix}channels*"        "channels in ${stream}"           integer none ${cn} nominal
-      count=$[count+1]
-    fi
-
-  done
-
-  kcpmsg "generated ${count} data stream sensors"
+#   for stream in fengine ${t//:/ } ; do 
+# 
+#     bw=$(ike -o -s ${stream} -k bandwidth ${file})
+#     tf=$(ike -o -s ${stream} -k true_cf ${file})
+#     cn=$(ike -o -s ${stream} -k n_chans ${file})
+# 
+#     if [ "${stream}" = fengine ] ; then
+#       prefix="$(ike -o -s xengine -k output_products ${file} | tr -d ' ')."
+#     else
+#       prefix="${stream}."
+#     fi
+# 
+#     if [ -n "${bw}" ] ; then
+#       make_plain_sensor "${1}*${prefix}bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bw} nominal
+#       count=$[count+1]
+#     fi
+#     if [ -n "${tf}" ] ; then
+#       make_plain_sensor "${1}*${prefix}centerfrequency*" "true sky frequency of ${stream}" integer Hz ${tf} nominal
+#       count=$[count+1]
+#     fi
+#     if [ -n "${cn}" ] ; then
+#       make_plain_sensor "${1}*${prefix}channels*"        "channels in ${stream}"           integer none ${cn} nominal
+#       count=$[count+1]
+#     fi
+# 
+#   done
+# 
+#   kcpmsg "generated ${count} data stream sensors"
 
   make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       float seconds 0 unknown
 
