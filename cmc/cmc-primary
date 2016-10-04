@@ -1201,6 +1201,9 @@ while read line ; do
     (\?instrument-activate) 
       instrument_activate ${command_vector[@]}
       ;;
+    (\?halt) 
+      halt ${command_vector[@]}
+      ;;
     (*)
       if [ "${cmd:0:1}" = '?' ] ; then
         kcpmsg -l warn "cmc primary got unsupported request ${cmd}"
