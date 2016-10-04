@@ -1128,6 +1128,16 @@ function instrument_activate()
   adjust_instrument_sensors ${subarray} ${status} ${instrument}
 }
 
+function halt()
+{
+  shift
+  if kcprun sudo shutdown -h now ; then
+    echo "!halt ok"
+  else 
+    echo "!halt fail"
+  fi
+}
+
 #################################################################################
 # mainloop
 
@@ -1184,6 +1194,9 @@ while read line ; do
       ;;
     (\?instrument-probe) 
       instrument_probe ${command_vector[@]}
+      ;;
+    (\?instrument-activate) 
+      instrument_activate ${command_vector[@]}
       ;;
     (\?instrument-activate) 
       instrument_activate ${command_vector[@]}

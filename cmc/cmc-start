@@ -101,6 +101,9 @@ kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
 kfwd array-list    primary "show subarrays (?array-list)"
 kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
 
+kcpcmd -i cmd-delete halt  
+kfwd halt          primary "halt the system (?halt)"
+
 kcpcmd -i var-declare 'katcp-device*' map,version
 kcpcmd -i var-set katcp-device ${device_api:-unknown} string :version
 kcpcmd -i var-set katcp-device ${device_build:-unknown} string :build
