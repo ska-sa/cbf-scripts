@@ -136,6 +136,7 @@ kfwd capture-meta        corr "reissue stream meta-data (?capture-meta stream)"
 
 kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
 kfwd gain                corr "set gain factors (?gain input [values])"
+kfwd gain-all            corr "set gain factors (?gain-all [values])"
 kfwd delays              corr "set delay and fringe correction (?delays unix-time [coefficient-set]*)"
 kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
 
