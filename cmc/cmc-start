@@ -101,6 +101,15 @@ kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
 kfwd array-list    primary "show subarrays (?array-list)"
 kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
 
+kcpcmd -i forward-symbolic instrument-halt    primary array-halt
+kcpcmd -i cmd-help         instrument-halt   "halt an instrument (?instrument-halt [instrument])"
+
+kcpcmd -i forward-symbolic instrument-list    primary array-list
+kcpcmd -i cmd-help         instrument-list   "show running instruments (?instrument-list)"
+
+kcpcmd -i forward-symbolic instrument-assign  primary array-assign
+kcpcmd -i cmd-help         instrument-assign "define and launch a subarray (?instrument-assign subarray [inputs]*)"
+
 kcpcmd -i cmd-delete halt  
 kfwd halt          primary "halt the system (?halt)"
 
