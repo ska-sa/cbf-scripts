@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-SCRIPTS = $(wildcard *mc-*)
+SCRIPTS = $(wildcard ?mc-*)
 
 all:
 

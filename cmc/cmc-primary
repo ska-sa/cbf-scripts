@@ -1198,9 +1198,6 @@ while read line ; do
     (\?instrument-activate) 
       instrument_activate ${command_vector[@]}
       ;;
-    (\?instrument-activate) 
-      instrument_activate ${command_vector[@]}
-      ;;
     (\?halt) 
       halt ${command_vector[@]}
       ;;
