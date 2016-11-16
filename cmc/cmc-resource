@@ -10,7 +10,7 @@ if [ ! -f ${leases} ] ; then
 fi
 
 # valid command names and their minimum parameter count 
-declare -A -r command_set=([resource-reload]=1 [resource-list]=1)
+declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-assign]=4 [subordinate-list]=1 [subordinate-halt]=2)
 
 declare -a command_vector
 declare -i command_size=0
@@ -184,6 +184,8 @@ function retrieve_reply()
   done
 }
 
+declare -A inform_result
+
 function retrieve_inform()
 {
   local name="$1"
@@ -289,6 +291,7 @@ function fetch_var()
 #
 # resources:name:type       - what type of resource it is 
 # resources:name:mode       - did the user decide its status
+# resources:name:holder     - which subarray owns it
 
 push_failure
 send_request   var-declare  "resources*"  map,readonly
@@ -302,7 +305,7 @@ fi
 function check_resources()
 {
   local -l board
-  local now mode art status when fresh
+  local now mode art status when fresh key tmp board
 
   now=$(date +%s)
 
@@ -348,7 +351,7 @@ function check_resources()
     fi
 
     if [ "${fresh}" = "0" ] ; then
-      if kcpcmd -i -r -f -t 2 -s "${board}" watchdog ; then
+      if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
         status=up
       else 
         status=standby
@@ -362,12 +365,51 @@ function check_resources()
 
     if ! pop_failure  ; then
       kcpmsg -l fatal "unable to update status of board ${board}"
+      return 1
     fi
 
   done
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to retrieve resource variables"
+    return 1
+  fi
+
+  push_failure
+
+  for key in "${!var_result[@]}" ; do
+    if [ "${key##*:}" = "when" ] ; then
+      when="${var_result[${key}]}"
+      if [ "$[when+checkperiod]" -le "${now}" ] ; then
+        tmp="${key#resources:}"
+        board="${tmp%%:*}"
+        if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
+          if [ "${var_result[resources:${board}:status]}" = "up" ] ; then
+            if [ "${var_result[resources:${board}:mode]}" = "auto" ] ; then
+              if ! kcpcmd -kir -f -t 1 -s "${board}" watchdog >& /dev/null ; then
+                send_request   var-set      "resources" standby string ":${board}:status"
+                retrieve_reply var-set
+              fi
+            fi
+          fi
+        fi
+      fi
+    fi
+  done
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to update expired resource"
+    return 1
+  fi
+
+  return 0
 }
 
-### api functions #######################################
+### api functions ### resources #########################
 
 function resource_reload()
 {
@@ -389,10 +431,16 @@ function resource_list()
 
   fetch_var "resources"
 
+  if ! pop_failure  ; then
+    kcpmsg -l error "unable to retrieve resource variables"
+    echo "!resource-list fail"
+  fi
+
   for key in "${!var_result[@]}" ; do
-    tmp=${key#resources:}
-    board=${tmp%%:*}
-    vector[${board}]="#resource-list ${board} ${var_result[resources:${board}:status]}"
+    tmp="${key#resources:}"
+    board="${tmp%%:*}"
+
+    vector[${board}]="#resource-list ${board} ${var_result[resources:${board}:status]} ${var_result[resources:${board}:holder]}"
   done
 
   for key in "${vector[@]}" ; do 
@@ -402,7 +450,413 @@ function resource_list()
   echo "!resource-list ok"
 }
 
+function resource_mark()
+{
+  local board status 
+
+  shift 
+  
+  board=$1
+  status=$2
+
+  check_resources
+
+  push_failure
+
+  fetch_var "resources:${board}"
+
+  if ! pop_failure  ; then
+    kcpmsg -l error "unable to retrieve resource for ${board}"
+    echo "!resource-mark fail unknown-item"
+  fi
+
+  case "${status}" in
+    (up) 
+      if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
+        if ! kcpcmd -k -r -i -s "${board}" watchdog >& /dev/null ; then
+          if [ "${state/missing-roaches/}" = "${state}" ] ; then
+            kcpmsg -l error "resource ${board} unresponsive"
+            echo "!resource-mark fail network"
+            return 1
+          fi
+          kcpmsg -l warn "roach resource ${board} not responsive but taking it to be ok"
+        fi
+      fi
+
+      push_failure
+
+      if [ "${var_result[resources:${board}:status]}" != "up" ] ; then
+        send_request   var-set  "resources" up     string ":${board}:status"
+        retrieve_reply var-set
+      fi
+
+      if [ "${var_result[resources:${board}:mode]}" != "user" ] ; then
+        send_request   var-set  "resources" user   string ":${board}:mode"
+        retrieve_reply var-set
+      fi
+
+      if ! pop_failure  ; then
+        kcpmsg -l error "unable to update resource state for ${board}"
+        echo "!resource-mark fail read-logs"
+      fi
+
+      echo "!resource-mark ok"
+      return 0
+    ;;
+    (standby)
+
+      push_failure
+
+      if [ "${var_result[resources:${board}:status]}" != "standby" ] ; then
+        send_request   var-set  "resources" standby  string ":${board}:status"
+        retrieve_reply var-set
+      fi
+
+      if [ "${var_result[resources:${board}:mode]}" != "user" ] ; then
+        send_request   var-set  "resources" user   string ":${board}:mode"
+        retrieve_reply var-set
+      fi
+
+      if ! pop_failure  ; then
+        kcpmsg -l error "unable to update resource state for ${board}"
+        echo "!resource-mark fail read-logs"
+      fi
+
+      echo "!resource-mark ok"
+      return 0
+    ;;
+    (reset)
+
+      if [ "${var_result[resources:${board}:type]}" != roach ] ; then
+        kcpmsg -l warn "no way of resetting resource ${board}"
+        echo "!resource-mark fail read-logs"
+        return 1
+      fi
+
+      if [ -n "${var_result[resources:${board}:holder]}" ] ; then
+        kcpmsg -l warn "unwilling to reset resource ${board} as it is used by ${var_result[resources:${board}:holder]}"
+        echo "!resource-mark fail in-use"
+        return 1
+      fi
+
+      push_failure
+
+      send_request   var-set  "resources" standby  string ":${board}:status"
+      retrieve_reply var-set
+
+      if [ "${var_result[resources:${board}:mode]}" != "auto" ] ; then
+        send_request   var-set  "resources" auto   string ":${board}:mode"
+        retrieve_reply var-set
+      fi
+
+      if ! pop_failure  ; then
+        kcpmsg -l error "unable to update resource state for ${board}"
+        echo "!resource-mark fail read-logs"
+      fi
+
+      if ! kcpcmd -k -i -r -s "$1" restart ; then
+        kcpmsg -l error "unable to restart resource ${board}"
+        echo "!resource-mark fail network"
+        return 1
+      fi
+
+      echo "!resource-mark ok"
+      return 0
+    ;;
+    (*) 
+      kcpmsg -l error "unknown marking ${status} for resource ${board}"
+      echo "!resource-mark fail usage"
+      return 1
+    ;;
+  esac
+}
+
+### api functions ### subordinates ######################
+
+function subordinate_list()
+{
+  local -A ports hosts
+  local -a v 
+  local group port host
+  local c t
+
+  shift
+
+  push_failure
+
+  send_request    listener-list "$*"
+  retrieve_inform listener-list
+
+  if ! pop_failure ; then
+    echo "!subordinate-list fail"
+    return
+  fi
+
+# WARNING: we assume one listener per group here 
+
+  kcpmsg -l debug "my keys are ${!inform_result[@]}" 
+  for t in "${!inform_result[@]}" ; do
+    v=(${inform_result[${t}]})
+    group=${v[2]}
+    if [ -n "${group}" ] ; then
+      ports[${group}]=${v[0]}
+      hosts[${group}]=${v[1]}
+    fi
+  done
+
+  push_failure
+
+  c=0
+  for group in "${!ports[@]}" ; do
+
+    send_request    var-show "${group}*subordinate*"
+    retrieve_inform var-show
+
+    if clear_failure ; then 
+
+      subarray="${var_result[subordinate]}"
+
+      if [ -n "${subarray}" ] ; then
+
+        port=${ports[${group}]}
+        host=${hosts[${group}]}
+
+        kcpmsg -l debug "considering ${group} with listener ${host}:${port}"
+
+
+        if [ "${host}" = "0.0.0.0" ] ; then
+          unset host
+        fi 
+
+        send_request    var-show "${group}*inputs*"
+        retrieve_inform var-show
+
+        if clear_failure ; then
+          echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${inform_result[*]}"
+          c=$[c+1]
+        fi
+
+      fi
+
+    fi
+  done
+
+  pop_failure
+
+  if [ "${c}" -lt "$#"  ] ; then
+    kcpmsg -l debug "was given $# parameters, could only list ${c} subarrays"
+    echo "!subordinate-list fail unknown-array"
+  else
+    echo "!subordinate-list ok"
+  fi
+
+}
+
+function subordinate_assign()
+{
+  local port key prefix group file
+  local i t
+
+  shift
+
+  key=$1
+  
+# TODO: process key into group name via prefix
+
+  group=${key}
+  
+  push_failure
+
+  send_request   group-list "${group}"
+  retrieve_reply group-list
+
+  if pop_failure ; then
+    kcpmsg -l warn "array ${group} already in use"
+    echo "!subordinate-assign fail already-exists"
+    return
+  fi
+
+#   for instrument in ${instruments_deployed[*]} ; do
+#     if [ ${instruments_inputs[${instrument}]} = "$#" ] ; then
+#       match=$[match+1]
+#     fi
+#   done
+# 
+#   if [ "${match}" -le "0" ] ; then
+#     kcpmsg -l error "no instruments available for a subarray of $# inputs"
+#     echo "!subordinate-assign fail unsupported-size"
+#     return
+#   fi
+# 
+#   kcpmsg -l info "have ${match} instruments on offer for a subarray of $# inputs"
+
+  if [ -n "${CORR_DIR}" ] ; then
+    for file in ${CORR_DIR}/${key}-* ; do
+      if [ -f ${file} ] ; then
+        if rm ${file} ; then
+          kcpmsg -l debug "removing old config ${file}"
+        else 
+          kcpmsg -l error "unable to remove old config file ${file}"
+#        echo "!subordinate-assign fail read-logs"
+#        return
+        fi
+      fi
+    done
+  fi
+
+  push_failure
+
+  send_request   group-create "${group}"
+  retrieve_reply group-create
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to create group ${group} for array"
+    echo "!subordinate-assign fail read-logs"
+    return
+  fi
+
+# TODO: a prune_holder here, to clean out stale resources 
+
+# WARNING: we have created the group - now committed to deleting it on failure ... 
+
+  push_failure
+
+  send_request   var-declare "${group}*subordinate*" string
+  retrieve_reply var-declare 
+
+  send_request   var-set "${group}*subordinate*" "$key" string 
+  retrieve_reply var-set
+
+  send_request   var-declare "${group}*inputs*" array
+  retrieve_reply var-declare 
+
+  shift 
+  i=0
+
+  while [ "$#" -ge 1 ] ; do
+    send_request   var-set "${group}*inputs*" "$1" string "#$i"
+    retrieve_reply var-set
+
+    shift
+    i=$[i+1]
+  done
+
+  if ! clear_failure ; then
+
+    send_request   group-halt "${group}"
+    retrieve_reply group-halt
+    
+    pop_failure
+
+    kcpmsg -l warn "unable to record inputs for group ${group}"
+    echo "!subordinate-assign fail read-logs"
+    return
+  fi
+
+  if [ "${key}" = "rts" ] ; then
+    port=${rts_port:-7404}
+    kcpmsg "using hardcoded port ${port} for rts array"
+  else
+    t="${key//[^0-9]/}"
+    if [ "$t" -gt 0 ] ; then
+      port=$[base_port+t]
+      if [ "$port" -gt "${base_port}" ] ; then
+        kcpmsg "selecting name derived port ${port}"
+      else
+        kcpmsg -l warn "malformed port ${port} thus falling back to automatic selection"
+        port=0
+      fi
+    else 
+      kcpmsg "will select a free port for array other than rts"
+      port=0
+    fi
+  fi
+
+  push_failure
+
+  send_request   listener-create "${key}" "${port}" "0.0.0.0" "${group}"
+  retrieve_reply listener-create
+
+  if [ "${port}" -le "0" ] ; then
+    send_request listener-list "${key}" 
+    retrieve_inform listener-list "${key}"
+    port=${inform_result[${key}]%% *}
+    if [ "${port}" -le "0" ] ; then
+      kcpmsg -l error "unable to determine port for ${key} - got ${result}"
+      set_failure
+    fi
+  fi 
+
+  if ! clear_failure ; then
+    send_request   group-halt "${key}"
+    retrieve_reply group-halt
+
+    pop_failure
+
+    kcpmsg -l warn "unable to start listener for group ${group}"
+    echo "!subordinate-assign fail network"
+    return
+  fi
+
+#  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
+#  if ! get_katcp_reply client-exec ; then
+#    echo "?group-halt ${key}"
+#    echo "!subordinate-assign fail task-start"
+#    return
+#  fi
+
+#  make_subarray_sensors ${key}
+
+  echo "!subordinate-assign ok ${port}"
+}
+
+function subordinate_halt()
+{
+  local group key
+
+  shift
+
+  key="$1"
+
+  if [ -z "${key}" ] ; then
+    kcpmsg -l error "need a subarray to destroy"
+    echo "!subordinate-halt fail usage"
+    return
+  fi
+
+  group="${key}"
+
+  push_failure
+
+  send_request    var-list "${group}*subordinate*"
+  retrieve_reply  var-list
+
+  if ! pop_failure ; then
+    kcpmsg -l error "could not locate variable suborinate in group ${group}"
+
+    echo "!subordinate-halt fail unknown-item"
+    return
+  fi
+
+  push_failure
+
+  send_request    group-halt "$key"
+  retrieve_reply  group-halt
+
+  if ! pop_failure ; then
+    echo "!subordinate-halt fail read-logs"
+    return
+  fi
+
+  echo "!subordinate-halt ok"
+}
+
 ### main loop ###########################################
+
+push_failure
+send_request   log-limit off
+retrieve_reply log-limit
+pop_failure  
 
 while read line ; do 
   add_queue ${line}
