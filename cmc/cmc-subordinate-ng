@@ -532,6 +532,9 @@ function setup_instruments()
 
 function instrument_list()
 {
+  local instrument t i
+  local -A vector
+
   shift
 
   setup_instruments
@@ -545,9 +548,14 @@ function instrument_list()
     return 1
   fi
 
-  for instrument in ${instruments_deployed[*]} ; do 
-    t=${instruments_streams[${instrument}]}
-    echo "#instrument-list ${instrument} ${t//:/ }"
+  for instrument in "${!var_result[@]}" ; do 
+    t=${var_result[${instrument}]}
+    i=${t%%#*}
+    vector[$t]="${vector[$t]} ${t##*#}"
+  done
+
+  for instrument in "${!vector[@]}" ; do 
+    echo "#instrument-list ${instrument} ${vector[${instrument}]}"
   done
 
   echo "!instrument-list ok"
@@ -556,7 +564,6 @@ function instrument_list()
 function instrument_probe()
 {
   shift
-
   setup_instruments
 
   if [ "$#" -lt 1 ] ; then
