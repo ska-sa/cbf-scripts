@@ -1,13 +1,28 @@
 #!/bin/bash
 
-set -x
-
 export KATCP_LABEL=cmc-resource
 
-leases=${LEASE_FILE:-/var/lib/misc/dnsmasq.leases}
-if [ ! -f ${leases} ] ; then
-  leases=../stub/dnsmasq.leases-small
+configuration=${CMC_CONFIG:-/etc/cmc.conf}
+
+if [ -f "${configuration}" ] ; then
+  source "${configuration}"
+
+  if [ "${state/verbose-log/}" != "${state}" ] ; then
+    set -x
+  fi
+else
+  kcpmsg -l fatal "unable to locate ${configuration} thus making things up"
+  set -x
+
+  leases=${LEASE_FILE:-/var/lib/misc/dnsmasq.leases}
+  if [ ! -f ${leases} ] ; then
+    leases=../stub/dnsmasq.leases-small
+  fi
 fi
+
+### essential declarations ##############################
+
+declare -a -r resource_types=(roach skarab)
 
 # valid command names and their minimum parameter count 
 declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-assign]=3 [subordinate-list]=1 [subordinate-halt]=2)
@@ -270,19 +285,6 @@ function fetch_var()
   done
 }
 
-### unused ##############################################
-
-# if [ -n "${CMC_CONFIG}" ] ; then
-#   source "${CMC_CONFIG}"
-# else
-#   kcpmsg "running standalone"
-#   source ../misc/cmc.conf
-# fi
-# 
-# 
-# if [ "${state/verbose-log/}" != "${state}" ] ; then
-#     set -x
-# fi
 
 ### support functions ###################################
 

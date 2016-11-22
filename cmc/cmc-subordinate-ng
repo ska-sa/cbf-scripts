@@ -11,15 +11,17 @@ configuration=${CMC_CONFIG:-/etc/cmc.conf}
 
 if [ -f "${configuration}" ] ; then
   source "${configuration}"
+
+  if [ "${state/verbose-log/}" != "${state}" ] ; then
+    set -x
+  fi
+
 else
-  kcpmsg -l fatal "unable to locate ${configuration}"
+  kcpmsg -l fatal "unable to locate ${configuration} thus making things up"
+  set -x
 fi
 
-set -x
 
-#if [ "${state/verbose-log/}" != "${state}" ] ; then
-#    set -x
-#fi
 
 declare -a -r resource_types=(roach skarab)
 
