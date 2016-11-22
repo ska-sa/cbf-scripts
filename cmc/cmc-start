@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# To run this in test mode use
+# CMC_CONFIG=$(pwd)/tests/cmc.conf PATH=$PATH:$(pwd)/ike:$(pwd)/../katcp/kcs:$(pwd)/cmc cmc-start
+
 NAME=cmc
 
 export KATCP_LABEL=${NAME}-start
@@ -25,13 +28,15 @@ else
   LOGFLAGS="-a 10"
 fi
 
+if [ "${state/retain-path/}" = "${state}" ] ; then
+  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
+fi
+
 if [ "${state/tmp-log/}" != "${state}" ] ; then
-  export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/tmp/${NAME}.kcplog
   ERRFILE=/tmp/${NAME}.log
   cd /tmp
 else 
-  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/var/log/${NAME}.kcplog
   ERRFILE=/var/log/${NAME}.log
   cd /var/log
@@ -86,8 +91,10 @@ kcpcmd -i client-exec primary primary ${NAME}-primary
 kcpcmd -i client-exec corr primary ${NAME}-null
 
 # start the ntp monitor
-kcpcmd -i client-exec time primary tmon
-kcpcmd -i client-config client time
+if [ "${state/no-time/}" = "${state}" ] ; then
+  kcpcmd -i client-exec time primary tmon
+  kcpcmd -i client-config client time
+fi
 
 function kfwd()
 {
@@ -101,14 +108,14 @@ kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
 kfwd array-list    primary "show subarrays (?array-list)"
 kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
 
-kcpcmd -i forward-symbolic instrument-halt    primary array-halt
-kcpcmd -i cmd-help         instrument-halt   "halt an instrument (?instrument-halt [instrument])"
+kcpcmd -i forward-symbolic subordinate-halt    primary
+kcpcmd -i cmd-help         subordinate-halt   "halt an instrument (?subordinate-halt [instrument])"
 
-kcpcmd -i forward-symbolic instrument-list    primary array-list
-kcpcmd -i cmd-help         instrument-list   "show running instruments (?instrument-list)"
+kcpcmd -i forward-symbolic subordinate-list    primary
+kcpcmd -i cmd-help         subordinate-list   "show running instruments (?subordinate-list)"
 
-kcpcmd -i forward-symbolic instrument-assign  primary array-assign
-kcpcmd -i cmd-help         instrument-assign "define and launch a subarray (?instrument-assign subarray [inputs]*)"
+kcpcmd -i forward-symbolic subordinate-assign  primary
+kcpcmd -i cmd-help         subordinate-assign "define and launch a subarray (?subordinate-assign subarray [inputs]*)"
 
 kcpcmd -i cmd-delete halt  
 kfwd halt          primary "halt the system (?halt)"
@@ -130,11 +137,9 @@ kcpcmd -i var-set "*device-status*" fail     string ":range#2"
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
 
-kfwd instrument-list  primary "show fielded instruments (?instrument-list)"
-kfwd instrument-probe primary "check resources for an instrument (?instrument-probe instrument)"
-
-kcpcmd -i forward-symbolic instrument-activate primary instrument-activate %g %1+
-kcpcmd -i cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
+kfwd instrument-list     subordinate "show fielded instruments (?instrument-list)"
+kfwd instrument-probe    subordinate "check resources for an instrument (?instrument-probe instrument)"
+kfwd instrument-activate subordinate "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
 kfwd capture-list        corr "list data products"

@@ -10,13 +10,21 @@ if [ -f "${configuration}" ] ; then
   if [ "${state/verbose-log/}" != "${state}" ] ; then
     set -x
   fi
+
+  leases=${LEASE_FILE}
+
+  if [ ! -f "${leases}" ] ; then
+    kcpmsg -l fatal "no lease file to be found"
+  fi
+
 else
   kcpmsg -l fatal "unable to locate ${configuration} thus making things up"
   set -x
 
-  leases=${LEASE_FILE:-/var/lib/misc/dnsmasq.leases}
-  if [ ! -f ${leases} ] ; then
-    leases=../stub/dnsmasq.leases-small
+  if [ -f /var/lib/misc/dnsmasq.leases ] ; then
+    leases=/var/lib/misc/dnsmasq.leases
+  else
+    leases=../tests/dnsmasq.leases
   fi
 fi
 
@@ -816,12 +824,21 @@ function subordinate_assign()
     return 1
   fi
 
-#  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
-#  if ! get_katcp_reply client-exec ; then
-#    echo "?group-halt ${key}"
-#    echo "!subordinate-assign fail task-start"
-#    return
-#  fi
+  send_request   client-exec subordinate ${key} cmc-subordinate ${key} $*
+  retrieve_reply client-exec
+
+  if ! clear_failure ; then
+    send_request   group-halt "${key}"
+    retrieve_reply group-halt
+
+    pop_failure
+
+    kcpmsg -l warn "unable to start control task for group ${group}"
+    echo "!subordinate-assign fail task-start"
+    return 1
+  fi
+
+  pop_failure
 
 #  make_subarray_sensors ${key}
 
@@ -875,10 +892,10 @@ function subordinate_halt()
 ### main loop ###########################################
 
 push_failure
-send_request   log-limit off
-retrieve_reply log-limit
 send_request   client-config info-all
 retrieve_reply client-config
+send_request   log-limit off
+retrieve_reply log-limit
 pop_failure  
 
 while read line ; do 

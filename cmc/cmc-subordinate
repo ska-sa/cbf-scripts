@@ -20,7 +20,9 @@ else
   kcpmsg -l fatal "unable to locate ${configuration} thus making things up"
   set -x
 
-  if 
+  if [ ! -d "${CORR_TEMPLATE}" ] ; then
+    CORR_TEMPLATE=../tests/corr-templates/
+  fi
 
 fi
 
@@ -294,7 +296,7 @@ function fetch_var()
 # requirements:instrument:type   - number of resources needed of type
 
 push_failure
-send_request   var-declare  "*resources*"  map
+send_request   var-declare  "*requires*"  map
 retrieve_reply var-declare
 send_request   var-declare  "*products*"      map
 retrieve_reply var-declare
@@ -324,7 +326,7 @@ function setup_instruments()
     return 1
   fi
 
-  kcpmsg -l info "subarray created with ${geometry} inputs"
+  kcpmsg -l info "working on subarray with ${geometry} inputs"
 
   push_failure
 
@@ -336,6 +338,7 @@ function setup_instruments()
 
     if [ -f ${template} ] ; then
 
+# TODO: maybe use ike here too ? 
       top=$(cat $template  | tr ',=' '\n' | grep INPUT[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
 
       if [ -z "${top}" ] ; then
@@ -343,7 +346,7 @@ function setup_instruments()
       else 
         count=$[top+1]
 
-        kcpmsg "instrument ${instrument} requires ${count} inputs"
+        kcpmsg "instrument ${instrument} uses ${count} inputs"
       fi
 
       if [ "${count}" = "${geometry}" ] ; then
@@ -365,26 +368,31 @@ function setup_instruments()
           kcpmsg -l error "no data products discoverable in instrument ${instrument}"
         fi
 
+        required=0
         for art in ${resource_types[*]} ; do
 
 # TODO: maybe use ike here too ? 
           top=$(cat $template  | tr ',=' '\n' | grep ${art^^}[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
 
           if [ -z "${top}" ] ; then
-            if [ "${state/missing-roaches/}" != "${state}" ] ; then
-              kcpmsg -l warn "unable to determine roaches needed for ${instrument}, assuming it hardcodes them"
-            else
-              kcpmsg -l fatal "unable to determine resource requirements for instrument ${instrument}"
-            fi 
+            kcpmsg "instrument ${instrument} does not appear to need any resources of type ${art}"
           else 
             required=$[top+1]
 
             kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
 
-            send_request   var-set resources "${required}" string ":${instrument}:${art}"
+            send_request   var-set requires "${required}" string ":${instrument}:${art}"
             retrieve_reply var-set
           fi
         done
+        if [ "${required}" -le 0 ] ; then
+          if [ "${state/missing-roaches/}" = "${state}" ] ; then
+            kcpmsg -l fatal "unable to determine resource needs for instrument ${instrument}"
+            set_failure
+          fi
+        fi
+
+
       else
         kcpmsg "ignorning instrument ${instrument} as it requires ${count} inputs but we are using ${geometry}"
       fi
@@ -536,7 +544,7 @@ function setup_instruments()
 
 function instrument_list()
 {
-  local instrument t i
+  local instrument i j
   local -A vector
 
   shift
@@ -548,14 +556,14 @@ function instrument_list()
   fetch_var "products"
 
   if ! pop_failure  ; then
-    kcpmsg -l warn "unable to retrieve instrument and products"
+    kcpmsg -l warn "unable to retrieve product information"
     return 1
   fi
 
   for instrument in "${!var_result[@]}" ; do 
-    t=${var_result[${instrument}]}
-    i=${t%%#*}
-    vector[$t]="${vector[$t]} ${t##*#}"
+    j=${instrument#products:}
+    i=${j%%#*}
+    vector[$i]="${vector[$i]} ${var_result[${instrument}]}"
   done
 
   for instrument in "${!vector[@]}" ; do 
@@ -567,36 +575,75 @@ function instrument_list()
 
 function instrument_probe()
 {
+  local instrument art resource t
+  local -A wants has
+  local -i sofar
+
   shift
+
   setup_instruments
 
-  if [ "$#" -lt 1 ] ; then
-    kcpmsg -l error "insufficient arguments"
-    echo "!instrument-probe fail usage"
-    return
-  fi
+  push_failure
 
   instrument=$1
 
-  need=${instruments_sizes[${instrument}]}
+  fetch_var "requires:${instrument}"
 
-  if [ -z "${need}" ]  ; then
-    kcpmsg -l error "no information about instrument ${instrument} found"
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource requirement information for instrument ${instrument}"
     echo "!instrument-probe fail unknown-item"
-    return
+    return 1
   fi
 
-  have=${#resource_free[*]}
+# resources:bc8n856M4k:roach
+  for art in ${resource_types[*]} ; do
+    wants[${art}]=${var_result[requires:${instrument}:${art}]}
+    if [ -n "${wants[${art}]}" ] ; then
+      kcpmsg "instrument ${instrument} requires "${wants[${art}]}" resources of type ${art}"
+    else 
+      wants[${art}]=0
+    fi
+    has[${art}]=0
+  done
 
-  if [ "${have}" -lt "${need}" ] ; then
-    kcpmsg -l warn "would need ${need} boards but only have ${have}"
+  fetch_var "resources"
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to query current resource set while checking availabilty for ${instrument}"
+    echo "!instrument-probe fail read-logs"
+    return 1
+  fi
+
+  for resource in "${!var_result[@]}" ; do
+    if [ "${resource##*:}" = status ] ; then
+      if [ "${var_result[${resource}]}" = up ] ; then
+        t=${resource%:*}
+        if [ -z "${var_result[${t}:holder]}" ] ; then
+          sofar=${has[${var_result[${t}:type]}]}
+          has[${var_result[${t}:type]}]=$[sofar+1]
+        fi
+      fi
+    fi
+  done
+
+  push_failure
+
+  for art in ${resource_types[*]} ; do
+    if [ "${has[${art}]}" -ge "${wants[${art}]}" ] ; then
+      kcpmsg "can supply ${has[${art}]} ${art} resources for ${instrument}"
+    else 
+      kcpmsg "unable to supply ${wants[${art}]} ${art} resources for ${instrument} have only ${has[${art}]}"
+      set_failure
+    fi
+  done
+
+  if ! pop_failure ; then
     echo "!instrument-probe ok oversubscribed"
-    return
+    return 0
   fi
-
-  kcpmsg "would allocate ${need} boards of ${have} available"
 
   echo "!instrument-probe ok sufficient"
+  return 0
 }
 
 function instrument_activate()
@@ -832,10 +879,10 @@ function instrument_activate()
 ### main loop ###########################################
 
 push_failure
-send_request   log-limit off
-retrieve_reply log-limit
 send_request   client-config info-all
 retrieve_reply client-config
+send_request   log-limit off
+retrieve_reply log-limit
 pop_failure  
 
 while read line ; do 
