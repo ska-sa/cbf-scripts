@@ -1,0 +1,1742 @@
+#!/bin/bash
+
+set -x
+
+# internal variables ... 
+declare -a command_vector
+declare -a failure_stack
+depth=0
+send=0
+
+declare -A inform_result
+declare -A var_result
+
+checkperiod=60
+
+export KATCP_LABEL=cmc-primary
+
+leases=${LEASE_FILE:-/var/lib/misc/dnsmasq.leases}
+if [ ! -f ${leases} ] ; then
+  if [ "${state/missing-roaches/}" != "${state}" ] ; then
+    leases=../stub/dnsmasq.leases
+  else
+    kcpmsg -l fatal "unable to locate leases file ${LEASE_FILE}"
+  fi
+fi
+
+if [ "${state/verbose-log/}" != "${state}" ] ; then
+    set -x
+fi
+
+#######
+####### normally exceptions are retarded, but we will simulate something like this here 
+#######
+
+function push_failure()
+{
+  depth=$[depth+1]
+  failure_stack[${depth}]=0
+}
+
+# pop failure to be used in if statement where we return or we are no longer interested in error codes
+# clear failure to be used in if statements where there is no return
+
+function pop_failure()
+{
+  result=${failure_stack[${depth}]}
+
+  kcpmsg -l trace "stack at ${depth} has code ${result}"
+
+  if [ "${depth}" -gt "0" ] ; then
+    depth=$[depth-1]
+  else
+    kcpmsg -l warn "unwound stack too far"
+  fi
+
+  return ${result}
+}
+
+function clear_failure()
+{
+  result=${failure_stack[${depth}]}
+
+  kcpmsg -l trace "stack at ${depth} has code ${result}"
+
+  failure_stack[${depth}]=0
+
+  return ${result}
+}
+
+function set_failure()
+{
+  failure_stack[${depth}]=$[failure_stack[${depth}]+1]
+}
+
+#######
+####### moar supporting functions
+#######
+
+function send_request()
+{
+  local name="$1"
+
+  if [ -z "$name" ] ; then
+    set_failure
+    return 1
+  fi
+
+  if [ "${send}" -gt 0 ] ; then
+    kcpmsg -l warn "sending ${send} request(s) without waiting for reply"
+  fi
+
+  send=$[send+1]
+
+  echo "?$*"
+}
+
+function retrieve_reply()
+{
+  local name="$1"
+  local t
+
+  if [ -z "$name" ] ; then
+    set_failure
+    return 1
+  fi
+
+  while read cmd code extra ; do
+    case "${cmd}" in
+      (\#${name})
+        ;;
+      (\!${name})
+        send=$[send-1]
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+          set_failure
+          return 1
+        fi 
+        ;;
+      (\!*)
+        kcpmsg -l warn "discarding unexpected response ${cmd}"
+        ;;
+      (\?*)
+# maybe just push this request somewhere to field later ?
+        kcpmsg -l fatal "rejecting untimely request ${cmd}, still dealing with ${name}"
+        echo "!${cmd:1} fail"
+        ;;
+    esac
+  done
+}
+
+function retrieve_inform()
+{
+  local get="$1"
+  local match="$2"
+  local del
+
+  for del in "${!inform_result[@]}" ; do
+    unset inform_result[${del}]
+  done
+
+  while read cmd code extra ; do 
+    case "${cmd}" in 
+      (\#${get})
+        if [ -n "${match}" ] ; then 
+          if [ "${match}" = "${code}" ] ; then
+            inform_result[${code}]="${extra}"
+          fi
+        else 
+          inform_result[${code}]="${extra}"
+        fi
+        ;;
+      (\!${get})
+        send=$[send-1]
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+          set_failure
+          return 1
+        fi
+        ;;
+      (\!*)
+        kcpmsg -l warn "discarding unexpected response ${cmd}"
+        ;;
+      (\?*)
+        kcpmsg -l fatal "rejecting untimely request ${cmd}, still busy checking informs of ${get}"
+        echo "!${cmd:1} fail busy"
+        ;;
+
+    esac
+  done
+
+}
+
+function fetch_var()
+{
+  local all
+  local v
+  local del
+
+  for del in "${!var_result[@]}" ; do
+    unset var_result[${del}]
+  done
+
+  if [ "$1" = '-a' ] ; then
+    shift
+    echo "?var-list"
+  else
+    echo "?var-list $1"
+  fi
+
+  match=$1
+
+  while read cmd code type extra ; do
+    case "${cmd}" in
+      (\#var-list)
+        if [ -z "${match}" -o "${code}" != "${code#${match}}" ] ; then
+          var_result[${code}]="${extra}"
+        fi
+        ;;
+      (\!var-list)
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+# TODO: clear entire var_result variable ... 
+          set_failure
+          return 1
+        fi 
+        ;;
+      (\!*)
+        kcpmsg -l warn "discarding unexpected response ${cmd}"
+        ;;
+      (\?*)
+# maybe just push this request somewhere to field later ?
+        kcpmsg -l fatal "rejecting untimely request ${cmd}, waiting for reply to var-list ${v}"
+#        set_failure
+        echo "!${cmd:1} fail"
+        ;;
+    esac
+  done
+}
+
+#######
+####### sensor support
+#######
+
+function make_subarray_sensors()
+{
+  push_failure
+
+  send_request   var-declare "${1}*device-status*" "sensor,map"
+  retrieve_reply var-declare
+
+  send_request   var-set "${1}*device-status*" ok         string ":value"
+  retrieve_reply var-set
+  send_request   var-set "${1}*device-status*" "${1:-system}\_health" string ":help"
+  retrieve_reply var-set
+  send_request   var-set "${1}*device-status*" nominal    string ":status"
+  retrieve_reply var-set
+  send_request   var-set "${1}*device-status*" discrete   string ":type"
+  retrieve_reply var-set
+
+  send_request   var-set "${1}*device-status*" ok         string ":range#0"
+  retrieve_reply var-set
+  send_request   var-set "${1}*device-status*" degraded   string ":range#1"
+  retrieve_reply var-set
+  send_request   var-set "${1}*device-status*" fail       string ":range#2"
+  retrieve_reply var-set
+
+  send_request   var-declare "${1}*instrument-state*" "sensor,map"
+  retrieve_reply var-declare
+
+  send_request   var-set "${1}*instrument-state*" none    string ":value"
+  retrieve_reply var-set
+  send_request   var-set "${1}*instrument-state*" "${1:-system}\_instrument\_state" string ":help"
+  retrieve_reply var-set
+
+  send_request   var-set "${1}*instrument-state*" unknown string ":status"
+  retrieve_reply var-set
+  send_request   var-set "${1}*instrument-state*" string  string ":type"
+  retrieve_reply var-set
+
+  send_request   broadcast "${1} interface-changed sensor-list"
+  retrieve_reply broadcast
+
+  if ! pop_failure  ; then
+    kcpmsg -l fatal "unable to set up sensors for array ${1}"
+  fi
+}
+
+#######
+####### resource checks 
+#######
+
+function check_resources()
+{
+  now=$(date +%s)
+
+  local -l board
+
+  for board in $(grep roach ${leases} | cut -f4 -d ' ') ; do
+
+    push_failure
+
+    fetch_var "${board}:checktime"
+    fresh=0
+
+    if ! clear_failure ; then
+      send_request   var-declare   "${board}*" map,readonly
+      retrieve_reply var-declare
+    else 
+
+      when="${var_result[${board}:checktime]}"
+
+      if [ "$[when+checkperiod]" -gt "${now}" ] ; then
+        fresh=1
+      else
+        send_request   var-delete  "${board}" ":checktime"
+        retrieve_reply var-delete 
+        send_request   var-delete  "${board}" ":status"
+        retrieve_reply var-delete
+      fi
+    fi
+
+    if [ "${fresh}" = "0" ] ; then
+      if kcpcmd -i -r -f -t 2 -s "${board}" watchdog ; then
+# WARNING: unclear if it is a good idea to force something to be up if it has been marked as otherwise 
+        status=up
+      else 
+        status=standby
+      fi
+
+      send_request   var-set      "${board}" "${now}"    string ":checktime"
+      retrieve_reply var-set
+      send_request   var-set      "${board}" "${status}" string ":status"
+      retrieve_reply var-set
+    fi
+
+    if ! pop_failure  ; then
+      kcpmsg -l fatal "unable to update status of board ${board}"
+    fi
+
+  done
+
+}
+
+#######
+####### primary commands
+#######
+
+function resource_mark()
+{
+  shift
+
+  local -a split
+  local update status reason user result board
+
+  if [ "$#" -lt 2 ] ; then
+    kcpmsg -l error "insufficient arguments"
+    echo "!resource-mark fail usage"
+    return
+  fi
+
+  push_failure
+  board="$1"
+
+  fetch_var "$board"
+
+  if ! pop_failure  ; then
+    kcpmsg -l error "unable to retrieve resource detail for ${board}"
+    echo "!resource-mark fail read-logs"
+    return
+  fi
+
+  split=(${var_result[${board}]})
+
+  status=${split[2]}
+  if [ -z "${status}" ] ; then
+    status="unknown"
+  fi
+
+  if [ "${#split[*]}" -ge 5 ] ; then
+    user="${split[3]}"
+  else 
+    user=""
+  fi
+
+  result="ok"
+  reason="read-logs"
+  update="${status}"
+
+  case "${2}" in
+    (up) 
+      if kcpcmd -r -i -s "${board}" watchdog >& /dev/null ; then
+        update="up"
+      else
+        if [ "${state/missing-roaches/}" != "${state}" ] ; then
+          kcpmsg -l warn "resource ${board} not responsive but taking it to be ok"
+          update="up"
+        else
+          kcpmsg -l error "resource ${board} unresponsive"
+          update="standby"
+          result="fail"
+        fi
+      fi
+      ;;
+    (standby) 
+      if [ -n "${user}" ] ; then
+        kcpmsg -l error "refusing to release resource ${board} held by array ${user}"
+        reason="in-use"
+        result="fail"
+      else
+        update="standby"
+      fi
+      ;;
+    (reset) 
+      if [ -n "${user}" ] ; then
+        kcpmsg -l error "refusing to reset resource ${board} held by array ${user}"
+        reason="in-use"
+        result="fail"
+      else 
+        kcpcmd -s "${board}" restart 
+        update="standby"
+      fi
+      ;;
+    (*) 
+      kcpmsg -l error "unknown marking ${2} for resource ${1}"
+      result="fail"
+      ;;
+  esac
+
+  if [ "${update}" != "${status}" ] ; then
+    push_failure
+
+    send_request   var-set  "${board}" "${update}" string ":status"
+    retrieve_reply var-set
+
+    if ! pop_failure  ; then
+      kcpmsg -l fatal "unable to update status of board ${board}"
+      result="fail"
+    fi
+  fi 
+
+  if [ "${result}" != "ok" ] ; then
+    echo "!resource-mark ${result} ${reason}"
+    return
+  fi
+
+  echo "!resource-mark ok"
+}
+
+function resource_list()
+{
+  local board line status user
+  local -a split
+
+  shift
+
+  push_failure
+
+  if [ -n "$1" ] ; then
+    fetch_var $1
+  else
+    fetch_var -a roach
+  fi
+
+  if ! pop_failure  ; then
+    kcpmsg -l fatal "unable to retrieve set of resources"
+    echo "!resource-list fail read-logs"
+  fi
+
+  for board in "${!var_result[@]}" ; do
+    split=(${var_result[${board}]})
+
+# maybe a quick watchdog for the ones that are up ? 
+
+    status=${split[2]}
+    if [ -z "${status}" ] ; then
+      status=unknown
+    fi
+
+    if [ "${#split[*]}" -ge 5 ] ; then
+      user="${split[3]}"
+    fi
+
+    echo "#resource-list ${board} ${status} ${user}"
+  done
+
+  echo "!resource-list ok"
+}
+
+function instrument_list()
+{
+  shift
+  local c=0
+  local -a v ports hosts
+  local subarray port host
+
+  push_failure
+
+  send_request    listener-list "$*"
+  retrieve_inform listener-list
+
+  if ! pop_failure ; then
+    echo "!array-list fail"
+    return
+  fi
+
+  push_failure
+
+  kcpmsg -l debug "my keys are ${!inform_result[@]}" 
+  for subarray in "${!inform_result[@]}" ; do
+    v=(${inform_result[${subarray}]})
+    ports[${subarray}]=${v[0]}
+    hosts[${subarray}]=${v[1]}
+  done
+
+  for subarray in "${!inform_result[@]}" ; do
+    kcpmsg -l debug "considering ${subarray} with arguments ${inform_result[${subarray}]}"
+    port=${ports[${subarray}]}
+    host=${hosts[${subarray}]}
+    if [ "${host}" = "0.0.0.0" ] ; then
+      unset host
+    fi 
+
+    send_request    var-list "${subarray}"
+    retrieve_inform var-list
+
+    if clear_failure ; then
+      t=${inform_result[${subarray}]##*[}
+      echo "#array-list "${subarray}" ${host}${host:+:}${port} ${t%]}"
+      c=$[c+1]
+    fi
+  done
+
+  pop_failure
+
+  if [ "${c}" -lt "$#"  ] ; then
+    kcpmsg -l debug "was given $# parameters, could only list ${c} subarrays"
+    echo "!array-list fail unknown-array"
+  else
+    echo "!array-list ok"
+  fi
+
+}
+
+function instrument_assign()
+{
+  shift
+
+  if [ "$#" -lt 3 ] ; then
+    kcpmsg "insufficient parameters"
+    echo "!array-assign fail usage"
+    return
+  fi
+
+#  validate_subarray_list
+#  validate_instruments
+
+  key=$1
+  
+  push_failure
+
+  send_request   group-list "${key}"
+  retrieve_reply group-list
+  if pop_failure ; then
+    kcpmsg -l warn "array ${key} already in use"
+    echo "!array-assign fail already-exists"
+    return
+  fi
+
+  push_failure
+
+  fetch_var "${key}"
+  if clear_failure ; then
+    send_request   var-delete "${key}" 
+    retrieve_reply var-delete 
+  fi
+  send_request   var-declare "${key}*" array
+  retrieve_reply var-declare 
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to declare state variable for array ${key}"
+    return
+  fi
+
+  for file in ${CORR_DIR}/${key}-* ; do
+    if [ -f ${file} ] ; then
+      if rm ${file} ; then
+        kcpmsg -l debug "removing old config ${file}"
+      else 
+        kcpmsg -l error "unable to remove old config file ${file}"
+        echo "!array-assign fail read-logs"
+        return
+      fi
+    fi
+  done
+
+  shift
+
+  match=0
+
+#   for instrument in ${instruments_deployed[*]} ; do
+#     if [ ${instruments_inputs[${instrument}]} = "$#" ] ; then
+#       match=$[match+1]
+#     fi
+#   done
+# 
+#   if [ "${match}" -le "0" ] ; then
+#     kcpmsg -l error "no instruments available for a subarray of $# inputs"
+#     echo "!array-assign fail unsupported-size"
+#     return
+#   fi
+# 
+#   kcpmsg -l info "have ${match} instruments on offer for a subarray of $# inputs"
+
+  if [ "${key}" = "rts" ] ; then
+    port=${rts_port}
+    kcpmsg "using hardcoded port ${port} for rts array"
+  else
+    t="${key//[^0-9]/}"
+    if [ "$t" -gt 0 ] ; then
+      port=$[base_port+t]
+      if [ "$port" -gt "${base_port}" ] ; then
+        kcpmsg "selecting name derived port ${port}"
+      else
+        kcpmsg -l warn "malformed port ${port}, falling back to automatic selection"
+        port=0
+      fi
+    else 
+      kcpmsg "will select a free port for array other than rts"
+      port=0
+    fi
+  fi
+
+  push_failure
+
+  send_request   group-create "$key"
+  retrieve_reply group-create
+  send_request   listener-create "${key}" "${port}" "0.0.0.0"
+  retrieve_reply listener-create
+
+  if [ "$port" -le "0" ] ; then
+    send_request listener-list "${key}" 
+    retrieve_inform listener-list "${key}"
+    port=${inform_result[${key}]%% *}
+    if [ "${port}" -le "0" ] ; then
+      kcpmsg -l error "unable to determine port for ${key} - got ${result}"
+      set_failure
+    fi
+  fi 
+
+  i=0
+  while [ -n "$1" ] ; do
+    send_request   var-set "$key" "$1" string "#$i"
+    retrieve_reply var-set
+    i=$[i+1]
+    shift
+  done
+
+  if ! clear_failure ; then
+    send_request   group-halt "${key}"
+    retrieve_reply group-halt
+    echo "!array-assign fail network"
+    pop_failure
+    return
+  fi
+
+#  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
+#  if ! get_katcp_reply client-exec ; then
+#    echo "?group-halt ${key}"
+#    echo "!array-assign fail task-start"
+#    return
+#  fi
+
+#  make_subarray_sensors ${key}
+
+  echo "!array-assign ok ${port}"
+}
+
+function instrument_halt()
+{
+  shift
+
+  local key="$1"
+
+  if [ -z "${key}" ] ; then
+    kcpmsg -l error "need a subarray to destroy"
+    echo "!array-halt fail usage"
+    return
+  fi
+
+#  validate_subarray_list
+
+  push_failure
+
+  send_request    listener-list "$key"
+  retrieve_reply  listener-list
+
+  send_request    var-list "$key"
+  retrieve_reply  var-list
+
+  if ! clear_failure ; then
+    echo "!array-halt fail unknown-item"
+    return
+  fi
+
+  send_request    group-halt "$key"
+  retrieve_reply  group-halt
+
+  if ! pop_failure ; then
+    echo "!array-halt fail read-logs"
+    return
+  fi
+
+  echo "!array-halt ok"
+}
+
+#######
+####### initialisation routine 
+#######
+
+function initialise_primary()
+{
+  push_failure 
+
+  send_request   log-limit fatal
+  retrieve_reply log-limit
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to initialise primary system"
+    return 1
+  fi
+}
+
+#################################################################################
+# mainloop
+
+initialise_primary
+check_resources
+
+while read line ; do 
+
+  i=0;
+  rest=${line}
+  while [ -n "${rest}" ] ; do
+    command_vector[$i]=${rest%% *}
+    update=${rest#* }
+    if [ "${update}" = "${rest}" ] ; then
+      rest=""
+    else 
+      rest=${update}
+    fi
+    i=$[i+1]
+  done
+
+  max=$i
+  cmd=${command_vector[0]}
+
+  case "${cmd}" in
+    (\?instrument-list) 
+      instrument_list ${command_vector[@]}
+      ;;
+    (\?instrument-assign) 
+      instrument_assign ${command_vector[@]}
+      ;;
+    (\?instrument-halt) 
+      instrument_halt ${command_vector[@]}
+      ;;
+    (\?resource-list) 
+      resource_list ${command_vector[@]}
+      ;;
+    (\?resource-mark) 
+      resource_mark ${command_vector[@]}
+      ;;
+    (\?instrument-list) 
+      instrument_list ${command_vector[@]}
+      ;;
+    (\?instrument-probe) 
+      instrument_probe ${command_vector[@]}
+      ;;
+    (\?instrument-activate) 
+      instrument_activate ${command_vector[@]}
+      ;;
+    (*)
+      if [ "${cmd:0:1}" = '?' ] ; then
+        kcpmsg -l warn "cmc primary got unsupported request ${cmd}"
+        echo "!${cmd:1} fail unknown-item"
+      fi
+      ;;
+  esac
+
+  i=0
+  while [ ${i} -lt ${max} ] ; do
+    unset command_vector[$i]
+    i=$[i+1]
+  done
+  
+done
+
+
+exit 0
+
+
+
+
+
+
+
+
+
+
+
+# static lookup up: [N]=name
+declare -a instruments_deployed
+
+# [name]=resources_needed
+declare -A instruments_sizes
+
+# [name]=inputs_needed
+declare -A instruments_inputs
+
+# [name]=stream1:stream2:...
+declare -A instruments_streams
+
+# [array_name]=input1-input2-input2-...
+declare -A subarray_list
+
+# [board]=status
+declare -A resource_set
+# [board]=subarray
+declare -A resource_use
+# [N]=board
+declare -a resource_free
+
+if [ -n "${CMC_CONFIG}" ] ; then
+  source "${CMC_CONFIG}"
+else
+  kcpmsg "running standalone"
+  source ../misc/cmc.conf
+fi
+
+#################################################################################
+# checking functions
+
+function validate_subarray_list()
+{
+  unset valid_list
+  declare -A valid_list
+
+  echo ?group-list 
+  while read cmd group extra ; do 
+    case "${cmd}" in 
+      (\#group-list)
+        valid_list[${group}]=valid
+        ;;
+      (\!group-list)
+        if [ "${group}" != "ok" ] ; then
+          kcpmsg -l error "unable to work out subarray set (status ${group})"
+          return 1
+        fi
+
+        kcpmsg -l debug "found groups ${!valid_list[*]}"
+
+        for array in ${!subarray_list[@]} ; do
+          if [ "${valid_list[${array}]}" != "valid" ] ; then
+            kcpmsg "relasing subarray ${array}"
+            unset subarray_list[${array}]
+          fi
+        done
+
+        return 0
+        ;;
+    esac
+  done
+}
+
+function validate_resource_free()
+{
+  resource_free=()
+
+  for board in ${!resource_set[*]} ; do
+    if [ "${resource_set[${board}]}" = "up" -a -z "${resource_use[${board}]}" ] ; then
+      resource_free+=(${board})
+    fi
+  done
+
+  kcpmsg -l debug "${#resource_free[*]} boards are available for allocation"
+}
+
+function validate_resource_use()
+{
+  result=0
+
+  resource_use=()
+
+  for array in ${!subarray_list[*]} ; do 
+
+    kcpmsg "checking array ${array}"
+
+    for file in ${CORR_DIR}/${array}-* ; do
+      if [ -f ${file} ] ; then
+
+        kcpmsg -l debug "checking config ${file}"
+
+        for board in $(grep '^ *hosts' ${file} | cut -f2 -d= | tr -s , ' ' ) ; do
+
+          if [ -n "${resource_use[${board}]}" ] ; then
+            kcpmsg -l fatal "resource ${board} allocated twice to ${resource_use[${board}]} and ${array}"
+            result=1
+          fi
+
+          if [ -z "${resource_set[${board}]}" ] ; then
+            kcpmsg -l warn "unknown resource ${board} used in array ${array}, ignoring it"
+          else 
+            resource_use[${board}]=${array}
+
+            kcpmsg "confirming that ${board} is used by ${array}"
+
+            if [ "${resource_set[${board}]}" != "up" ] ; then
+              kcpmsg -l warn "resource ${board} allocated to array ${array}, despite not marked up"
+              result=1
+            fi
+          fi
+        done
+      fi
+    done
+  done
+
+  return ${result}
+}
+
+
+function validate_resource_set()
+{
+  unset tmp_set
+  declare -A tmp_set
+
+  # policy decision: we only ping very new or very stale boards, 
+  # real monitoring needs to be done elsewhere, in any event 
+  # we should never transition from standby->up automatically
+  # (other than startup) as this may make board replacement problematic
+
+  for board in $(grep roach ${leases} | cut -f4 -d ' ') ; do
+
+    tmp_set[$board]=standby
+
+    if [ -z "${resource_set[${board}]}" ] ; then
+      if ping -W 2 -n -q -c 1 ${board} >& /dev/null ; then
+        resource_set[${board}]=up
+      else 
+        resource_set[${board}]=standby
+      fi
+      # TODO: launch the matching sensor monitor
+    fi
+
+  done
+
+  # if old board, not in dhcp. not used, marked standby and unpingable, forget it
+
+  for board in ${!resource_set[*]} ; do
+    if [ -z "${tmp_set[${board}]}" ] ; then
+      if [ -z "${resource_use[${board}]}" ] ; then
+        if [ "${resource_set[${board}]}" = "standby" ] ; then
+          if ! ping -W 2 -n -q -c 1 ${board} >& /dev/null ; then
+            if [ "${state/missing-roaches/}" = "${state}" ] ; then
+              kcpmsg -l warn "dropping resource ${board} as unreachable, unregistered, unused and inactive"
+              unset resource_set[$board]
+              # TODO: stop the matching sensor monitor
+            fi 
+          fi 
+        fi
+      fi
+    fi
+  done
+}
+
+function validate_instruments()
+{
+  # TODO: split into validate*size and validata*stream ? 
+
+  if [ "${#instruments_deployed[@]}" -le 0 ] ; then
+    kcpmsg -l fatal "no instruments deployed"
+    return
+  fi
+
+  for instrument in ${instruments_deployed[*]} ; do
+    template=${CORR_TEMPLATE}/${instrument}
+
+    kcpmsg -l debug "checking templates for instrument ${instrument}"
+
+    if [ -f ${template} ] ; then
+
+      top=$(cat $template  | tr ',=' '\n' | grep ROACH[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
+
+      if [ -z "${top}" ] ; then
+        if [ "${state/missing-roaches/}" != "${state}" ] ; then
+          kcpmsg -l warn "unable to determine roaches needed for ${instrument}, assuming it hardcodes them"
+        else
+          kcpmsg -l fatal "unable to determine resource requirements for instrument ${instrument}"
+        fi 
+      else 
+        instruments_sizes[${instrument}]=$[top+1]
+
+        kcpmsg "instrument ${instrument} requires ${instruments_sizes[${instrument}]} resources"
+      fi
+
+      top=$(cat $template  | tr ',=' '\n' | grep INPUT[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
+
+      if [ -z "${top}" ] ; then
+        kcpmsg -l fatal "unable to determine input count for instrument ${instrument}"
+      else 
+        instruments_inputs[${instrument}]=$[top+1]
+
+        kcpmsg "instrument ${instrument} requires ${instruments_inputs[${instrument}]} inputs"
+      fi
+
+      if which ike > /dev/null ; then 
+        instruments_streams[${instrument}]=$(ike -o -k output_products $template | tr -s ' ,\n' ':' )
+      else 
+        instruments_streams[${instrument}]=$(grep '^ *output_products' $template | cut -f2 -d = | tr -s ' ,\n' ':' )
+      fi
+
+      if [ -z "${instruments_streams[${instrument}]}" ] ; then
+        kcpmsg -l error "no data products discoverable in instrument ${instrument}"
+      else 
+        kcpmsg -l debug "streams for ${instrument} are ${instruments_streams[${instrument}]}"
+      fi
+
+    else
+      kcpmsg -l fatal "no template available for instrument ${instrument}"
+    fi
+
+  done
+
+}
+
+#################################################################################
+# misc
+
+function get_katcp_reply()
+{
+  get=$1
+  as=$2
+
+  while read cmd code extra ; do 
+    case "${cmd}" in 
+      (\#${get})
+        if [ -n "${as}" ] ; then
+          echo "#${as} ${code} ${extra}"
+        fi
+        ;;
+      (\!${get})
+        if [ -n "${as}" ] ; then
+          echo "!${as} ${code} ${extra}"
+        fi
+        if [ "${code}" = "ok" ] ; then
+          return 0
+        else
+          return 1
+        fi
+        ;;
+      (\!*)
+        kcpmsg -l warn "discarding unexpected response ${cmd}"
+        ;;
+      (\?*)
+        kcpmsg -l fatal "rejecting untimely request ${cmd}, still busy servicing ${get}"
+        echo "!${cmd:1} fail busy"
+        ;;
+
+    esac
+  done
+
+}
+
+# name, help, type, units, value, status
+
+function make_plain_sensor()
+{
+  echo "?var-declare ${1} sensor,map"
+  get_katcp_reply var-declare
+
+  echo "?var-set ${1} ${2// /\\_} string :help"
+  get_katcp_reply var-set
+  echo "?var-set ${1} ${3} string :type"
+  get_katcp_reply var-set
+  echo "?var-set ${1} ${4} string :units"
+  get_katcp_reply var-set
+
+  echo "?var-set ${1} ${5} string :value"
+  get_katcp_reply var-set
+  echo "?var-set ${1} ${6} string :status"
+  get_katcp_reply var-set
+
+}
+
+function make_instrument_sensors()
+{
+  file=${CORR_DIR}/${1}-${2}
+
+#   bandwidth=$(grep '^ *bandwidth *=' ${file}  | cut -f2 -d= )
+#   centerfrequency=$(grep '^ *true_cf *=' ${file}  | cut -f2 -d= )
+#   channels=$(grep '^ *n_chans *=' ${file}  | cut -f2 -d= )
+# 
+#   if [ -z "${bandwidth}" ] ; then
+#     kcpmsg -l error "unable to determine bandwidth for instrument ${1} in array ${2}"
+#   fi
+# 
+#   if [ -z "${centerfrequency}" ] ; then
+#     kcpmsg -l error "unable to determine centerfrequency for instrument ${1} in array ${2}"
+#   fi
+# 
+#   if [ -z "${channels}" ] ; then
+#     kcpmsg -l error "unable to determine channels for instrument ${1} in array ${2}"
+#   fi
+
+  t=${instruments_streams[${2}]}
+  count=0
+
+  for stream in fengine ${t//:/ } ; do 
+
+    bw=$(ike -o -s ${stream} -k bandwidth ${file})
+    tf=$(ike -o -s ${stream} -k true_cf ${file})
+    cn=$(ike -o -s ${stream} -k n_chans ${file})
+
+    if [ "${stream}" = fengine ] ; then
+      prefix="c856M4k."
+    else
+      prefix="${stream}."
+    fi
+
+    if [ -n "${bw}" ] ; then
+      make_plain_sensor "${1}*${prefix}bandwidth*"       "bandwidth of ${stream}"          integer Hz ${bw} nominal
+      count=$[count+1]
+    fi
+    if [ -n "${tf}" ] ; then
+      make_plain_sensor "${1}*${prefix}centerfrequency*" "true sky frequency of ${stream}" integer Hz ${tf} nominal
+      count=$[count+1]
+    fi
+    if [ -n "${cn}" ] ; then
+      make_plain_sensor "${1}*${prefix}channels*"        "channels in ${stream}"           integer none ${cn} nominal
+      count=$[count+1]
+    fi
+
+  done
+
+  kcpmsg "generated ${count} data stream sensors"
+
+  make_plain_sensor "${1}*synchronisation-epoch*"      "last synchronisation time"       integer seconds 0 unknown
+
+  for fpg in $(grep '^ *bitstream' "$file") ; do 
+    if [ -f "$fpg" ] ; then
+      t=${fpg##*/}
+      prefix=${t%%.*}
+
+      echo "?var-declare ${1}*gateware.${prefix}.user* version,string"
+      get_katcp_reply var-declare
+      echo "?var-declare ${1}*gateware.${prefix}.library* version,string"
+      get_katcp_reply var-declare
+
+      for revision in $(grep 'meta.*77777.*commit_hash'  "$fpg"  | tr -s '\t' ' '  | tr -s ' ' | cut -f 4- -d ' ' | tr ' ' '=' ) ; do 
+        if [ "$revision" = "${revision/lib//}" ] ; then 
+          echo "?var-set ${1}*gateware.${prefix}.user* ${revision##*=} string" 
+        else
+          echo "?var-set ${1}*gateware.${prefix}.library* ${revision##*=} string" 
+        fi
+        get_katcp_reply var-set
+      done
+    fi
+  done
+
+  echo "?broadcast ${1} interface-changed sensor-list"
+  get_katcp_reply broadcast
+}
+
+function adjust_instrument_sensors()
+{
+  subarray=${1}
+  status=${2}
+
+  echo "?var-set ${subarray}*device-status* ${status} string :status"
+  get_katcp_reply var-set
+
+  echo "?var-set ${subarray}*instrument-state* ${status} string :status"
+  get_katcp_reply var-set
+
+  case "${status}" in 
+    (nominal)
+      value="ok"
+    ;;
+    (warn)
+      value="degraded"
+    ;;
+    (*)
+      value="fail"
+    ;;
+  esac
+
+  echo "?var-set ${subarray}*device-status* ${value} string :value"
+  get_katcp_reply var-set
+
+  if [ "$#" -gt 2 ] ; then
+    instrument=${3}
+    echo "?var-set ${subarray}*instrument-state* ${instrument} string :value"
+    get_katcp_reply var-set
+  fi
+}
+
+function activate_servlet_sensors()
+{
+  declare -a vector
+
+  i=0
+  state=query
+  remote=$1
+
+  echo "?relay ${remote} relay ${remote} sensor-list"
+
+  while read cmd code extra ; do 
+    case "${cmd}" in 
+      (\#relay) 
+        if [ "${state}" != "query" ] ; then
+          kcpmsg -l error "encountered late sensor list inform message"
+          return 1
+        fi
+        vector[${#vector[@]}]=${code}
+        ;;
+      (\!relay) 
+
+        if [ "${code}" != "ok" ] ; then
+          kcpmsg -l error "unable to activate sensor retrieval"
+          return 1
+        fi
+
+        if [ "${state}" = "query" ] ; then
+          state=ask
+          if [ -n "${extra}" ] ; then
+            if [ "${extra}" != "${#vector[@]}" ] ; then
+              kcpmsg -l error "problem - sensor logic claims ${extra} sensors but only returned ${#vector[@]}"
+              return 1
+            fi
+          fi
+        fi
+
+        if [ "$i" -lt "${#vector[@]}" ] ; then
+          kcpmsg -l debug "selecting auto strategy for sensor ${vector[$i]} number $i of ${#vector[@]}"
+          echo "?relay ${remote} relay ${remote} sensor-sampling ${vector[$i]} auto"
+# maybe look at the reply ? 
+          i=$[i+1]
+        else 
+          kcpmsg "found and loaded $i sensors"
+          return 0
+        fi
+        ;;
+      (\?*)
+        kcpmsg -l error "rejecting untimely request ${cmd}, still busy interrogating sensors"
+        echo "!${cmd:1} busy"
+        ;;
+    esac
+  done
+}
+
+#################################################################################
+# primary requests 
+
+function array_assign()
+{
+  shift
+
+  if [ "$#" -lt 3 ] ; then
+    kcpmsg "insufficient parameters"
+    echo "!array-assign fail usage"
+    return
+  fi
+
+  validate_subarray_list
+  validate_instruments
+
+  key=$1
+
+  if [ -n "${subarray_list[$key]}" ] ; then
+    kcpmsg "array ${key} already in use"
+    echo "!array-assign fail already-exists"
+    return
+  fi
+
+  for file in ${CORR_DIR}/${key}-* ; do
+    if [ -f ${file} ] ; then
+      if rm ${file} ; then
+        kcpmsg -l debug "removing old config ${file}"
+      else 
+        kcpmsg -l error "unable to remove old config file ${file}"
+        echo "!array-assign fail read-logs"
+        return
+      fi
+    fi
+  done
+
+  shift
+
+  match=0
+
+  for instrument in ${instruments_deployed[*]} ; do
+    if [ ${instruments_inputs[${instrument}]} = "$#" ] ; then
+      match=$[match+1]
+    fi
+  done
+
+  if [ "${match}" -le "0" ] ; then
+    kcpmsg -l error "no instruments available for a subarray of $# inputs"
+    echo "!array-assign fail unsupported-size"
+    return
+  fi
+
+  kcpmsg -l info "have ${match} instruments on offer for a subarray of $# inputs"
+
+  echo "?group-create $key"
+  if ! get_katcp_reply group-create ; then
+    echo "!array-assign fail read-logs"
+    return
+  fi
+
+  if [ "${key}" = "rts" ] ; then
+    port=${rts_port}
+    kcpmsg "using hardcoded port ${port} for rts array"
+  else
+    t="${key//[^0-9]/}"
+    if [ "$t" -gt 0 ] ; then
+      port=$[base_port+t]
+      if [ "$port" -gt "${base_port}" ] ; then
+        kcpmsg "selecting name derived port ${port}"
+      else
+        kcpmsg -l warn "malformed port ${port}, falling back to automatic selection"
+        port=0
+      fi
+    else 
+      kcpmsg "will select a free port for array other than rts"
+      port=0
+    fi
+  fi
+
+  echo "?listener-create ${key} ${port} 0.0.0.0"
+  if ! get_katcp_reply listener-create ; then
+    echo "?group-halt ${key}"
+    get_katcp_reply group-halt
+    echo "!array-assign fail network"
+    return
+  fi
+
+# TODO - retrieve port number for return code
+  if [ "$port" -le "0" ] ; then
+    echo "?listener-list ${key}" 
+    result=0
+    if ! get_katcp_inform listener-list ${key} ; then
+      echo "?group-halt ${key}"
+      get_katcp_reply group-halt
+      echo "!array-assign fail read-logs"
+      return
+    fi
+    port=${result%% *}
+    if [ "${port}" -le "0" ] ; then
+      kcpmsg -l error "unable to determine port for ${key} - got ${result}"
+      echo "?group-halt ${key}"
+      get_katcp_reply group-halt
+      echo "!array-assign fail read-logs"
+      return
+    fi
+  fi 
+
+#  echo "?client-exec subordinate ${key} cmc-subordinate ${key} $*"
+#  if ! get_katcp_reply client-exec ; then
+#    echo "?group-halt ${key}"
+#    echo "!array-assign fail task-start"
+#    return
+#  fi
+
+  unset t
+
+  while [ -n "$1" ] ; do
+    t=${t}${t:+-}${1}
+    shift
+  done
+
+  subarray_list[$key]=$t
+
+  make_subarray_sensors ${key}
+
+  echo "!array-assign ok ${port}"
+}
+
+function array_halt()
+{
+  shift
+
+  key=$1
+
+  if [ -z "${key}" ] ; then
+    kcpmsg -l error "need a subarray to destroy"
+    echo "!array-halt fail usage"
+    return
+  fi
+
+  validate_subarray_list
+
+  if [ -z "${subarray_list[$key]}" ] ; then
+    kcpmsg -l error "no state available for array ${key}"
+    echo "!array-halt fail unknown-item"
+    return
+  fi
+
+  kcpmsg "my state for $key is ${subarray_list[$key]}"
+
+  unset subarray_list[$key]
+
+  for board in ${!resource_use[*]} ; do
+    if [ "${resource_use[${board}]}" = "$key" ] ; then
+      unset resource_use[${board}]
+    fi
+  done
+
+  echo "?group-halt ${key}"
+
+  get_katcp_reply group-halt array-halt
+}
+
+function resource_list()
+{
+  shift
+
+  validate_subarray_list
+  validate_resource_set
+  validate_resource_use
+
+  if [ -n "$1" ] ; then
+
+    if [ -z "${resource_set[$1]}" ] ; then
+      kcpmsg -l error "resource $1 not found"
+      echo "!resource-list fail unknown-item"
+      return 1
+    fi
+
+    echo "#resource-list $1 ${resource_set[$1]} ${resource_use[$1]}"
+
+  else
+
+    for board in ${!resource_set[*]} ; do
+      echo "#resource-list ${board} ${resource_set[${board}]} ${resource_use[${board}]}"
+    done
+
+  fi
+
+  echo "!resource-list ok"
+}
+
+function resource_mark()
+{
+  shift
+
+  if [ "$#" -lt 2 ] ; then
+    kcpmsg -l error "insufficient arguments"
+    echo "!resource-mark fail usage"
+    return 1
+  fi
+
+  if [ -z "${resource_set[$1]}" ] ; then
+    kcpmsg -l error "unknown resource ${1}"
+    echo "!resource-mark fail unknown-item"
+    return 1
+  fi
+
+  case "${2}" in
+    (up) 
+      if ping -W 2 -n -q -c 1 $1 >& /dev/null ; then
+        resource_set[$1]="up"
+      else
+        if [ "${state/missing-roaches/}" != "${state}" ] ; then
+          kcpmsg -l warn "resource $1 not responsive but taking it to be ok"
+          resource_set[$1]="up"
+        else
+          kcpmsg -l error "resource $1 unresponsive"
+          resource_set[$1]="standby"
+          echo "!resource-mark fail read-logs"
+          return 1
+        fi
+      fi
+      ;;
+    (standby) 
+      if [ -n "${resource_use[$1]}" ] ; then
+        kcpmsg -l error "refusing to release resource $1 held by array ${resource_use[$1]}"
+        echo "!resource-mark fail in-use"
+        return
+      fi
+      resource_set[$1]="standby"
+      ;;
+    (reset) 
+      if [ -n "${resource_use[$1]}" ] ; then
+        kcpmsg -l error "refusing to release resource $1 held by array ${resource_use[$1]}"
+        echo "!resource-mark fail in-use"
+        return
+      fi
+      kcpcmd -s "$1" restart 
+      resource_set[$1]="standby"
+      ;;
+    (*) 
+      kcpmsg -l error "unknown marking ${2} for resource ${1}"
+      echo "!resource-mark fail usage"
+      return 1
+      ;;
+  esac
+
+  echo "!resource-mark ok"
+}
+
+#################################################################################
+# subordinate requests
+
+function instrument_list()
+{
+  shift
+
+  for instrument in ${instruments_deployed[*]} ; do 
+    t=${instruments_streams[${instrument}]}
+    echo "#instrument-list ${instrument} ${t//:/ }"
+  done
+
+  echo "!instrument-list ok"
+}
+
+function instrument_probe()
+{
+  shift
+
+  if [ "$#" -lt 1 ] ; then
+    kcpmsg -l error "insufficient arguments"
+    echo "!instrument-probe fail usage"
+    return
+  fi
+
+  validate_subarray_list
+  validate_instruments
+  validate_resource_set
+  validate_resource_use
+  validate_resource_free
+
+  instrument=$1
+
+  need=${instruments_sizes[${instrument}]}
+
+  if [ -z "${need}" ]  ; then
+    kcpmsg -l error "no information about instrument ${instrument} found"
+    echo "!instrument-probe fail unknown-item"
+    return
+  fi
+
+  have=${#resource_free[*]}
+
+  if [ "${have}" -lt "${need}" ] ; then
+    kcpmsg -l warn "would need ${need} boards but only have ${have}"
+    echo "!instrument-probe ok oversubscribed"
+    return
+  fi
+
+  kcpmsg "would allocate ${need} boards of ${have} available"
+
+  echo "!instrument-probe ok sufficient"
+}
+
+function instrument_activate()
+{
+  shift
+
+  status=nominal
+
+  if [ "$#" -lt 2 ] ; then
+    kcpmsg -l error "insufficient arguments (special case)"
+    echo "!instrument-activate fail usage"
+    return
+  fi
+
+  validate_subarray_list
+  validate_instruments
+  validate_resource_set
+  validate_resource_use
+  validate_resource_free
+
+  subarray=$1
+  instrument=$2
+
+  need=${instruments_sizes[${instrument}]}
+
+  if [ -z "${need}" ]  ; then
+    kcpmsg -l error "no information about instrument ${instrument} found"
+    echo "!instrument-activate fail unknown-item"
+    return
+  fi
+
+  if [ -z "${subarray_list[${subarray}]}" ] ; then
+    kcpmsg -l error "subarray ${subarray} does not seem to exist"
+    echo "!instrument-activate fail unknown-item"
+    return
+  fi
+
+  have=${#resource_free[*]}
+
+  if [ "${have}" -lt "${need}" ] ; then
+    kcpmsg -l warn "would need ${need} boards but only have ${have}"
+    #echo "!instrument-activate ok oversubscribed"
+    echo "!instrument-activate fail oversubscribed"
+    return 1
+  fi
+
+  i=0
+
+  unset resource_grab
+  declare -a resource_grab
+
+  while [ "$i" -lt "${need}" ] ; do
+    resource_grab[$i]=${resource_free[$i]}
+    i=$[i+1]
+  done
+
+  compound=${subarray_list[$subarray]}
+
+  kcpmsg "about to configure instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound//-/ }"
+  
+  nextport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
+
+  kcpmsg "selecting port ${nextport} for instrument ${instrument} of array ${subarray}"
+
+  if ! cmc-config ${subarray} ${instrument} ${nextport} ${compound//-/ } ${resource_grab[*]} ; then
+    kcpmsg -l error "unable to generate config for instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail read-logs"
+    adjust_instrument_sensors ${subarray} error
+    return 1
+  fi
+
+#echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
+  echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun corr2_servlet.py -p ${nextport}"
+  if ! get_katcp_reply client-exec ; then
+    echo "!instrument-activate fail task-start"
+    adjust_instrument_sensors ${subarray} error
+    return 1
+  fi
+
+  echo "?client-config client ${subarray}-${instrument}"
+  if ! get_katcp_reply client-config ; then
+    status=warn
+  fi
+
+  sleep 3
+
+  echo "?client-connect localhost:${nextport} ${subarray}"
+  if ! get_katcp_reply client-connect ; then
+    echo "!instrument-activate fail network"
+    echo "?client-halt ${subarray}-${instrument}"
+    get_katcp_reply client-halt 
+    adjust_instrument_sensors ${subarray} error
+    return 1
+  fi
+
+  echo "?client-config client localhost:${nextport}"
+  if ! get_katcp_reply client-config ; then
+    status=warn
+  fi
+
+  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
+    kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail read-logs"
+    adjust_instrument_sensors ${subarray} error
+    return 1
+  fi
+
+  echo "?client-rename corr localhost:${nextport}" 
+  if ! get_katcp_reply client-rename ; then
+    # TODO: kill the corr instance to release resources
+    echo "!instrument-activate fail read-logs"
+    adjust_instrument_sensors ${subarray} error
+    return 1
+  fi
+
+  if [ -n "${dmc_address}" ] ; then
+    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
+    if ! get_katcp_reply client-exec ; then
+      kcpmsg -l warn "unable to launch dmc synchronisation helper"
+      status=warn
+    else
+      kcpmsg "launching synchronisation dmc monitor"
+      sleep 2
+    fi
+  else
+    kcpmsg -l warn "no dmc defined thus synchronisation"
+  fi
+
+  kcpmsg -l warn "waiting for initialisation ... patience"
+
+  if ! kcpcmd -k -f -t 300 -r -s localhost:${nextport} initialise ; then 
+    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray}"
+    echo "!instrument-activate fail read-logs"
+    adjust_instrument_sensors ${subarray} error
+    return 1
+  fi
+
+  for board in ${resource_grab[*]} ; do
+    kcpmsg "assigning resource ${board} to ${subarray}"
+    resource_use[${board}]=${subarray}
+  done
+
+  make_instrument_sensors ${subarray} ${instrument}
+
+  if [ "${state/no-sensors/}" = "${state}" ] ; then
+    extraport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
+
+    kcpmsg "selecting ${extraport} for sensor"
+
+    echo "?client-exec monitor-${subarray}-${instrument} ${subarray} kcprun -n CORR2INI=${CORR_DIR}/${subarray}-${instrument} corr2_sensor_servlet.py -p ${extraport}"
+
+    if ! get_katcp_reply client-exec ; then
+      kcpmsg -l warn "unable to launch sensors for instrument ${instrument} in ${subarray} but going on anyway"
+      status=warn
+    fi
+
+    echo "?client-config client monitor-${subarray}-${instrument}"
+    if ! get_katcp_reply client-config ; then
+      status=warn
+    fi
+
+    sleep 2
+
+    echo "?client-connect localhost:${extraport} ${subarray}"
+    if ! get_katcp_reply client-connect ; then
+      status=warn
+    fi
+
+    echo "?client-config client localhost:${extraport}"
+    if ! get_katcp_reply client-config ; then
+      status=warn
+    fi
+
+    echo "?client-rename corr-sensors localhost:${extraport}" 
+    if ! get_katcp_reply client-rename ; then
+      status=warn
+    fi
+
+    echo "?client-config fixed corr-sensors"
+    if ! get_katcp_reply client-config ; then
+      kcpmsg -l warn "unable to configure sensor monitor"
+      status=warn
+    fi
+
+    kcpmsg "about to interrogate servlet sensors"
+
+    activate_servlet_sensors corr-sensors
+
+  else
+    kcpmsg -l warn "sensor servlet inhibited by configuration"
+  fi
+
+  echo "!instrument-activate ok"
+
+  adjust_instrument_sensors ${subarray} ${status} ${instrument}
+}
+

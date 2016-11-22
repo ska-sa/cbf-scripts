@@ -1,0 +1,117 @@
+#!/bin/bash
+
+#set -x 
+
+declare -a command_vector
+declare -a array_inputs
+declare -a setup_commands
+
+if [ -n "${CMC_CONFIG}" ] ; then
+  source "${CMC_CONFIG}"
+else
+  kcpmsg "running standalone"
+  source ../misc/cmc.conf
+fi
+
+if [ -n "$1" ] ; then
+  export KATCP_LABEL=$1
+  array=$1
+else
+  array=unknown
+fi
+
+shift
+
+array_inputs=($*)
+kcpmsg "launching subarray of size ${#array_inputs[*]}"
+
+# setup_commands=("?foo bar" "?bing baz")
+setup_size=${#setup_commands[*]}
+
+setup_current=0
+
+if [ ${setup_size} -gt 0 ] ; then
+  t=${setup_commands[$setup_current]}
+  echo $t
+  setup_expect=${t%% *}
+  unset ready
+else
+  ready="true"
+fi
+
+while read line ; do 
+
+  i=0;
+  rest=${line}
+  while [ -n "${rest}" ] ; do
+    command_vector[$i]=${rest%% *}
+    update=${rest#* }
+    if [ "${update}" = "${rest}" ] ; then
+      rest=""
+    else 
+      rest=${update}
+    fi
+    i=$[i+1]
+  done
+
+  max=$i
+  cmd=${command_vector[0]}
+
+  case "${cmd}" in
+    (\?capture-list) 
+      capture_list ${command_vector[@]}
+      ;;
+    (\?capture-destination) 
+      capture_destination ${command_vector[@]}
+      ;;
+    (\?capture-meta) 
+      capture_meta ${command_vector[@]}
+      ;;
+    (\?capture-stop) 
+      capture_stop ${command_vector[@]}
+      ;;
+    (\?capture-start) 
+      capture_start ${command_vector[@]}
+      ;;
+    (*)
+      v="${cmd:0:1}"
+      if [ "${v}" = '?' ] ; then
+        kcpmsg "cmc subordinate got unsupported request ${cmd}"
+        echo "!${cmd:1} fail"
+      elif [ "${v}" = '!' ] ; then
+        if [ -z "${ready}" ] ; then
+          if [ "${cmd:1}" = "${setup_expect:1}" ] ; then
+            if [ "${command_vector[1]}" = "ok" ] ; then
+              setup_current=$[setup_current+1]
+              if [ "${setup_current}" -ge "${setup_size}" ] ; then
+                ready="true"
+              else
+                t=${setup_commands[$setup_current]}
+                echo $t
+                setup_expect=${t%% *}
+              fi
+            else
+              kcpmsg -l fatal "setup request ${setup_commands[$setup_current]} failed thus giving up on initialisation"
+            fi
+          else
+            kcpmsg "unexpected message reply ${cmd}"
+          fi
+        fi
+      fi
+      ;;
+  esac
+
+  i=0
+  while [ ${i} -lt ${max} ] ; do
+    unset command_vector[$i]
+    i=$[i+1]
+  done
+  
+done
+
+for file in ${CORR_DIR}/${array}-* ; do
+  if [ -f ${file} ] ; then
+    kcpmsg "removing ${file}"
+# stop corr instance ? 
+  fi
+done

@@ -3,7 +3,7 @@ include Makefile.inc
 ###############################################################################
 
 APPS = 
-MISC = cmc misc templates ike
+MISC = cmc misc ike
 
 EVERYTHING = $(APPS) $(MISC)
 
