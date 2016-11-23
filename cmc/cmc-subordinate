@@ -351,7 +351,7 @@ function setup_instruments()
 
       if [ "${count}" = "${geometry}" ] ; then
 
-        send_request   var-declare resoures map    ":${instrument}"
+        send_request   var-declare requires map    ":${instrument}"
         retrieve_reply var-declare
 
         send_request   var-declare products array  ":${instrument}"
@@ -431,114 +431,6 @@ function setup_instruments()
 #   fi
 # }
 # 
-# function check_resources()
-# {
-#   local -l board
-#   local now mode art status when fresh key tmp board
-# 
-#   now=$(date +%s)
-# 
-#   for board in $(grep roach ${leases} | cut -f4 -d ' ') ; do
-# 
-#     push_failure
-# 
-#     fetch_var "resources:${board}"
-#     fresh=0
-# 
-#     if ! clear_failure ; then
-#       send_request   var-declare resources map    ":${board}"
-#       retrieve_reply var-declare
-# 
-#       send_request   var-set     resources roach  string ":${board}:type"
-#       retrieve_reply var-set
-# 
-#       send_request   var-set     resources auto   string ":${board}:mode"
-#       retrieve_reply var-set
-# 
-#       mode=auto
-#       art=roach
-#       when=${now}
-#       status=unknown
-# 
-#     else 
-#       fresh=1
-# 
-#       mode="${var_result[resources:${board}:mode]}"
-#       art="${var_result[resources:${board}:type]}"
-#       when="${var_result[resources:${board}:when]}"
-#       status="${var_result[resources:${board}:status]}"
-# 
-#       if [ "${mode}" == auto ] ; then 
-#         if [ "$[when+checkperiod]" -le "${now}" ] ; then
-#           fresh=0
-#           send_request   var-delete  "resources:${board}:when"
-#           retrieve_reply var-delete 
-#           send_request   var-delete  "resources:${board}:status"
-#           retrieve_reply var-delete
-#         fi
-#       fi
-#     fi
-# 
-#     kcpmsg "checked ${board} at ${when} with status now ${status}"
-# 
-#     if [ "${fresh}" = "0" ] ; then
-#       if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
-#         status=up
-#       else 
-#         status=standby
-#       fi
-# 
-#       send_request   var-set      "resources" ${now}     string ":${board}:when"
-#       retrieve_reply var-set
-#       send_request   var-set      "resources" ${status}  string ":${board}:status"
-#       retrieve_reply var-set
-#     fi
-# 
-#     if ! pop_failure  ; then
-#       kcpmsg -l fatal "unable to update status of board ${board}"
-#       return 1
-#     fi
-# 
-#   done
-# 
-#   push_failure
-# 
-#   fetch_var "resources"
-# 
-#   if ! pop_failure  ; then
-#     kcpmsg -l warn "unable to retrieve resource variables"
-#     return 1
-#   fi
-# 
-#   push_failure
-# 
-#   for key in "${!var_result[@]}" ; do
-#     if [ "${key##*:}" = "when" ] ; then
-#       when="${var_result[${key}]}"
-#       if [ "$[when+checkperiod]" -le "${now}" ] ; then
-#         tmp="${key#resources:}"
-#         board="${tmp%%:*}"
-#         if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
-#           if [ "${var_result[resources:${board}:status]}" = "up" ] ; then
-#             if [ "${var_result[resources:${board}:mode]}" = "auto" ] ; then
-#               if ! kcpcmd -kir -f -t 1 -s "${board}" watchdog >& /dev/null ; then
-#                 send_request   var-set      "resources" standby string ":${board}:status"
-#                 retrieve_reply var-set
-#               fi
-#             fi
-#           fi
-#         fi
-#       fi
-#     fi
-#   done
-# 
-#   if ! pop_failure  ; then
-#     kcpmsg -l warn "unable to update expired resource"
-#     return 1
-#   fi
-# 
-#   return 0
-# }
 
 ### api functions ### instrument ########################
 
@@ -595,7 +487,6 @@ function instrument_probe()
     return 1
   fi
 
-# resources:bc8n856M4k:roach
   for art in ${resource_types[*]} ; do
     wants[${art}]=${var_result[requires:${instrument}:${art}]}
     if [ -n "${wants[${art}]}" ] ; then
@@ -605,6 +496,8 @@ function instrument_probe()
     fi
     has[${art}]=0
   done
+
+  push_failure
 
   fetch_var "resources"
 
@@ -648,7 +541,81 @@ function instrument_probe()
 
 function instrument_activate()
 {
+  local instrument art resource t n
+  local -A wants
+  local -i sofar
+
   shift
+
+  setup_instruments
+
+  push_failure
+
+  instrument=$1
+
+  fetch_var "requires:${instrument}"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource requirement information for instrument ${instrument}"
+    echo "!instrument-activate fail unknown-item"
+    return 1
+  fi
+
+  for art in ${resource_types[*]} ; do
+    wants[${art}]=${var_result[requires:${instrument}:${art}]}
+    if [ -n "${wants[${art}]}" ] ; then
+      kcpmsg "instrument ${instrument} requires "${wants[${art}]}" resources of type ${art}"
+    else 
+      wants[${art}]=0
+    fi
+  done
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to query current resource set while checking availabilty for ${instrument}"
+    echo "!instrument-activate fail read-logs"
+    return 1
+  fi
+
+  for resource in "${!var_result[@]}" ; do
+    if [ "${resource##*:}" = status ] ; then
+      if [ "${var_result[${resource}]}" = up ] ; then
+        t=${resource%:*}
+        if [ -z "${var_result[${t}:holder]}" ] ; then
+          art=${var_result[${t}:type]}
+          n=${wants[${art}]}
+          if [ "$n" -gt 0 ] ; then
+            push_failure
+
+            send_request   var-set  resources "${product}" string "${t#resources}:holder"
+            retrieve_reply var-set
+
+            if pop_failure ; then
+              wants[${art}]=$[n-1]
+              eval export ${art^^}$[n-1]=${t#resources}
+            fi
+          fi
+        fi
+      fi
+    fi
+  done
+
+  for art in ${resource_types[*]} ; do
+    if [ "${wants[${art}]}" -gt 0 ] ; then
+      kcpmsg -l error "insufficient resources to launch ${instrument} as we are short of ${wants[${art}]} ${art} resources"
+      echo "!instrument-activate fail oversubscribed"
+      return 1
+    fi
+  done
+
+
+###########################
+  echo "!instrument-activate fail not-done"
+  return 1
+
   local epoch extras
 
   status=nominal
