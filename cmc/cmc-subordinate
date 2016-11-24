@@ -543,16 +543,44 @@ function instrument_activate()
 {
   local instrument art resource t n
   local -A wants
-  local -i sofar
 
   shift
 
   setup_instruments
 
-  push_failure
-
   instrument=$1
 
+  push_failure
+  fetch_var "subordinate"
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to indentify subarray while initialising instrument ${instrument}"
+    echo "!instrument-probe fail read-logs"
+    return 1
+  fi
+
+  SUBARRAY="${var_result[subordinate]}"
+  if [ -z "${SUBARRAY}" ] ; then
+    kcpmsg -l warn "malformed identification while initialising instrument ${instrument} with unknown values ${var_result[*]}"
+    echo "!instrument-probe fail read-logs"
+    return 1
+  fi
+
+  export SUBARRAY
+
+  push_failure
+  fetch_var "inputs"
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve set of inputs while initialising instrument ${instrument}"
+    echo "!instrument-probe fail read-logs"
+    return 1
+  fi
+
+  for input in "${!var_result[@]}" ; do
+    n=${input##*#}
+    eval export INPUT${n}=${var_result[${input}]}
+  done
+
+  push_failure
   fetch_var "requires:${instrument}"
 
   if ! pop_failure ; then
@@ -590,7 +618,7 @@ function instrument_activate()
           if [ "$n" -gt 0 ] ; then
             push_failure
 
-            send_request   var-set  resources "${product}" string "${t#resources}:holder"
+            send_request   var-set  resources "${SUBARRAY}" string "${t#resources}:holder"
             retrieve_reply var-set
 
             if pop_failure ; then
