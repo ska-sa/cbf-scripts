@@ -499,11 +499,17 @@ function resource_mark()
       push_failure
 
       if [ "${var_result[resources:${board}:status]}" != "up" ] ; then
+        send_request   var-delete  "resources:${board}:status"
+        retrieve_reply var-delete
+
         send_request   var-set  "resources" up     string ":${board}:status"
         retrieve_reply var-set
       fi
 
       if [ "${var_result[resources:${board}:mode]}" != "user" ] ; then
+        send_request   var-delete  "resources:${board}:mode"
+        retrieve_reply var-delete
+
         send_request   var-set  "resources" user   string ":${board}:mode"
         retrieve_reply var-set
       fi
@@ -522,11 +528,17 @@ function resource_mark()
       push_failure
 
       if [ "${var_result[resources:${board}:status]}" != "standby" ] ; then
+        send_request   var-delete  "resources:${board}:status"
+        retrieve_reply var-delete
+
         send_request   var-set  "resources" standby  string ":${board}:status"
         retrieve_reply var-set
       fi
 
       if [ "${var_result[resources:${board}:mode]}" != "user" ] ; then
+        send_request   var-delete  "resources:${board}:mode"
+        retrieve_reply var-delete
+
         send_request   var-set  "resources" user   string ":${board}:mode"
         retrieve_reply var-set
       fi
@@ -556,10 +568,18 @@ function resource_mark()
 
       push_failure
 
-      send_request   var-set  "resources" standby  string ":${board}:status"
-      retrieve_reply var-set
+      if [ "${var_result[resources:${board}:status]}" != "standby" ] ; then
+        send_request   var-delete  "resources:${board}:status"
+        retrieve_reply var-delete
+
+        send_request   var-set  "resources" standby  string ":${board}:status"
+        retrieve_reply var-set
+      fi
 
       if [ "${var_result[resources:${board}:mode]}" != "auto" ] ; then
+        send_request   var-delete  "resources:${board}:mode"
+        retrieve_reply var-delete
+
         send_request   var-set  "resources" auto   string ":${board}:mode"
         retrieve_reply var-set
       fi

@@ -639,8 +639,9 @@ function instrument_activate()
     fi
   done
 
-
-###########################
+### TODO: organise multicast ranges 
+### ADDRESS? variables 
+  
   echo "!instrument-activate fail not-done"
   return 1
 
