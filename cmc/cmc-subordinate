@@ -171,7 +171,7 @@ function send_request()
   echo -n "?${name}"
   shift
 
-  while [ $# -gt 1 ] ; do
+  while [ $# -gt 0 ] ; do
     echo -n " ${1// /-}"
     shift
   done
