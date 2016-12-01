@@ -298,7 +298,7 @@ function fetch_var()
 push_failure
 send_request   var-declare  "*requires*"  map
 retrieve_reply var-declare
-send_request   var-declare  "*products*"      map
+send_request   var-declare  "*products*"  map
 retrieve_reply var-declare
 
 function setup_instruments()
@@ -432,6 +432,70 @@ function setup_instruments()
 # }
 # 
 
+function setup_sync()
+{
+  local value epoch status
+
+  kcpmsg -l debug "initialising synchronisation variable"
+
+  push_failure
+
+  send_request   var-declare "*synchronisation-epoch*" sensor,map
+  retrieve_reply var-declare
+  send_request   var-set "*synchronisation-epoch*" "synchronisation time" string :help
+  retrieve_reply var-set
+  send_request   var-set "*synchronisation-epoch*"  integer string :type
+  retrieve_reply var-set
+
+  if [ -n "${dmc_address}" ] ; then
+
+    value=$(kcpcmd -r -s ${dmc_address} sensor-value synchronisation-epoch | grep sensor-value | cut -f5- -d ' ')
+    status="${value% *}"
+    epoch="${value#* }"
+  fi
+
+  if [ -n "${status}" -a -n "${epoch}" ] ; then
+
+    send_request   var-set "*synchronisation-epoch*"  "${epoch}"  string :value
+    retrieve_reply var-set
+
+    send_request   var-set "*synchronisation-epoch*"  "${status}" string :status
+    retrieve_reply var-set
+  else
+
+    send_request   var-set "*synchronisation-epoch*"  unknown string :status
+    retrieve_reply var-set
+    send_request   var-set "*synchronisation-epoch*"  0 string :value
+    retrieve_reply var-set
+  fi
+
+  if ! pop_failure  ; then
+    kcpmsg -l error "unable to generate synchronisation-epoch sensor"
+    return 1
+  fi
+
+  return 0
+}
+
+function setup_io()
+{
+  kcpmsg -l debug "configuring logging levels"
+
+  push_failure
+
+  send_request   client-config info-all
+  retrieve_reply client-config
+  send_request   log-limit off
+  retrieve_reply log-limit
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to configure subordinate control verbosity"
+    return 1
+  fi
+
+  return 0
+}
+
 ### api functions ### instrument ########################
 
 function instrument_list()
@@ -541,14 +605,20 @@ function instrument_probe()
 
 function instrument_activate()
 {
-  local instrument art resource t n
+  local instrument art resource t n nextport
   local -A wants
+  local epoch extras
 
   shift
 
   setup_instruments
 
   instrument=$1
+
+  INSTRUMENT=${instrument}
+  export INSTRUMENT
+
+  status=nominal
 
   push_failure
   fetch_var "subordinate"
@@ -639,148 +709,86 @@ function instrument_activate()
     fi
   done
 
-### TODO: organise multicast ranges 
-### ADDRESS? variables 
-  
-  echo "!instrument-activate fail not-done"
-  return 1
+  PORT=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
+  export PORT
 
-  local epoch extras
+  kcpmsg "selecting port ${PORT} for instrument ${INSTRUMENT} of array ${SUBARRAY}"
 
-  status=nominal
-
-  if [ "$#" -lt 2 ] ; then
-    kcpmsg -l error "insufficient arguments (special case)"
-    echo "!instrument-activate fail usage"
-    return
-  fi
-
-  validate_subarray_list
-  validate_instruments
-  validate_resource_set
-  validate_resource_use
-  validate_resource_free
-
-  subarray=$1
-  instrument=$2
-
-  shift 2 
-
-  need=${instruments_sizes[${instrument}]}
-
-  if [ -z "${need}" ]  ; then
-    kcpmsg -l error "no information about instrument ${instrument} found"
-    echo "!instrument-activate fail unknown-item"
-    return
-  fi
-
-  if [ -z "${subarray_list[${subarray}]}" ] ; then
-    kcpmsg -l error "subarray ${subarray} does not seem to exist"
-    echo "!instrument-activate fail unknown-item"
-    return
-  fi
-
-  have=${#resource_free[*]}
-
-  if [ "${have}" -lt "${need}" ] ; then
-    kcpmsg -l warn "would need ${need} boards but only have ${have}"
-    #echo "!instrument-activate ok oversubscribed"
-    echo "!instrument-activate fail oversubscribed"
-    return 1
-  fi
-
-  i=0
-
-  unset resource_grab
-  declare -a resource_grab
-
-  while [ "$i" -lt "${need}" ] ; do
-    resource_grab[$i]=${resource_free[$i]}
-    i=$[i+1]
-  done
-
-  compound=${subarray_list[$subarray]}
-
-  kcpmsg "about to configure instrument ${instrument} for ${subarray} with ${resource_grab[*]} resources and inputs ${compound//-/ }"
-  
-  nextport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
-
-  kcpmsg "selecting port ${nextport} for instrument ${instrument} of array ${subarray}"
-
-  if ! cmc-config ${subarray} ${instrument} ${nextport} ${compound//-/ } ${resource_grab[*]} ; then
-    kcpmsg -l error "unable to generate config for instrument ${instrument} in subarray ${subarray}"
+  if ! cmc-config ${CORR_TEMPLATE}/${INSTRUMENT} ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then
+    kcpmsg -l error "unable to generate config for instrument ${INSTRUMENT} in subarray ${SUBARRAY}"
     echo "!instrument-activate fail read-logs"
-    adjust_instrument_sensors ${subarray} error
+#    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
-#echo "?client-exec ${subarray}-${instrument} ${subarray} network-cmc-corr-stub" ${CORR_DIR}/${subarray}-${instrument} ${nextport}
-  echo "?client-exec ${subarray}-${instrument} ${subarray} kcprun -o auto corr2_servlet.py -p ${nextport}"
-  if ! get_katcp_reply client-exec ; then
-    echo "!instrument-activate fail task-start"
-    adjust_instrument_sensors ${subarray} error
-    return 1
-  fi
+### TODO: organise multicast ranges 
 
-  echo "?client-config client ${subarray}-${instrument}"
-  if ! get_katcp_reply client-config ; then
-    status=warn
-  fi
+  push_failure
+
+  send_request   client-exec ${SUBARRAY}-${INSTRUMENT} ${SUBARRAY} kcprun -o auto corr2_servlet.py -p ${PORT}
+  retrieve_reply client-exec
+
+  send_request   client-config client ${SUBARRAY}-${INSTRUMENT}
+  retrieve_reply client-config
 
   sleep 3
 
-  echo "?client-connect localhost:${nextport} ${subarray}"
-  if ! get_katcp_reply client-connect ; then
-    echo "!instrument-activate fail network"
-    echo "?client-halt ${subarray}-${instrument}"
-    get_katcp_reply client-halt 
-    adjust_instrument_sensors ${subarray} error
+  send_request   client-connect localhost:${PORT} ${SUBARRAY}
+  retrieve_reply client-connect
+
+  send_request   client-config client localhost:${PORT}
+  retrieve_reply client-config
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to launch servlet for instrument ${INSTRUMENT}"
+    echo "!instrument-activate fail task-start"
+# TODO: halt the servlet 
+#    adjust_instrument_sensors ${SUBARRAY} error
     return 1
   fi
 
-  echo "?client-config client localhost:${nextport}"
-  if ! get_katcp_reply client-config ; then
-    status=warn
-  fi
-
-  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
-    kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
+# TODO would be nice to use internal relay, but no timeout ...
+  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} create ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then 
+    kcpmsg -l error "unable to load config for instrument ${INSTRUMENT} in subarray ${SUBARRAY}"
     echo "!instrument-activate fail read-logs"
-    adjust_instrument_sensors ${subarray} error
+#    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
-  echo "?client-rename corr localhost:${nextport}" 
+  echo "?client-rename corr localhost:${PORT}" 
   if ! get_katcp_reply client-rename ; then
-    # TODO: kill the corr instance to release resources
+# TODO: kill the corr instance to release resources
     echo "!instrument-activate fail read-logs"
-    adjust_instrument_sensors ${subarray} error
+#    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
-  if [ -n "${dmc_address}" ] ; then
+  push_failure
 
-    epoch=$(kcpcmd -r -s ${dmc_address} sensor-value synchronisation-epoch | grep sensor-value | cut -f5- -d ' ')
-    if [ "${epoch% *}" = "nominal" ] ; then
-      if kcpcmd -i -k -f -r -s localhost:${nextport} digitiser-synch-epoch "${epoch#* }" ; then 
-        kcpmsg "preliminary sync epoch set to ${epoch#* }"
-      else
-        kcpmsg -l error "servlet unwilling to accept epoch ${epoch#* }"
-        echo "!instrument-activate fail read-logs"
-        adjust_instrument_sensors ${subarray} error
-        return 1
-      fi
+  fetch_var "synchronisation-epoch"
+
+  if ! pop_failure  ; then
+# TODO: kill the corr instance to release resources
+    kcpmsg -l warn "unable to retrieve synchronisation epoch"
+    return 1
+  fi
+
+  if [ "${var_result[synchronisation-epoch:status]}" != nominal ] ; then
+    kcpmsg -l error "synchronisation epoch is not nominal"
+  fi
+
+  epoch="${var_result[synchronisation-epoch:value]}"
+
+  if [ "${epoch}" -gt 0 ] ; then
+    if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then 
+      kcpmsg "preliminary sync epoch set to ${epoch}"
     else
-      kcpmsg -l error "${dmc_address} unable to provide a nominal epoch thus giving up on synchronsation"
+      kcpmsg -l error "servlet unwilling to accept epoch ${epoch}"
       echo "!instrument-activate fail read-logs"
-      adjust_instrument_sensors ${subarray} error
+#      adjust_instrument_sensors ${subarray} error
       return 1
     fi
-
-  else
-    kcpmsg -l warn "no dmc defined thus synchronisation not possible"
   fi
-
 
   extras="$*"
   if [ -z "${extras}" ] ; then
@@ -790,50 +798,43 @@ function instrument_activate()
 
   kcpmsg -l warn "waiting for initialisation ${extras} ... patience"
 
-  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${nextport} initialise ${extras} ; then 
-    kcpmsg -l error "unable to initialise instrument ${instrument} in subarray ${subarray} with options ${extras}"
+  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} initialise ${extras} ; then 
+    kcpmsg -l error "unable to initialise instrument ${INSTRUMENT} with options ${extras}"
     echo "!instrument-activate fail read-logs"
-    adjust_instrument_sensors ${subarray} error
+#    adjust_instrument_sensors ${subarray} error
     return 1
   fi
 
-  if [ -n "${dmc_address}" ] ; then
-    echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
-    if ! get_katcp_reply client-exec ; then
-      kcpmsg -l warn "unable to launch dmc synchronisation helper"
-      status=warn
-    else
-      kcpmsg "launching synchronisation dmc monitor"
-    fi
-  fi
-
-  for board in ${resource_grab[*]} ; do
-    kcpmsg "assigning resource ${board} to ${subarray}"
-    resource_use[${board}]=${subarray}
-  done
-
-  make_instrument_sensors ${subarray} ${instrument}
+#   if [ -n "${dmc_address}" ] ; then
+#     echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
+#     if ! get_katcp_reply client-exec ; then
+#       kcpmsg -l warn "unable to launch dmc synchronisation helper"
+#       status=warn
+#     else
+#       kcpmsg "launching synchronisation dmc monitor"
+#     fi
+#   fi
 
   if [ "${state/no-sensors/}" = "${state}" ] ; then
     extraport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
 
     kcpmsg "selecting ${extraport} for sensor"
 
-    echo "?client-exec monitor-${subarray}-${instrument} ${subarray} kcprun -e debug -o debug -n CORR2INI=${CORR_DIR}/${subarray}-${instrument} corr2_sensor_servlet.py -p ${extraport}"
+    echo "?client-exec monitor-${SUBARRAY}-${INSTRUMENT} ${SUBARRAY} kcprun -e debug -o debug -n CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} corr2_sensor_servlet.py -p ${extraport}"
 
     if ! get_katcp_reply client-exec ; then
-      kcpmsg -l warn "unable to launch sensors for instrument ${instrument} in ${subarray} but going on anyway"
+      kcpmsg -l warn "unable to launch sensors for instrument ${INSTRUMENT} but going on anyway"
       status=warn
     fi
 
-    echo "?client-config client monitor-${subarray}-${instrument}"
+    echo "?client-config client monitor-${SUBARRAY}-${INSTRUMENT}"
     if ! get_katcp_reply client-config ; then
       status=warn
     fi
 
     sleep 2
 
-    echo "?client-connect localhost:${extraport} ${subarray}"
+    echo "?client-connect localhost:${extraport} ${SUBARRAY}"
     if ! get_katcp_reply client-connect ; then
       status=warn
     fi
@@ -869,21 +870,17 @@ function instrument_activate()
 
   echo "!instrument-activate ok"
 
-  adjust_instrument_sensors ${subarray} ${status} ${instrument}
+#  adjust_instrument_sensors ${subarray} ${status} ${instrument}
 }
 
 ### main loop ###########################################
 
-push_failure
-send_request   client-config info-all
-retrieve_reply client-config
-send_request   log-limit off
-retrieve_reply log-limit
-pop_failure  
+setup_io
+setup_sync
 
 while read line ; do 
   add_queue ${line}
-  show_queue
+#  show_queue
 
   k=0
   while [ "${k}" -lt "${queue_tail}" ] ; do

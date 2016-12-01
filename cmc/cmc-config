@@ -1,30 +1,18 @@
 #!/bin/bash
 
-export KATCP_LABEL=cmc-config
+set -x
 
-if [ -n "${CMC_CONFIG}" ] ; then
-  source "${CMC_CONFIG}"
-else
-  kcpmsg "running standalone"
-  source ../misc/cmc.conf
-fi
+export KATCP_LABEL=cmc-config
 
 if [ "$#" -lt 2 ] ; then
   kcpmsg -l error "insufficient parameters to launch instrument"
   exit 1
 fi
 
-array=$1
-shift
+template=${1}
+file=${2}
 
-instrument=$1
-shift
-
-name=${array}-${instrument}
-file=${CORR_DIR}/${name}
-template=${CORR_TEMPLATE}/${instrument}
-
-kcpmsg -l debug "intending to build ${file} using ${template}"
+kcpmsg -l debug "intending to build ${file##*/} using ${template##*/}"
 
 if [ ! -f ${template} ] ; then
   kcpmsg -l error "unable to locate template ${template}"
@@ -32,14 +20,14 @@ if [ ! -f ${template} ] ; then
 fi
 
 if [ -f ${file} ] ; then
-  kcpmsg "removing previous config ${name}"
+  kcpmsg "removing previous config ${file##*/}"
   rm -f ${file}
 fi
 
 # build config file for corr
-(echo "#define PORT ${port}"
- for roach in "${!ROACH[@]}" ; do echo "#define ${roach} ${!roach}" ; done
- for input in "${!INPUT[@]}" ; do echo "#define ${input} ${!input}" ; done
+(echo "#define PORT ${PORT}"
+ for roach in "${!ROACH@}" ; do echo "#define ${roach} ${!roach}" ; done
+ for input in "${!INPUT@}" ; do echo "#define ${input} ${!input}" ; done
 grep -v '^ *#' ${template} ) | cpp - > ${file}
 
-kcpmsg "generated config ${name}"
+kcpmsg "generated config ${file##*/}"

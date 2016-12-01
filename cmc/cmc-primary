@@ -35,6 +35,8 @@ declare -a -r resource_types=(roach skarab)
 # valid command names and their minimum parameter count 
 declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-assign]=3 [subordinate-list]=1 [subordinate-halt]=2)
 
+declare -A -r inform_set=([group-destroyed]=1)
+
 declare -a command_vector
 declare -i command_size=0
 
@@ -64,7 +66,7 @@ function add_queue()
 
   queue_data[${queue_tail}]="$*"
 
-  kcpmsg -l debug "queue[${queue_tail}]: $*"
+#  kcpmsg -l debug "queue[${queue_tail}]: $*"
 
   queue_tail=$[queue_tail+1]
 }
@@ -102,7 +104,7 @@ function pop_failure()
 {
   result=${failure_stack[${failure_depth}]}
 
-  kcpmsg -l trace "stack at ${failure_depth} has code ${result}"
+#  kcpmsg -l trace "stack at ${failure_depth} has code ${result}"
 
   if [ "${failure_depth}" -gt "0" ] ; then
     failure_depth=$[failure_depth-1]
@@ -117,7 +119,7 @@ function clear_failure()
 {
   result=${failure_stack[${failure_depth}]}
 
-  kcpmsg -l trace "stack at ${failure_depth} has code ${result}"
+#  kcpmsg -l trace "stack at ${failure_depth} has code ${result}"
 
   failure_stack[${failure_depth}]=0
 
@@ -421,6 +423,76 @@ function check_resources()
   return 0
 }
 
+### hidden api functions ### resources ##################
+
+function group_destroyed()
+{
+  local subarray resource board t now count
+
+  shift
+
+  subarray=$1
+
+  if [ -z "${subarray}" ] ; then
+    kcpmsg -l warn "unable to identify subarray to be released"
+    return 1
+  fi
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to query resource set while deallocating subarray ${subarray}"
+    return 1
+  fi
+
+  count=0
+
+  push_failure
+
+  for resource in "${!var_result[@]}" ; do
+    if [ "${resource##*:}" = holder ] ; then
+      if [ "${var_result[${resource}]}" = "${subarray}" ] ; then
+        t=${resource%:*}
+        if [ "${var_result[${t}:type]}" = roach ] ; then
+          board=${t%resources:}
+
+          if kcpcmd -f -kir -s ${board}:7147 progdev ; then
+
+            now=$(date +%s)
+
+            if [ -n "${now}" ] ; then
+
+              send_request   var-delete  "${t}:when"
+              retrieve_reply var-delete 
+
+              send_request   var-set     "resources" ${now} string ":${board}:when"
+              retrieve_reply var-set
+
+            fi
+
+          else
+            kcpmsg -l error "unable to deprogram roach ${board} which was part of array ${subarray}"
+          fi
+        fi
+
+        send_request   var-delete  "${resource}"
+        retrieve_reply var-delete
+
+        count=$[count+1]
+
+      fi
+    fi
+  done
+
+  kcpmsg -l info "attempted to release ${count} resources previously held by ${subarray}"
+
+  if ! pop_failure  ; then
+    kcpmsg -l error "unable to free all resources held by ${subarray}"
+  fi
+}
+
 ### api functions ### resources #########################
 
 function resource_reload()
@@ -436,6 +508,8 @@ function resource_list()
 {
   local key board tmp
   local -A vector
+
+  shift
 
   check_resources 
 
@@ -920,7 +994,7 @@ pop_failure
 
 while read line ; do 
   add_queue ${line}
-  show_queue
+#  show_queue
 
   k=0
   while [ "${k}" -lt "${queue_tail}" ] ; do
@@ -943,6 +1017,19 @@ while read line ; do
           kcpmsg -l warn "need at least ${command_set[${cmd}]} parameters for ${cmd} but saw only ${command_size}"
           echo "!${cmd} fail usage"
         else
+          actual=${cmd//-/_}
+          ${actual} ${command_vector[@]}
+        fi 
+      fi
+
+    elif [ "${string:0:1}" = '#' ] ; then
+      make_vector ${string}
+
+      first=${command_vector[0]}
+      cmd=${first:1}
+
+      if [ -n "${inform_set[${cmd}]}" ] ; then
+        if [ "${command_size}" -ge "${inform_set[${cmd}]}" ] ; then
           actual=${cmd//-/_}
           ${actual} ${command_vector[@]}
         fi 
