@@ -168,7 +168,15 @@ function send_request()
 
   send_count=$[send_count+1]
 
-  echo "?$*"
+  echo -n "?${name}"
+  shift
+
+  while [ $# -gt 1 ] ; do
+    echo -n "${1// /-} "
+    shift
+  done
+
+  echo
 }
 
 function retrieve_reply()
@@ -442,8 +450,10 @@ function setup_sync()
 
   send_request   var-declare "*synchronisation-epoch*" sensor,map
   retrieve_reply var-declare
+
   send_request   var-set "*synchronisation-epoch*" "synchronisation time" string :help
   retrieve_reply var-set
+
   send_request   var-set "*synchronisation-epoch*"  integer string :type
   retrieve_reply var-set
 
@@ -465,6 +475,7 @@ function setup_sync()
 
     send_request   var-set "*synchronisation-epoch*"  unknown string :status
     retrieve_reply var-set
+
     send_request   var-set "*synchronisation-epoch*"  0 string :value
     retrieve_reply var-set
   fi
