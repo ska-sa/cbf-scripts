@@ -766,8 +766,11 @@ function instrument_activate()
     return 1
   fi
 
-  echo "?client-rename corr localhost:${PORT}" 
-  if ! get_katcp_reply client-rename ; then
+  push_failure
+  send_request   client-rename corr "localhost:${PORT}"
+  retrieve_reply client-rename
+
+  if ! pop_failure ; then
 # TODO: kill the corr instance to release resources
     echo "!instrument-activate fail read-logs"
 #    adjust_instrument_sensors ${subarray} error
@@ -831,48 +834,42 @@ function instrument_activate()
 
     kcpmsg "selecting ${extraport} for sensor"
 
-    echo "?client-exec monitor-${SUBARRAY}-${INSTRUMENT} ${SUBARRAY} kcprun -e debug -o debug -n CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} corr2_sensor_servlet.py -p ${extraport}"
+    push_failure
 
-    if ! get_katcp_reply client-exec ; then
-      kcpmsg -l warn "unable to launch sensors for instrument ${INSTRUMENT} but going on anyway"
-      status=warn
-    fi
+    send_request   client-exec "monitor-${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}" kcprun -e debug -o debug -n "CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}" corr2_sensor_servlet.py -p "${extraport}"
+    retrieve_reply client-exec
 
-    echo "?client-config client monitor-${SUBARRAY}-${INSTRUMENT}"
-    if ! get_katcp_reply client-config ; then
-      status=warn
-    fi
+#    if ! get_katcp_reply client-exec ; then
+#      kcpmsg -l warn "unable to launch sensors for instrument ${INSTRUMENT} but going on anyway"
+#      status=warn
+#    fi
+
+    send_request   client-config client "monitor-${SUBARRAY}-${INSTRUMENT}"
+    retrieve_reply client-config
 
     sleep 2
 
-    echo "?client-connect localhost:${extraport} ${SUBARRAY}"
-    if ! get_katcp_reply client-connect ; then
-      status=warn
-    fi
+    send_request   client-connect "localhost:${extraport}" "${SUBARRAY}"
+    retrieve_reply client-connect
 
-    echo "?relay localhost:${extraport} relay localhost:${extraport} watchdog"
-    if ! get_katcp_reply relay ; then
-      status=warn
-    fi
+    send_request   relay "localhost:${extraport}" relay "localhost:${extraport}" watchdog
+    retrieve_reply relay
 
-    echo "?client-config client localhost:${extraport}"
-    if ! get_katcp_reply client-config ; then
-      status=warn
-    fi
+    send_request   client-config client "localhost:${extraport}"
+    retrieve_reply client-config
 
-    echo "?client-rename corr-sensors localhost:${extraport}" 
-    if ! get_katcp_reply client-rename ; then
-      status=warn
-    fi
+    send_request   client-rename corr-sensors "localhost:${extraport}" 
+    retrieve_reply client-rename
 
-    echo "?client-config fixed corr-sensors"
-    if ! get_katcp_reply client-config ; then
-      kcpmsg -l warn "unable to configure sensor monitor"
-      status=warn
+    send_request   client-config fixed corr-sensors
+    retrieve_reply client-config
+
+    if ! pop_failure ; then
+       kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
     fi
 
     kcpmsg "about to interrogate servlet sensors"
-
+    
     activate_servlet_sensors corr-sensors
 
   else
