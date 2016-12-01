@@ -11,7 +11,7 @@ if [ -f "${configuration}" ] ; then
     set -x
   fi
 
-  leases=${LEASE_FILE}
+  leases=${LEASE_FILE:-/var/lib/misc/dnsmasq.leases}
 
   if [ ! -f "${leases}" ] ; then
     kcpmsg -l fatal "no lease file to be found"
