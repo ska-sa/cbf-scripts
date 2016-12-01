@@ -804,6 +804,8 @@ function instrument_activate()
     fi
   fi
 
+  shift
+
   extras="$*"
   if [ -z "${extras}" ] ; then
 # warning - hack, this disables qdr callibration
