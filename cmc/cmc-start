@@ -101,13 +101,13 @@ kfwd array-halt    primary "halt a subordinate (?array-halt [subordinate])"
 kfwd array-list    primary "show subordinates (?array-list)"
 kfwd array-assign  primary "define and launch a subordinate (?array-assign subordinates [inputs]*)"
 
-kcpcmd -i forward-symbolic subordinate-halt    primary array-halt
+kcpcmd -i forward-symbolic subordinate-halt    primary array-halt %1+
 kcpcmd -i cmd-help         subordinate-halt   "halt an subordinate (?subordinate-halt [subordinate])"
 
-kcpcmd -i forward-symbolic subordinate-list    primary array-list
+kcpcmd -i forward-symbolic subordinate-list    primary array-list %1+
 kcpcmd -i cmd-help         subordinate-list   "show running subordinates (?subordinate-list)"
 
-kcpcmd -i forward-symbolic subordinate-create  primary array-assign
+kcpcmd -i forward-symbolic subordinate-create  primary array-assign %1+
 kcpcmd -i cmd-help         subordinate-create "define and launch a subordinate (?subordinate-create subarray [inputs]*)"
 
 kcpcmd -i cmd-delete halt  
