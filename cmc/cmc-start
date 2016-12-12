@@ -97,18 +97,18 @@ function kfwd()
 
 kfwd resource-mark primary "set availability of a processing resource (?resource-mark resource marking)"
 kfwd resource-list primary "show processing resources (?resource-list [resource])"
-kfwd array-halt    primary "halt a subarray (?array-halt [subarray])"
-kfwd array-list    primary "show subarrays (?array-list)"
-kfwd array-assign  primary "define and launch a subarray (?array-assign subarray [inputs]*)"
+kfwd array-halt    primary "halt a subordinate (?array-halt [subordinate])"
+kfwd array-list    primary "show subordinates (?array-list)"
+kfwd array-assign  primary "define and launch a subordinate (?array-assign subordinates [inputs]*)"
 
-kcpcmd -i forward-symbolic instrument-halt    primary array-halt
-kcpcmd -i cmd-help         instrument-halt   "halt an instrument (?instrument-halt [instrument])"
+kcpcmd -i forward-symbolic subordiante-halt    primary array-halt
+kcpcmd -i cmd-help         subordiante-halt   "halt an subordiante (?subordiante-halt [subordiante])"
 
-kcpcmd -i forward-symbolic instrument-list    primary array-list
-kcpcmd -i cmd-help         instrument-list   "show running instruments (?instrument-list)"
+kcpcmd -i forward-symbolic subordiante-list    primary array-list
+kcpcmd -i cmd-help         subordiante-list   "show running subordiantes (?subordiante-list)"
 
-kcpcmd -i forward-symbolic instrument-assign  primary array-assign
-kcpcmd -i cmd-help         instrument-assign "define and launch a subarray (?instrument-assign subarray [inputs]*)"
+kcpcmd -i forward-symbolic subordiante-create  primary array-assign
+kcpcmd -i cmd-help         subordiante-create "define and launch a subordinate (?subordiante-create subarray [inputs]*)"
 
 kcpcmd -i cmd-delete halt  
 kfwd halt          primary "halt the system (?halt)"
