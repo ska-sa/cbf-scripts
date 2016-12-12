@@ -999,6 +999,11 @@ function instrument_activate()
     status=warn
   fi
 
+  echo "?client-config fixed localhost:${nextport}"
+  if ! get_katcp_reply client-config ; then
+    status=warn
+  fi
+
   if ! kcpcmd -i -k -f -t 300 -r -s localhost:${nextport} create ${CORR_DIR}/${subarray}-${instrument} ; then 
     kcpmsg -l error "unable to load config for instrument ${instrument} in subarray ${subarray}"
     echo "!instrument-activate fail read-logs"
