@@ -33,7 +33,7 @@ fi
 declare -a -r resource_types=(roach skarab)
 
 # valid command names and their minimum parameter count 
-declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-assign]=3 [subordinate-list]=1 [subordinate-halt]=2)
+declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2)
 
 declare -A -r inform_set=([group-destroyed]=1)
 
@@ -515,7 +515,11 @@ function resource_list()
 
   push_failure
 
-  fetch_var "resources"
+  if [ -n "$1" ] ; then
+    fetch_var "resources:$1"
+  else
+    fetch_var "resources"
+  fi
 
   if ! pop_failure  ; then
     kcpmsg -l error "unable to retrieve resource variables"
@@ -772,7 +776,7 @@ function subordinate_list()
   return 0
 }
 
-function subordinate_assign()
+function subordinate_create()
 {
   local port key prefix group file
   local i t
@@ -792,7 +796,7 @@ function subordinate_assign()
 
   if pop_failure ; then
     kcpmsg -l warn "array ${group} already in use"
-    echo "!subordinate-assign fail already-exists"
+    echo "!subordinate-create fail already-exists"
     return 1
   fi
 
@@ -804,7 +808,7 @@ function subordinate_assign()
 # 
 #   if [ "${match}" -le "0" ] ; then
 #     kcpmsg -l error "no instruments available for a subarray of $# inputs"
-#     echo "!subordinate-assign fail unsupported-size"
+#     echo "!subordinate-create fail unsupported-size"
 #     return
 #   fi
 # 
@@ -817,7 +821,7 @@ function subordinate_assign()
           kcpmsg -l debug "removing old config ${file}"
         else 
           kcpmsg -l error "unable to remove old config file ${file}"
-#        echo "!subordinate-assign fail read-logs"
+#        echo "!subordinate-create fail read-logs"
 #        return
         fi
       fi
@@ -831,7 +835,7 @@ function subordinate_assign()
 
   if ! pop_failure ; then
     kcpmsg -l warn "unable to create group ${group} for array"
-    echo "!subordinate-assign fail read-logs"
+    echo "!subordinate-create fail read-logs"
     return 1
   fi
 
@@ -869,7 +873,7 @@ function subordinate_assign()
     pop_failure
 
     kcpmsg -l warn "unable to record inputs for group ${group}"
-    echo "!subordinate-assign fail read-logs"
+    echo "!subordinate-create fail read-logs"
     return 1
   fi
 
@@ -914,7 +918,7 @@ function subordinate_assign()
     pop_failure
 
     kcpmsg -l warn "unable to start listener for group ${group}"
-    echo "!subordinate-assign fail network"
+    echo "!subordinate-create fail network"
     return 1
   fi
 
@@ -928,7 +932,7 @@ function subordinate_assign()
     pop_failure
 
     kcpmsg -l warn "unable to start control task for group ${group}"
-    echo "!subordinate-assign fail task-start"
+    echo "!subordinate-create fail task-start"
     return 1
   fi
 
@@ -936,7 +940,7 @@ function subordinate_assign()
 
 #  make_subarray_sensors ${key}
 
-  echo "!subordinate-assign ok ${port}"
+  echo "!subordinate-create ok ${port}"
   return 0
 }
 
