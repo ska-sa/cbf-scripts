@@ -17,7 +17,6 @@ INITTMP = $(CONFIG)-tmp
 
 all:
 	$(SED) -e 's/^device_build=.*/device_build=$(GITVER)/' \
-	       -e 's/^device_api=.*/device_api=$(APIVER)/'     \
 	       $(INITSRC) > $(INITTMP)
 	@echo -e '\n****************************************\n' 
 	-$(DIFF) $(INITTMP) $(CONFIG) 
