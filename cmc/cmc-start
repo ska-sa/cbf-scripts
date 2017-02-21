@@ -123,6 +123,11 @@ kcpcmd -i cmd-help         instrument-list    "show fielded instruments (?instru
 kcpcmd -i cmd-delete halt  
 kfwd halt          primary "halt the system (?halt)"
 
+if [ -n "${server_part}" ] ; then
+  kcpcmd -i var-declare 'cbf-server*' map,version
+  kcpcmd -i var-set cbf-server ${server_part} string :version
+fi
+
 kcpcmd -i var-declare 'katcp-device*' map,version
 kcpcmd -i var-set katcp-device ${device_api:-unknown} string :version
 kcpcmd -i var-set katcp-device ${device_build:-unknown} string :build
