@@ -606,6 +606,8 @@ function instrument_list()
 {
   local instruments instrument
 
+  shift
+
   if ! setup_instruments ; then
     echo "!instrument-list fail"
     return 1
@@ -620,7 +622,7 @@ function instrument_list()
   fi
 
   if ! pop_failure  ; then
-    kcpmsg -l error "unable to retrieve instrument descriptiors"
+    kcpmsg -l error "unable to retrieve instrument descriptors"
     echo "!instrument-list fail"
   fi
 
