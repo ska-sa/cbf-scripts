@@ -357,7 +357,7 @@ function setup_instruments()
 
         i=0
         for product in $(ike -o -k output_products ${template}) ; do
-          send_request   var-set products "${product}" string ":${instrument}#${i}"
+          send_request   var-set instrument-outputs "${product}" string ":${instrument}#${i}"
           retrieve_reply var-set
           i=$[i+1]
         done
@@ -606,6 +606,7 @@ function instrument_list()
 {
   if ! setup_instruments ; then
     echo "!instrument-list fail"
+    return 1
   fi
 
   echo "!instrument-list ok"
