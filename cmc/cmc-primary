@@ -604,7 +604,9 @@ function group_destroyed()
 
 function instrument_list()
 {
-  local instruments instrument
+  local -A size input outputs
+  local -a index
+  local instrument key 
 
   shift
 
@@ -622,12 +624,32 @@ function instrument_list()
   fi
 
   if ! pop_failure  ; then
-    kcpmsg -l error "unable to retrieve instrument descriptors"
+    kcpmsg -l error "unable to retrieve instrument list"
     echo "!instrument-list fail"
   fi
 
-  for instrument in "${!var_result[@]}" ; do
-    echo "#instrument-list ${instrument} sufficient ${var_result[${instrument}]}"
+  for key in "${!var_result[@]}" ; do
+    instrument="${key#instrument-size:}"
+    index+="${instrument}"
+  done
+
+  for instrument in "${index[@]}" ; do
+    push_failure
+
+    fetch_var "instrument-size:${instrument}"
+    size="${var_result[*]}"
+
+    fetch_var "instrument-input:${instrument}"
+    input="${var_result[*]}"
+
+    fetch_var "instrument-outputs:${instrument}"
+    outputs="${var_result[*]}"
+
+    if ! pop_failure  ; then
+      kcpmsg -l warn "unable to retrieve needed information for instrument ${instrument}"
+    else 
+      echo "#instrument-list ${instrument} sufficient ${size} ${input} ${outputs}"
+    fi
   done
 
   echo "!instrument-list ok"
