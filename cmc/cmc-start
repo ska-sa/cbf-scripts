@@ -117,6 +117,9 @@ kcpcmd -i cmd-help         subordinate-list   "show running instruments (?subord
 kcpcmd -i forward-symbolic subordinate-assign  primary
 kcpcmd -i cmd-help         subordinate-assign "define and launch a subarray (?subordinate-assign subarray [inputs]*)"
 
+kcpcmd -i forward-symbolic instrument-list     primary
+kcpcmd -i cmd-help         instrument-list    "show fielded instruments (?instrument-list)"
+
 kcpcmd -i cmd-delete halt  
 kfwd halt          primary "halt the system (?halt)"
 
