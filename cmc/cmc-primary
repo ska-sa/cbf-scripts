@@ -375,7 +375,7 @@ function setup_instruments()
 
           kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
 
-          send_request   var-set requires "${required}" string ":${instrument}:${art}"
+          send_request   var-set instrument-resources "${required}" string ":${instrument}:${art}"
           retrieve_reply var-set
         done
 
