@@ -630,7 +630,7 @@ function instrument_list()
 
   for key in "${!var_result[@]}" ; do
     instrument="${key#instrument-size:}"
-    index+="${instrument}"
+    index+=("${instrument}")
   done
 
   for instrument in "${index[@]}" ; do
