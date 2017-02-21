@@ -32,7 +32,7 @@ fi
 
 declare -a -r resource_types=(roach skarab)
 
-# valid command names and their minimum parameter count 
+# valid command names and their minimum parameter count
 declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1)
 
 declare -A -r inform_set=([group-destroyed]=1)
@@ -178,7 +178,7 @@ function send_request()
 function retrieve_reply()
 {
   local name="$1"
-  local line art reply code 
+  local line art reply code
   local -a vector
 
   if [ -z "$name" ] ; then
@@ -201,7 +201,7 @@ function retrieve_reply()
         else
           set_failure
           return 1
-        fi 
+        fi
       else
         kcpmsg -l warn "discarding unexpected response ${reply:1}"
       fi
@@ -222,7 +222,7 @@ function retrieve_inform()
     unset inform_result[${del}]
   done
 
-  while read line ; do 
+  while read line ; do
     if [ "${line:0:1}" = "?" ] ; then
       add_queue ${line}
     else
@@ -239,8 +239,8 @@ function retrieve_inform()
         else
           set_failure
           return 1
-        fi 
-      else 
+        fi
+      else
         if [ "${line:0:1}" = "!" ] ; then
           kcpmsg -l warn "discarding unexpected response ${line:1}"
         fi
@@ -269,7 +269,7 @@ function fetch_var()
 
   match=$1
 
-  while read line ; do 
+  while read line ; do
     if [ "${line:0:1}" = "?" ] ; then
       add_queue ${line}
     else
@@ -285,8 +285,8 @@ function fetch_var()
         else
           set_failure
           return 1
-        fi 
-      else 
+        fi
+      else
         if [ "${line:0:1}" = "!" ] ; then
           kcpmsg -l warn "discarding unexpected response ${line:1}"
         fi
@@ -406,10 +406,10 @@ function setup_instruments()
 
 ### support functions ###################################
 
-# resources:name:when       - last time we checked it 
+# resources:name:when       - last time we checked it
 # resources:name:status     - what the user status is
 #
-# resources:name:type       - what type of resource it is 
+# resources:name:type       - what type of resource it is
 # resources:name:mode       - did the user decide its status
 # resources:name:holder     - which subarray owns it
 
@@ -450,7 +450,7 @@ function check_resources()
       when=${now}
       status=unknown
 
-    else 
+    else
       fresh=1
 
       mode="${var_result[resources:${board}:mode]}"
@@ -458,11 +458,11 @@ function check_resources()
       when="${var_result[resources:${board}:when]}"
       status="${var_result[resources:${board}:status]}"
 
-      if [ "${mode}" == auto ] ; then 
+      if [ "${mode}" == auto ] ; then
         if [ "$[when+checkperiod]" -le "${now}" ] ; then
           fresh=0
           send_request   var-delete  "resources:${board}:when"
-          retrieve_reply var-delete 
+          retrieve_reply var-delete
           send_request   var-delete  "resources:${board}:status"
           retrieve_reply var-delete
         fi
@@ -474,7 +474,7 @@ function check_resources()
     if [ "${fresh}" = "0" ] ; then
       if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
         status=up
-      else 
+      else
         status=standby
       fi
 
@@ -572,7 +572,7 @@ function group_destroyed()
             if [ -n "${now}" ] ; then
 
               send_request   var-delete  "${t}:when"
-              retrieve_reply var-delete 
+              retrieve_reply var-delete
 
               send_request   var-set     "resources" ${now} string ":${board}:when"
               retrieve_reply var-set
@@ -606,7 +606,7 @@ function instrument_list()
 {
   local -A size input outputs
   local -a index
-  local instrument key 
+  local instrument key
 
   shift
 
@@ -647,7 +647,7 @@ function instrument_list()
 
     if ! pop_failure  ; then
       kcpmsg -l warn "unable to retrieve needed information for instrument ${instrument}"
-    else 
+    else
       echo "#instrument-list ${instrument} sufficient ${size} ${input} ${outputs}"
     fi
   done
@@ -673,7 +673,7 @@ function resource_list()
 
   shift
 
-  check_resources 
+  check_resources
 
   push_failure
 
@@ -695,7 +695,7 @@ function resource_list()
     vector[${board}]="#resource-list ${board} ${var_result[resources:${board}:status]} ${var_result[resources:${board}:holder]}"
   done
 
-  for key in "${vector[@]}" ; do 
+  for key in "${vector[@]}" ; do
     echo "$key"
   done
 
@@ -704,9 +704,9 @@ function resource_list()
 
 function resource_mark()
 {
-  local board status 
+  local board status
 
-  shift 
+  shift
   
   board=$1
   status=$2
@@ -724,7 +724,7 @@ function resource_mark()
   fi
 
   case "${status}" in
-    (up) 
+    (up)
       if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
         if ! kcpcmd -k -r -i -s "${board}" watchdog >& /dev/null ; then
           if [ "${state/missing-roaches/}" = "${state}" ] ; then
@@ -839,7 +839,7 @@ function resource_mark()
       echo "!resource-mark ok"
       return 0
     ;;
-    (*) 
+    (*)
       kcpmsg -l error "unknown marking ${status} for resource ${board}"
       echo "!resource-mark fail usage"
       return 1
@@ -852,7 +852,7 @@ function resource_mark()
 function subordinate_list()
 {
   local -A ports hosts groups
-  local -a v 
+  local -a v
   local group port host key
   local c t
 
@@ -868,9 +868,9 @@ function subordinate_list()
     return 1
   fi
 
-# WARNING: we assume one listener per group here 
+# WARNING: we assume one listener per group here
 
-  kcpmsg -l debug "my keys are ${!inform_result[@]}" 
+  kcpmsg -l debug "my keys are ${!inform_result[@]}"
   for key in "${!inform_result[@]}" ; do
     v=(${inform_result[${key}]})
     if [ -z "${v[2]}" ] ; then
@@ -894,7 +894,7 @@ function subordinate_list()
 
     fetch_var  "${group}*subordinate*"
 
-    if clear_failure ; then 
+    if clear_failure ; then
 
       subarray="${var_result[${group}*subordinate*]}"
 
@@ -912,7 +912,7 @@ function subordinate_list()
 
         if [ "${host}" = "0.0.0.0" ] ; then
           unset host
-        fi 
+        fi
 
         fetch_var "${group}*inputs*"
 
@@ -981,7 +981,7 @@ function subordinate_create()
       if [ -f ${file} ] ; then
         if rm ${file} ; then
           kcpmsg -l debug "removing old config ${file}"
-        else 
+        else
           kcpmsg -l error "unable to remove old config file ${file}"
 #        echo "!subordinate-create fail read-logs"
 #        return
@@ -1008,15 +1008,15 @@ function subordinate_create()
   push_failure
 
   send_request   var-declare "${group}*subordinate*" string
-  retrieve_reply var-declare 
+  retrieve_reply var-declare
 
-  send_request   var-set "${group}*subordinate*" "$key" string 
+  send_request   var-set "${group}*subordinate*" "$key" string
   retrieve_reply var-set
 
   send_request   var-declare "${group}*inputs*" array
-  retrieve_reply var-declare 
+  retrieve_reply var-declare
 
-  shift 
+  shift
   i=0
 
   while [ "$#" -ge 1 ] ; do
@@ -1052,7 +1052,7 @@ function subordinate_create()
         kcpmsg -l warn "malformed port ${port} thus falling back to automatic selection"
         port=0
       fi
-    else 
+    else
       kcpmsg "will select a free port for array other than rts"
       port=0
     fi
@@ -1064,14 +1064,14 @@ function subordinate_create()
   retrieve_reply listener-create
 
   if [ "${port}" -le "0" ] ; then
-    send_request listener-list "${key}" 
+    send_request listener-list "${key}"
     retrieve_inform listener-list "${key}"
     port=${inform_result[${key}]%% *}
     if [ "${port}" -le "0" ] ; then
       kcpmsg -l error "unable to determine port for ${key} - got ${result}"
       set_failure
     fi
-  fi 
+  fi
 
   if ! clear_failure ; then
     send_request   group-halt "${key}"
@@ -1156,9 +1156,9 @@ send_request   client-config info-all
 retrieve_reply client-config
 send_request   log-limit off
 retrieve_reply log-limit
-pop_failure  
+pop_failure
 
-while read line ; do 
+while read line ; do
   add_queue ${line}
 #  show_queue
 
@@ -1185,7 +1185,7 @@ while read line ; do
         else
           actual=${cmd//-/_}
           ${actual} ${command_vector[@]}
-        fi 
+        fi
       fi
 
     elif [ "${string:0:1}" = '#' ] ; then
@@ -1198,7 +1198,7 @@ while read line ; do
         if [ "${command_size}" -ge "${inform_set[${cmd}]}" ] ; then
           actual=${cmd//-/_}
           ${actual} ${command_vector[@]}
-        fi 
+        fi
       fi
 
     fi
@@ -1206,5 +1206,5 @@ while read line ; do
   done
 
   clear_queue
-  
+ 
 done
