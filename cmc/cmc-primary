@@ -588,9 +588,9 @@ function group_destroyed()
       if [ "${var_result[${resource}]}" = "${subarray}" ] ; then
         t=${resource%:*}
         if [ "${var_result[${t}:type]}" = roach ] ; then
-          board=${t%resources:}
+          board=${t#resources:}
 
-          if kcpcmd -f -kir -s ${board}:7147 progdev ; then
+          if kcpcmd -f -kr -s ${board}:7147 progdev ; then
 
             now=$(date +%s)
 
