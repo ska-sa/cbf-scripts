@@ -635,14 +635,14 @@ function instrument_activate()
   fetch_var "subordinate"
   if ! pop_failure ; then
     kcpmsg -l warn "unable to indentify subarray while initialising instrument ${instrument}"
-    echo "!instrument-probe fail read-logs"
+    echo "!instrument-activate fail read-logs"
     return 1
   fi
 
   SUBARRAY="${var_result[subordinate]}"
   if [ -z "${SUBARRAY}" ] ; then
     kcpmsg -l warn "malformed identification while initialising instrument ${instrument} with unknown values ${var_result[*]}"
-    echo "!instrument-probe fail read-logs"
+    echo "!instrument-activate fail read-logs"
     return 1
   fi
 
@@ -652,7 +652,7 @@ function instrument_activate()
   fetch_var "inputs"
   if ! pop_failure ; then
     kcpmsg -l warn "unable to retrieve set of inputs while initialising instrument ${instrument}"
-    echo "!instrument-probe fail read-logs"
+    echo "!instrument-activate fail read-logs"
     return 1
   fi
 
@@ -784,7 +784,6 @@ function instrument_activate()
   if ! pop_failure  ; then
 # TODO: kill the corr instance to release resources
     kcpmsg -l warn "unable to retrieve synchronisation epoch"
-    return 1
   fi
 
   if [ "${var_result[synchronisation-epoch:status]}" != nominal ] ; then
@@ -870,13 +869,11 @@ function instrument_activate()
        kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
     fi
 
-    kcpmsg "about to interrogate servlet sensors"
-    
-    activate_servlet_sensors corr-sensors
-
   else
     kcpmsg -l warn "sensor servlet inhibited by configuration"
   fi
+
+  kcpmsg "instrument activated"
 
   echo "!instrument-activate ok"
 
