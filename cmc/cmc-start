@@ -107,7 +107,7 @@ kfwd resource-list       primary  "show processing resources (?resource-list [re
 
 kfwd subordinate-halt    primary  "halt a subarray (?subordinate-halt [subarray])"
 kfwd subordinate-list    primary  "show subarrays (?subordinate-list)"
-kfwd subordinate-assign  primary  "define and launch a subarray (?subordinate-assign subarray [inputs]*)"
+kfwd subordinate-create  primary  "define and launch a subarray (?subordinate-create subarray [inputs]*)"
 
 # moved from suordinate to primary
 kfwd instrument-list     primary  "show available instruments (?instrument-list)"
@@ -120,8 +120,8 @@ kcpcmd -i forward-symbolic array-halt          primary subordinate-halt %1+
 kcpcmd -i cmd-help         array-halt         "halt a subarray (?array-halt [subordinate])"
 kcpcmd -i forward-symbolic array-list          primary subordinate-list %1+
 kcpcmd -i cmd-help         array-list         "show running subarray (?array-list)"
-kcpcmd -i forward-symbolic array-create        primary subordinate-assign %1+
-kcpcmd -i cmd-help         array-create       "define and launch a subarray (?array-create subarray [inputs]*)"
+kcpcmd -i forward-symbolic array-assign        primary subordinate-create %1+
+kcpcmd -i cmd-help         array-assign       "define and launch a subarray (?array-assign subarray [inputs]*)"
 
 if [ -n "${server_part}" ] ; then
   kcpcmd -i var-declare 'cbf-server*' map,version
