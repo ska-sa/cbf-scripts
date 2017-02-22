@@ -616,7 +616,7 @@ function instrument_probe()
 
 function instrument_activate()
 {
-  local instrument art resource t n nextport
+  local instrument art resource t n nextport label
   local -A wants
   local epoch extras
 
@@ -744,10 +744,12 @@ function instrument_activate()
 
   sleep 3
 
-  send_request   client-connect localhost:${PORT} ${SUBARRAY}
+  label=instrument
+
+  send_request   client-connect localhost:${PORT} "${SUBARRAY}" "${label}"
   retrieve_reply client-connect
 
-  send_request   client-config client localhost:${PORT}
+  send_request   client-config client "${label}"
   retrieve_reply client-config
 
   if ! pop_failure ; then
@@ -767,7 +769,7 @@ function instrument_activate()
   fi
 
   push_failure
-  send_request   client-rename corr "localhost:${PORT}"
+  send_request   client-rename corr "${label}"
   retrieve_reply client-rename
 
   if ! pop_failure ; then
@@ -850,7 +852,7 @@ function instrument_activate()
 
     sleep 2
 
-    local label=monitor
+    label=monitor
 
     send_request   client-connect "localhost:${extraport}" "${SUBARRAY}" "${label}"
     retrieve_reply client-connect
