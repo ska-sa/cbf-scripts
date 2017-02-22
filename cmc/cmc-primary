@@ -545,6 +545,8 @@ function group_destroyed()
     return 1
   fi
 
+  kcpmsg "invoking group destruction callback for ${subarray}"
+
   push_failure
 
   fetch_var "resources"
