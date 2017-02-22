@@ -850,20 +850,23 @@ function instrument_activate()
 
     sleep 2
 
-    send_request   client-connect "localhost:${extraport}" "${SUBARRAY}"
+    local label=monitor
+
+    send_request   client-connect "localhost:${extraport}" "${SUBARRAY}" "${label}"
     retrieve_reply client-connect
 
-    send_request   relay "localhost:${extraport}" relay "localhost:${extraport}" watchdog
+    send_request   relay "${label}" relay "${label}" watchdog
     retrieve_reply relay
 
-    send_request   client-config client "localhost:${extraport}"
+    send_request   client-config client   "${label}"
     retrieve_reply client-config
 
-    send_request   client-rename corr-sensors "localhost:${extraport}" 
-    retrieve_reply client-rename
-
-    send_request   client-config fixed corr-sensors
+    send_request   client-config fixed    "${label}"
     retrieve_reply client-config
+
+
+#    send_request   client-rename corr-sensors "localhost:${extraport}" 
+#    retrieve_reply client-rename
 
     if ! pop_failure ; then
        kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
