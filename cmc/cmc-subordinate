@@ -752,6 +752,9 @@ function instrument_activate()
   send_request   client-config client "${label}"
   retrieve_reply client-config
 
+  send_request   client-config fixed  "${label}"
+  retrieve_reply client-config
+
   if ! pop_failure ; then
     kcpmsg -l error "unable to launch servlet for instrument ${INSTRUMENT}"
     echo "!instrument-activate fail task-start"

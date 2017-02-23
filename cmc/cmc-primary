@@ -1183,6 +1183,8 @@ send_request   log-limit off
 retrieve_reply log-limit
 pop_failure
 
+check_resources
+
 while read line ; do
   add_queue ${line}
 #  show_queue
