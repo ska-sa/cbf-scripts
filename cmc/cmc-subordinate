@@ -31,7 +31,7 @@ fi
 declare -a -r resource_types=(roach skarab)
 
 # valid command names and their minimum parameter count 
-declare -A -r command_set=([digitiser-synch-epoch] [instrument-list]=1 [instrument-probe]=2 [instrument-activate]=2)
+declare -A -r command_set=([digitiser-synch-epoch]=1 [instrument-list]=1 [instrument-probe]=2 [instrument-activate]=2)
 
 declare -a command_vector
 declare -i command_size=0
