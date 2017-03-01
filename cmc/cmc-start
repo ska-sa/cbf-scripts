@@ -145,9 +145,11 @@ kcpcmd -i var-set "*device-status*" fail     string ":range#2"
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
 
-kfwd instrument-list     subordinate "show fielded instruments (?instrument-list)"
-kfwd instrument-probe    subordinate "check resources for an instrument (?instrument-probe instrument)"
-kfwd instrument-activate subordinate "launch the specified instrument (?instrument-activate instrument)"
+kfwd digitiser-synch-epoch subordinate  "digitiser synchronisation time (?digitiser-synch-epoch time)"
+
+kfwd instrument-list       subordinate  "show fielded instruments (?instrument-list)"
+kfwd instrument-probe      subordinate  "check resources for an instrument (?instrument-probe instrument)"
+kfwd instrument-activate   subordinate  "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
 kfwd capture-list        corr "list data products"
@@ -176,4 +178,4 @@ kfwd transient-buffer-trigger  corr "trigger the transient buffer for all inputs
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
 kfwd fft-shift           corr "set the FFT shift value (?fft-shift [value])"
 
-kfwd digitiser-synch-epoch corr "internal synchronisation interface"
+#kfwd digitiser-synch-epoch corr "internal synchronisation interface"

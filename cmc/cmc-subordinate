@@ -31,7 +31,7 @@ fi
 declare -a -r resource_types=(roach skarab)
 
 # valid command names and their minimum parameter count 
-declare -A -r command_set=([instrument-list]=1 [instrument-probe]=2 [instrument-activate]=2)
+declare -A -r command_set=([digitiser-synch-epoch] [instrument-list]=1 [instrument-probe]=2 [instrument-activate]=2)
 
 declare -a command_vector
 declare -i command_size=0
@@ -507,6 +507,39 @@ function setup_io()
   return 0
 }
 
+### api functions ### sync epoch ########################
+
+function digitiser_synch_epoch()
+{
+  local epoch
+
+  shift
+
+  if [ "$#" -lt 1 ] ; then
+    kcpmsg -l warn "require an epoch to set where value is available in synchronisation-epoch sensor"
+    echo "!digitser-synch-epoch fail"
+    return 1
+  fi
+
+  epoch="$1"
+
+  push_failure
+
+  send_request   var-set "*synchronisation-epoch*"  "${epoch}"  string :value
+  retrieve_reply var-set
+
+  send_request   var-set "*synchronisation-epoch*" nominal string :status
+  retrieve_reply var-set
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to set epoch variable"
+    echo "!digitser-synch-epoch fail"
+    return 1
+  fi
+
+  echo "!digitser-synch-epoch ok"
+}
+
 ### api functions ### instrument ########################
 
 function instrument_list()
@@ -524,6 +557,7 @@ function instrument_list()
 
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to retrieve product information"
+    echo "!instrument-list fail"
     return 1
   fi
 
