@@ -537,6 +537,9 @@ function digitiser_synch_epoch()
     return 1
   fi
 
+  kcpmsg -l info "will use epoch ${epoch}"
+
+
   echo "!digitiser-synch-epoch ok"
 }
 
@@ -831,7 +834,7 @@ function instrument_activate()
 
   epoch="${var_result[synchronisation-epoch:value]}"
 
-  if [ "${epoch}" -gt 0 ] ; then
+  if [ "${epoch%%.*}" -gt 0 ] ; then
     if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then 
       kcpmsg "preliminary sync epoch set to ${epoch}"
     else

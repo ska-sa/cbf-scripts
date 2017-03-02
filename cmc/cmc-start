@@ -162,14 +162,14 @@ kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
 kfwd gain                corr "set gain factors (?gain input [values])"
 kfwd gain-all            corr "set gain factors (?gain-all [values])"
 kfwd delays              corr "set delay and fringe correction (?delays unix-time [coefficient-set]*)"
-kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
+kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream center frequency)"
 
 # request by martin: inhibit accumulation length
 kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
 #kcpcmd -i cmd-alias accumulation-length watchdog
 
 kfwd beam-weights        corr "set the beam weigths (?beam-weights beam [values]*)"
-kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth centerfrequency)"
+kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth center frequency)"
 kfwd beam-quant-gains    corr "set the quantiser gain for a beam (?beam-quant-gain beam [gain])"
 
 kfwd adc-snapshot        corr "retrieve a snapshot of ADC data for a specific input (?adc-snapshot input-label [unix-time])"
