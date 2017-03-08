@@ -561,7 +561,7 @@ function adjust_sensors()
   retrieve_reply var-set
 
   if [ -n "${value}" ] ; then
-    send_request   var-set instrument-state "${value}" :value
+    send_request   var-set instrument-state "${value}" string :value
     retrieve_reply var-set
   fi
 
