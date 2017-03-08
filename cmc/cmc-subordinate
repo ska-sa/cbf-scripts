@@ -309,6 +309,11 @@ retrieve_reply var-declare
 send_request   var-declare  "*products*"  map
 retrieve_reply var-declare
 
+if ! pop_failure ; then
+  kcpmsg -l error "unable to declare instrument property variables"
+  return 1
+fi
+
 function setup_instruments()
 {
   local instrument template geometry art count top available product i required
@@ -488,6 +493,8 @@ function setup_sync()
   return 0
 }
 
+### support functions ###################################
+
 function setup_io()
 {
   kcpmsg -l debug "configuring logging levels"
@@ -506,6 +513,66 @@ function setup_io()
 
   return 0
 }
+
+### support functions: sensors ##########################
+
+function setup_sensors()
+{
+  push_failure
+
+  send_request   var-declare "*instrument-state*" sensor,map
+  retrieve_reply var-declare
+
+  send_request   var-set instrument-state "subarray\_instrument\_state" string :help
+  retrieve_reply var-set
+  send_request   var-set instrument-state string string :type
+  retrieve_reply var-set
+  send_request   var-set instrument-state unknown string :status
+  retrieve_reply var-set
+  send_request   var-set instrument-state none string :value
+  retrieve_reply var-set
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to initialse status sensors"
+    return 1
+  fi
+
+  return 0
+}
+
+function adjust_sensors()
+{
+  local status value
+
+  if [ "$#" -lt 1 ] ; then
+    status="error"
+    value=""
+  elif [ "$#" -eq 1 ] ; then
+    status="$1"
+    value=""
+  else
+    status="$1"
+    value="$2"
+  fi
+
+  push_failure
+
+  send_request   var-set instrument-state "${status}" string :status
+  retrieve_reply var-set
+
+  if [ -n "${value}" ] ; then
+    send_request   var-set instrument-state "${value}" :value
+    retrieve_reply var-set
+  fi
+
+  if ! pop_failure  ; then
+    kcpmsg -l error "unable to update instrument-sensor"
+    return 1
+  fi
+
+  return 0
+}
+
 
 ### api functions ### sync epoch ########################
 
@@ -653,7 +720,7 @@ function instrument_probe()
 
 function instrument_activate()
 {
-  local instrument art resource t n nextport label
+  local instrument art resource t n nextport label status
   local -A wants
   local epoch extras
 
@@ -673,6 +740,7 @@ function instrument_activate()
   if ! pop_failure ; then
     kcpmsg -l warn "unable to indentify subarray while initialising instrument ${instrument}"
     echo "!instrument-activate fail read-logs"
+    adjust_sensors
     return 1
   fi
 
@@ -680,6 +748,7 @@ function instrument_activate()
   if [ -z "${SUBARRAY}" ] ; then
     kcpmsg -l warn "malformed identification while initialising instrument ${instrument} with unknown values ${var_result[*]}"
     echo "!instrument-activate fail read-logs"
+    adjust_sensors
     return 1
   fi
 
@@ -690,6 +759,7 @@ function instrument_activate()
   if ! pop_failure ; then
     kcpmsg -l warn "unable to retrieve set of inputs while initialising instrument ${instrument}"
     echo "!instrument-activate fail read-logs"
+    adjust_sensors
     return 1
   fi
 
@@ -704,6 +774,7 @@ function instrument_activate()
   if ! pop_failure ; then
     kcpmsg -l warn "unable to retrieve resource requirement information for instrument ${instrument}"
     echo "!instrument-activate fail unknown-item"
+    adjust_sensors
     return 1
   fi
 
@@ -723,6 +794,7 @@ function instrument_activate()
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to query current resource set while checking availabilty for ${instrument}"
     echo "!instrument-activate fail read-logs"
+    adjust_sensors
     return 1
   fi
 
@@ -753,6 +825,7 @@ function instrument_activate()
     if [ "${wants[${art}]}" -gt 0 ] ; then
       kcpmsg -l error "insufficient resources to launch ${instrument} as we are short of ${wants[${art}]} ${art} resources"
       echo "!instrument-activate fail oversubscribed"
+      adjust_sensors
       return 1
     fi
   done
@@ -765,7 +838,7 @@ function instrument_activate()
   if ! cmc-config ${CORR_TEMPLATE}/${INSTRUMENT} ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then
     kcpmsg -l error "unable to generate config for instrument ${INSTRUMENT} in subarray ${SUBARRAY}"
     echo "!instrument-activate fail read-logs"
-#    adjust_instrument_sensors ${subarray} error
+    adjust_sensors
     return 1
   fi
 
@@ -796,7 +869,7 @@ function instrument_activate()
     kcpmsg -l error "unable to launch servlet for instrument ${INSTRUMENT}"
     echo "!instrument-activate fail task-start"
 # TODO: halt the servlet 
-#    adjust_instrument_sensors ${SUBARRAY} error
+    adjust_sensors
     return 1
   fi
 
@@ -804,7 +877,7 @@ function instrument_activate()
   if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} create ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then 
     kcpmsg -l error "unable to load config for instrument ${INSTRUMENT} in subarray ${SUBARRAY}"
     echo "!instrument-activate fail read-logs"
-#    adjust_instrument_sensors ${subarray} error
+    adjust_sensors
     return 1
   fi
 
@@ -815,7 +888,7 @@ function instrument_activate()
   if ! pop_failure ; then
 # TODO: kill the corr instance to release resources
     echo "!instrument-activate fail read-logs"
-#    adjust_instrument_sensors ${subarray} error
+    adjust_sensors
     return 1
   fi
 
@@ -840,7 +913,7 @@ function instrument_activate()
     else
       kcpmsg -l error "servlet unwilling to accept epoch ${epoch}"
       echo "!instrument-activate fail read-logs"
-#      adjust_instrument_sensors ${subarray} error
+      adjust_sensors
       return 1
     fi
   fi
@@ -858,7 +931,7 @@ function instrument_activate()
   if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} initialise ${extras} ; then 
     kcpmsg -l error "unable to initialise instrument ${INSTRUMENT} with options ${extras}"
     echo "!instrument-activate fail read-logs"
-#    adjust_instrument_sensors ${subarray} error
+    adjust_sensors
     return 1
   fi
 
@@ -872,10 +945,11 @@ function instrument_activate()
 #     fi
 #   fi
 
+  status=nominal
   if [ "${state/no-sensors/}" = "${state}" ] ; then
     extraport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
 
-    kcpmsg "selecting ${extraport} for sensor"
+    kcpmsg "selecting ${extraport} for sensor routines"
 
     push_failure
 
@@ -912,6 +986,7 @@ function instrument_activate()
 
     if ! pop_failure ; then
        kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
+       status=warn
     fi
 
   else
@@ -921,14 +996,14 @@ function instrument_activate()
   kcpmsg "instrument activated"
 
   echo "!instrument-activate ok"
-
-#  adjust_instrument_sensors ${subarray} ${status} ${instrument}
+  adjust_sensors "${status}" "${instrument}"
 }
 
 ### main loop ###########################################
 
 setup_io
 setup_sync
+setup_sensors
 
 while read line ; do 
   add_queue ${line}
