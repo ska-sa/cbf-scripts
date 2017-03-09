@@ -417,7 +417,7 @@ function setup_instruments()
           else
             required=$[top+1]
 
-            kcpmsg "instrument ${instrument} requires dynamic ${required} ${art} resources"
+            kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
 
             send_request   var-set requires "${required}" string ":${instrument}:${art}"
             retrieve_reply var-set
@@ -581,7 +581,7 @@ function add_static_resources()
           kcpmsg -l error "expect problems as resource ${resource} not up but statically allocated"
         fi
 
-        send_request   var-set  resources "${SUBARRAY}" string "${resource}:holder"
+        send_request   var-set  resources "${SUBARRAY}" string ":${resource}:holder"
         retrieve_reply var-set
 
         count=$[count+1]
@@ -865,7 +865,7 @@ function instrument_activate()
   for art in ${resource_types[*]} ; do
     wants[${art}]=${var_result[requires:${instrument}:${art}]}
     if [ -n "${wants[${art}]}" ] ; then
-      kcpmsg "instrument ${instrument} requires ${wants[${art}]} dynamic resources of type ${art}"
+      kcpmsg "instrument ${instrument} requires ${wants[${art}]} resources of type ${art}"
     else
       wants[${art}]=0
     fi
