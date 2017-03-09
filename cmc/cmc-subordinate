@@ -299,6 +299,31 @@ function fetch_var()
   done
 }
 
+### support functions - subarray name ###################
+
+function setup_name()
+{
+  push_failure
+  fetch_var "subordinate"
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to indentify subarray"
+    adjust_sensors
+    return 1
+  fi
+
+  SUBARRAY="${var_result[subordinate]}"
+  if [ -z "${SUBARRAY}" ] ; then
+    kcpmsg -l error "malformed subarray identification ${var_result[*]}"
+    adjust_sensors
+    return 1
+  fi
+
+  export SUBARRAY
+
+  return 0
+}
+
 ### support functions ###################################
 
 # requirements:instrument:type   - number of resources needed of type
@@ -392,7 +417,7 @@ function setup_instruments()
           else
             required=$[top+1]
 
-            kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
+            kcpmsg "instrument ${instrument} requires dynamic ${required} ${art} resources"
 
             send_request   var-set requires "${required}" string ":${instrument}:${art}"
             retrieve_reply var-set
@@ -508,6 +533,72 @@ function setup_io()
 
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to configure subordinate control verbosity"
+    return 1
+  fi
+
+  return 0
+}
+
+### support functions: resources ########################
+
+function add_static_resources()
+{
+  local art template status
+  local -l resource
+  local -i count
+
+  template=$1
+
+  if [ ! -f ${template} ] ; then
+    kcpmsg -l error "${template} not a valid file"
+    return 1
+  fi
+
+  if [ -z "${SUBARRAY}" ] ; then
+    kcpmsg -l error "unable to identify own subarray"
+    return 1
+  fi
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to query resource pool while accounting for static allocations"
+    return 1
+  fi
+
+  push_failure
+
+  for art in ${resource_types[*]} ; do
+    count=0
+
+    for resource in $(ike -o -k hosts ${template} | tr -s , '\n' | sort -u | grep ${art}) ; do
+      status="${var_result[resources:${resource}:status]}"
+
+      if [ -n "${status}" ] ; then
+        if [ "${status}" != ] ; then
+          kcpmsg -l error "expect problems as resource ${resource} not up but statically allocated"
+        fi
+
+        send_request   var-set  resources "${SUBARRAY}" string "${resource}:holder"
+        retrieve_reply var-set
+
+        count=$[count+1]
+
+      else
+        kcpmsg -l error "ignoring statically allocated resource ${resource} as it is undetectable"
+      fi
+
+    done
+
+    if [ "${count}" -gt 0 ] ; then
+      kcpmsg "marked an extra ${count} ${art} resources in use as they are statically allocated"
+    fi
+  done
+
+  if pop_failure ; then
+    kcpmsg -l error "unable to allocate all static resources to subarray"
     return 1
   fi
 
@@ -726,33 +817,26 @@ function instrument_activate()
 
   shift
 
-  setup_instruments
-
   instrument=$1
+
+  if [ -z "${SUBARRAY}" ] ; then
+    kcpmsg -l error "unable to identify own subarray while activating instrument ${instrument}"
+    echo "!instrument-activate fail read-logs"
+    adjust_sensors
+    return 1
+  fi
+
+  if [ -n "${INSTRUMENT}" ] ; then
+    kcpmsg -l error "unable to launch another instrument ${instrument} as only one instrument per subordinate is supported"
+    echo "!instrument-activate fail read-logs"
+    adjust_sensors
+    return 1
+  fi
 
   INSTRUMENT=${instrument}
   export INSTRUMENT
 
-  status=nominal
-
-  push_failure
-  fetch_var "subordinate"
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to indentify subarray while initialising instrument ${instrument}"
-    echo "!instrument-activate fail read-logs"
-    adjust_sensors
-    return 1
-  fi
-
-  SUBARRAY="${var_result[subordinate]}"
-  if [ -z "${SUBARRAY}" ] ; then
-    kcpmsg -l warn "malformed identification while initialising instrument ${instrument} with unknown values ${var_result[*]}"
-    echo "!instrument-activate fail read-logs"
-    adjust_sensors
-    return 1
-  fi
-
-  export SUBARRAY
+  setup_instruments
 
   push_failure
   fetch_var "inputs"
@@ -781,7 +865,7 @@ function instrument_activate()
   for art in ${resource_types[*]} ; do
     wants[${art}]=${var_result[requires:${instrument}:${art}]}
     if [ -n "${wants[${art}]}" ] ; then
-      kcpmsg "instrument ${instrument} requires "${wants[${art}]}" resources of type ${art}"
+      kcpmsg "instrument ${instrument} requires ${wants[${art}]} dynamic resources of type ${art}"
     else
       wants[${art}]=0
     fi
@@ -829,6 +913,12 @@ function instrument_activate()
       return 1
     fi
   done
+
+  if ! add_static_resources ; then
+    echo "!instrument-activate fail read-logs"
+    adjust_sensors
+    return 1
+  fi
 
   PORT=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
   export PORT
@@ -1002,6 +1092,7 @@ function instrument_activate()
 ### main loop ###########################################
 
 setup_io
+setup_name
 setup_sync
 setup_sensors
 
