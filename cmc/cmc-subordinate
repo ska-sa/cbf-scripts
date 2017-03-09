@@ -413,11 +413,11 @@ function setup_instruments()
           top=$(cat $template  | tr ',=' '\n' | grep ${art^^}[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
 
           if [ -z "${top}" ] ; then
-            kcpmsg "instrument ${instrument} does not appear to need any resources of type ${art}"
+            kcpmsg "instrument ${instrument} does not appear to need any dynamic resources of type ${art}"
           else
             required=$[top+1]
 
-            kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
+            kcpmsg "instrument ${instrument} requires ${required} dynamically allocated ${art} resources"
 
             send_request   var-set requires "${required}" string ":${instrument}:${art}"
             retrieve_reply var-set
@@ -549,7 +549,7 @@ function add_static_resources()
 
   template=$1
 
-  kcpmsg "checking for static allocations ${template}"
+  kcpmsg "checking for static allocations of ${template##*/}"
 
   if [ ! -f "${template}" ] ; then
     kcpmsg -l error "${template} not a valid file"
