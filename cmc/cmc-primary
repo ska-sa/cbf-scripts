@@ -557,7 +557,8 @@ function check_resources()
 
 function group_destroyed()
 {
-  local subarray resource board t now count
+  local subarray resource board t now count 
+  local -a pool
 
   shift
 
@@ -579,6 +580,21 @@ function group_destroyed()
     return 1
   fi
 
+  for resource in "${!var_result[@]}" ; do
+    if [ "${resource##*:}" = holder ] ; then
+      if [ "${var_result[${resource}]}" = "${subarray}" ] ; then
+        t=${resource%:*}
+        if [ "${var_result[${t}:type]}" = roach ] ; then
+          board=${t#resources:}
+          pool+=("${instrument}")
+        fi
+      fi
+    fi
+  done
+
+# if already programmed, things may take longer, thus run it in parallel
+  kcppar -n -t 5 -s "${pool// /,}" progdev
+
   count=0
 
   push_failure
@@ -589,6 +605,8 @@ function group_destroyed()
         t=${resource%:*}
         if [ "${var_result[${t}:type]}" = roach ] ; then
           board=${t#resources:}
+          pool+=("${instrument}")
+
 
           if kcpcmd -f -kr -s ${board}:7147 progdev ; then
 
