@@ -549,6 +549,8 @@ function add_static_resources()
 
   template=$1
 
+  kcpmsg "checking for static allocations ${template}"
+
   if [ ! -f "${template}" ] ; then
     kcpmsg -l error "${template} not a valid file"
     return 1
