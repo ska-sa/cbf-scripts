@@ -594,7 +594,7 @@ function group_destroyed()
 
 # if already programmed, things may take longer, thus run it in parallel
   list="${pool[*]}"
-  kcppar -n -s "${list// /,}" -x progdev
+  kcppar -q -i -n -s "${list// /,}" -x progdev
 
   count=0
 
