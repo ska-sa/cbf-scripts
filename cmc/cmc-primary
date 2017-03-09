@@ -557,7 +557,7 @@ function check_resources()
 
 function group_destroyed()
 {
-  local subarray resource board t now count 
+  local subarray resource board t now count list
   local -a pool
 
   shift
@@ -593,7 +593,8 @@ function group_destroyed()
   done
 
 # if already programmed, things may take longer, thus run it in parallel
-  kcppar -n -s "${pool// /,}" -x progdev
+  list="${pool[*]}"
+  kcppar -n -s "${list// /,}" -x progdev
 
   count=0
 
