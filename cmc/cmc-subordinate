@@ -916,7 +916,8 @@ function instrument_activate()
     fi
   done
 
-  if ! add_static_resources "${CORR_TEMPLATE}/${INSTRUMENT}" ; then
+  if add_static_resources "${CORR_TEMPLATE}/${INSTRUMENT}" ; then
+    kcpmsg -l error "static resource tracking failed"
     echo "!instrument-activate fail read-logs"
     adjust_sensors
     return 1
