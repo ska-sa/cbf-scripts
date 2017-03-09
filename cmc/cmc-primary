@@ -481,7 +481,7 @@ function check_resources()
       when="${var_result[resources:${board}:when]}"
       status="${var_result[resources:${board}:status]}"
 
-      if [ "${mode}" == auto ] ; then
+      if [ "${mode}" = "auto" ] ; then
         if [ "$[when+checkperiod]" -gt "${now}" ] ; then
           fresh=0
           send_request   var-delete  "resources:${board}:when"
@@ -630,10 +630,10 @@ function group_destroyed()
     fi
   done
 
-  kcpmsg -l info "attempted to release ${count} resources previously held by ${subarray}"
-
   if ! pop_failure  ; then
     kcpmsg -l error "unable to free all resources held by ${subarray}"
+  else
+    kcpmsg -l info "released ${count} resources held by ${subarray}"
   fi
 }
 
