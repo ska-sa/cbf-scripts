@@ -605,21 +605,14 @@ function group_destroyed()
         t=${resource%:*}
         if [ "${var_result[${t}:type]}" = roach ] ; then
           board=${t#resources:}
-          pool+=("${instrument}")
-
 
           if kcpcmd -f -kr -s ${board}:7147 progdev ; then
-
             now=$(date +%s)
-
             if [ -n "${now}" ] ; then
-
               send_request   var-delete  "${t}:when"
               retrieve_reply var-delete
-
               send_request   var-set     "resources" ${now} string ":${board}:when"
               retrieve_reply var-set
-
             fi
 
           else
