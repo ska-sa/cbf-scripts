@@ -423,12 +423,12 @@ function setup_instruments()
             retrieve_reply var-set
           fi
         done
-        if [ "${required}" -le 0 ] ; then
-          if [ "${state/missing-roaches/}" = "${state}" ] ; then
-            kcpmsg -l fatal "unable to determine resource needs for instrument ${instrument}"
-            set_failure
-          fi
-        fi
+#         if [ "${required}" -le 0 ] ; then
+#           if [ "${state/missing-roaches/}" = "${state}" ] ; then
+#             kcpmsg -l fatal "unable to determine resource needs for instrument ${instrument}"
+#             set_failure
+#           fi
+#         fi
 
 
       else
