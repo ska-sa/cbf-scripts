@@ -482,7 +482,7 @@ function check_resources()
       status="${var_result[resources:${board}:status]}"
 
       if [ "${mode}" = "auto" ] ; then
-        if [ "$[when+checkperiod]" -gt "${now}" ] ; then
+        if [ "$[when+checkperiod]" -lt "${now}" ] ; then
           fresh=0
           send_request   var-delete  "resources:${board}:when"
           retrieve_reply var-delete
