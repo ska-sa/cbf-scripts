@@ -593,7 +593,7 @@ function group_destroyed()
   done
 
 # if already programmed, things may take longer, thus run it in parallel
-  kcppar -n -t 5 -s "${pool// /,}" progdev
+  kcppar -n -t 5 -s "${pool// /,}" -x progdev
 
   count=0
 
