@@ -549,7 +549,7 @@ function add_static_resources()
 
   template=$1
 
-  if [ ! -f ${template} ] ; then
+  if [ ! -f "${template}" ] ; then
     kcpmsg -l error "${template} not a valid file"
     return 1
   fi
@@ -914,7 +914,7 @@ function instrument_activate()
     fi
   done
 
-  if ! add_static_resources ; then
+  if ! add_static_resources "${CORR_TEMPLATE}/${INSTRUMENT}" ; then
     echo "!instrument-activate fail read-logs"
     adjust_sensors
     return 1
