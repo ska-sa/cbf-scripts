@@ -599,7 +599,7 @@ function add_static_resources()
     fi
   done
 
-  if pop_failure ; then
+  if ! pop_failure ; then
     kcpmsg -l error "unable to allocate all static resources to subarray"
     return 1
   fi
