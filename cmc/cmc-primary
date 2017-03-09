@@ -492,8 +492,6 @@ function check_resources()
       fi
     fi
 
-    kcpmsg "checked ${board} at ${when} with status now ${status}"
-
     if [ "${fresh}" = "0" ] ; then
       if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
         status=up
@@ -505,6 +503,8 @@ function check_resources()
       retrieve_reply var-set
       send_request   var-set      "resources" ${status}  string ":${board}:status"
       retrieve_reply var-set
+
+      kcpmsg "checked ${board} at ${when} showing status ${status}"
     fi
 
     if ! pop_failure  ; then
