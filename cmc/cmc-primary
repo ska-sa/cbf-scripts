@@ -586,7 +586,7 @@ function group_destroyed()
         t=${resource%:*}
         if [ "${var_result[${t}:type]}" = roach ] ; then
           board=${t#resources:}
-          pool+=("${instrument}")
+          pool+=("${board}")
         fi
       fi
     fi
