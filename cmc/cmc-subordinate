@@ -577,7 +577,7 @@ function add_static_resources()
       status="${var_result[resources:${resource}:status]}"
 
       if [ -n "${status}" ] ; then
-        if [ "${status}" != ] ; then
+        if [ "${status}" != up ] ; then
           kcpmsg -l error "expect problems as resource ${resource} not up but statically allocated"
         fi
 
