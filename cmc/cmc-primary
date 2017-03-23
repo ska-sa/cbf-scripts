@@ -153,6 +153,21 @@ function make_vector()
   kcpmsg -l debug "parsed ${command_size} parameters"
 }
 
+### support function to sort var result #################
+
+declare var_flat
+
+function flatten_var()
+{
+  local name 
+
+  var_flat=""
+
+  for name in $(echo ${!var_result[*]} | tr -s ' ' '\n' | sort -V) ; 
+    do var_flat="${var_flat} ${var_result[${name}]}" 
+  done
+}
+
 ### io functions with failure stack #####################
 
 send_count=0
@@ -952,9 +967,10 @@ function subordinate_list()
         fi
 
         fetch_var "${group}*inputs*"
+        flatten_var
 
         if clear_failure ; then
-          echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${var_result[*]}"
+          echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${var_flat}"
           c=$[c+1]
         fi
 
