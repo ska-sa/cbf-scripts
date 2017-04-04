@@ -484,7 +484,7 @@ function setup_sync()
   send_request   var-set "*synchronisation-epoch*" "synchronisation time" string :help
   retrieve_reply var-set
 
-  send_request   var-set "*synchronisation-epoch*"  integer string :type
+  send_request   var-set "*synchronisation-epoch*"  float string :type
   retrieve_reply var-set
 
   if [ -n "${dmc_address}" ] ; then
