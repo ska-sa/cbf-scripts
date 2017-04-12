@@ -30,7 +30,7 @@ fi
 
 declare -a -r resource_types=(roach skarab)
 
-# valid command names and their minimum parameter count 
+# valid command names and their minimum parameter count
 declare -A -r command_set=([digitiser-synch-epoch]=1 [instrument-list]=1 [instrument-probe]=2 [instrument-activate]=2)
 
 declare -a command_vector
@@ -182,7 +182,7 @@ function send_request()
 function retrieve_reply()
 {
   local name="$1"
-  local line art reply code 
+  local line art reply code
   local -a vector
 
   if [ -z "$name" ] ; then
@@ -205,7 +205,7 @@ function retrieve_reply()
         else
           set_failure
           return 1
-        fi 
+        fi
       else
         kcpmsg -l warn "discarding unexpected response ${reply:1}"
       fi
@@ -226,7 +226,7 @@ function retrieve_inform()
     unset inform_result[${del}]
   done
 
-  while read line ; do 
+  while read line ; do
     if [ "${line:0:1}" = "?" ] ; then
       add_queue ${line}
     else
@@ -243,7 +243,7 @@ function retrieve_inform()
         else
           set_failure
           return 1
-        fi 
+        fi
       else
         if [ "${line:0:1}" = "!" ] ; then
           kcpmsg -l warn "discarding unexpected response ${line:1}"
@@ -273,7 +273,7 @@ function fetch_var()
 
   match=$1
 
-  while read line ; do 
+  while read line ; do
     if [ "${line:0:1}" = "?" ] ; then
       add_queue ${line}
     else
@@ -289,7 +289,7 @@ function fetch_var()
         else
           set_failure
           return 1
-        fi 
+        fi
       else
         if [ "${line:0:1}" = "!" ] ; then
           kcpmsg -l warn "discarding unexpected response ${line:1}"
@@ -376,7 +376,7 @@ function setup_instruments()
 
     if [ -f ${template} ] ; then
 
-# TODO: maybe use ike here too ? 
+# TODO: maybe use ike here too ?
       top=$(cat $template  | tr ',=' '\n' | grep INPUT[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
 
       if [ -z "${top}" ] ; then
@@ -409,7 +409,7 @@ function setup_instruments()
         required=0
         for art in ${resource_types[*]} ; do
 
-# TODO: maybe use ike here too ? 
+# TODO: maybe use ike here too ?
           top=$(cat $template  | tr ',=' '\n' | grep ${art^^}[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
 
           if [ -z "${top}" ] ; then
@@ -452,23 +452,23 @@ function setup_instruments()
 # function update_git_versions()
 # {
 #   local v
-#   
+#
 #   v=$(cd ${BITSTREAM_DIR:-/srv/mkat_fpga} ; git describe --always --tags --long --dirty)
-# 
+#
 #   if [ -n "${v}" ] ; then
-#     echo "?var-set gateware-images* ${v} string" 
+#     echo "?var-set gateware-images* ${v} string"
 #     get_katcp_reply var-set
 #   fi
-# 
-# 
+#
+#
 #   v=$(cd ${CORR_TEMPLATE} ; git describe --always --tags --long --dirty)
-# 
+#
 #   if [ -n "${v}" ] ; then
-#     echo "?var-set correlator-configs* ${v} string" 
+#     echo "?var-set correlator-configs* ${v} string"
 #     get_katcp_reply var-set
 #   fi
 # }
-# 
+#
 
 function setup_sync()
 {
@@ -615,16 +615,36 @@ function setup_sensors()
 {
   push_failure
 
-  send_request   var-declare "*instrument-state*" sensor,map
+  send_request   var-declare "*device-status*"      "sensor,map"
+  retrieve_reply var-declare
+
+  send_request   var-set device-status   "system\_health" string ":help"
+  retrieve_reply var-set
+  send_request   var-set device-status    discrete   string ":type"
+  retrieve_reply var-set
+  send_request   var-set device-status    nominal    string ":status"
+  retrieve_reply var-set
+  send_request   var-set device-status    ok         string ":value"
+  retrieve_reply var-set
+
+  send_request   var-set device-status    ok         string ":range#0"
+  retrieve_reply var-set
+  send_request   var-set device-status    degraded   string ":range#1"
+  retrieve_reply var-set
+  send_request   var-set device-status    fail       string ":range#2"
+  retrieve_reply var-set
+
+
+  send_request   var-declare "*instrument-state*"    "sensor,map"
   retrieve_reply var-declare
 
   send_request   var-set instrument-state "subarray\_instrument\_state" string :help
   retrieve_reply var-set
-  send_request   var-set instrument-state string string :type
+  send_request   var-set instrument-state string     string ":type"
   retrieve_reply var-set
-  send_request   var-set instrument-state unknown string :status
+  send_request   var-set instrument-state unknown    string ":status"
   retrieve_reply var-set
-  send_request   var-set instrument-state none string :value
+  send_request   var-set instrument-state none       string ":value"
   retrieve_reply var-set
 
   if ! pop_failure  ; then
@@ -652,6 +672,8 @@ function adjust_sensors()
 
   push_failure
 
+# TODO: update device-status too
+
   send_request   var-set instrument-state "${status}" string :status
   retrieve_reply var-set
 
@@ -668,6 +690,35 @@ function adjust_sensors()
   return 0
 }
 
+function activate_servlet_sensors()
+{
+  local key remote
+
+  push_failure
+
+  send_request relay "${remote}" relay "${remote}" sensor-list
+  retrieve_inform
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to interrogate sensors of ${remote}"
+    return 1
+  fi
+
+  push_failure
+
+# risky, we assume inform_result isn't clobbered
+  for key in "${!inform_result[@]}" ; do
+    send_request relay "${remote}" relay "${remote}" sensor-sampling "${key}" "auto"
+    retrieve_inform
+  done
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to subscribe to sensors of ${remote}"
+    return 1
+  fi
+
+  return 0
+}
 
 ### api functions ### sync epoch ########################
 
@@ -726,13 +777,13 @@ function instrument_list()
     return 1
   fi
 
-  for instrument in "${!var_result[@]}" ; do 
+  for instrument in "${!var_result[@]}" ; do
     j=${instrument#products:}
     i=${j%%#*}
     vector[$i]="${vector[$i]} ${var_result[${instrument}]}"
   done
 
-  for instrument in "${!vector[@]}" ; do 
+  for instrument in "${!vector[@]}" ; do
     echo "#instrument-list ${instrument} ${vector[${instrument}]}"
   done
 
@@ -765,7 +816,7 @@ function instrument_probe()
     wants[${art}]=${var_result[requires:${instrument}:${art}]}
     if [ -n "${wants[${art}]}" ] ; then
       kcpmsg "instrument ${instrument} requires "${wants[${art}]}" resources of type ${art}"
-    else 
+    else
       wants[${art}]=0
     fi
     has[${art}]=0
@@ -937,7 +988,7 @@ function instrument_activate()
     return 1
   fi
 
-### TODO: organise multicast ranges 
+### TODO: organise multicast ranges
 
   push_failure
 
@@ -963,13 +1014,13 @@ function instrument_activate()
   if ! pop_failure ; then
     kcpmsg -l error "unable to launch servlet for instrument ${INSTRUMENT}"
     echo "!instrument-activate fail task-start"
-# TODO: halt the servlet 
+# TODO: halt the servlet
     adjust_sensors
     return 1
   fi
 
 # TODO would be nice to use internal relay, but no timeout ...
-  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} create ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then 
+  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} create ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then
     kcpmsg -l error "unable to load config for instrument ${INSTRUMENT} in subarray ${SUBARRAY}"
     echo "!instrument-activate fail read-logs"
     adjust_sensors
@@ -1003,7 +1054,7 @@ function instrument_activate()
   epoch="${var_result[synchronisation-epoch:value]}"
 
   if [ "${epoch%%.*}" -gt 0 ] ; then
-    if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then 
+    if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then
       kcpmsg "preliminary sync epoch set to ${epoch}"
     else
       kcpmsg -l error "servlet unwilling to accept epoch ${epoch}"
@@ -1023,7 +1074,7 @@ function instrument_activate()
 
   kcpmsg -l warn "waiting for initialisation ${extras} ... patience"
 
-  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} initialise ${extras} ; then 
+  if ! kcpcmd -i -k -f -t 300 -r -s localhost:${PORT} initialise ${extras} ; then
     kcpmsg -l error "unable to initialise instrument ${INSTRUMENT} with options ${extras}"
     echo "!instrument-activate fail read-logs"
     adjust_sensors
@@ -1076,7 +1127,7 @@ function instrument_activate()
     retrieve_reply client-config
 
 
-#    send_request   client-rename corr-sensors "localhost:${extraport}" 
+#    send_request   client-rename corr-sensors "localhost:${extraport}"
 #    retrieve_reply client-rename
 
     if ! pop_failure ; then
@@ -1101,7 +1152,7 @@ setup_name
 setup_sync
 setup_sensors
 
-while read line ; do 
+while read line ; do
   add_queue ${line}
 #  show_queue
 
@@ -1128,7 +1179,7 @@ while read line ; do
         else
           actual=${cmd//-/_}
           ${actual} ${command_vector[@]}
-        fi 
+        fi
       fi
 
     fi
@@ -1136,5 +1187,5 @@ while read line ; do
   done
 
   clear_queue
-  
+
 done
