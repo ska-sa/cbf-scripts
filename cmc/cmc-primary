@@ -159,12 +159,12 @@ declare var_flat
 
 function flatten_var()
 {
-  local name 
+  local name
 
   var_flat=""
 
-  for name in $(echo ${!var_result[*]} | tr -s ' ' '\n' | sort -V) ; 
-    do var_flat="${var_flat} ${var_result[${name}]}" 
+  for name in $(echo ${!var_result[*]} | tr -s ' ' '\n' | sort -V) ;
+    do var_flat="${var_flat} ${var_result[${name}]}"
   done
 }
 
@@ -237,7 +237,7 @@ function retrieve_inform()
 {
   local name="$1"
   local match="$2"
-  local del line art reply label 
+  local del line art reply label
   local -a vector
 
   for del in "${!inform_result[@]}" ; do
@@ -408,7 +408,7 @@ function setup_instruments()
         required=0
         for art in ${resource_types[*]} ; do
 
-# could make it search for upper case only ... 
+# could make it search for upper case only ...
           required=$(ike -o -k hosts ${template} | tr -s , '\n' | sort -u | grep -ic ${art})
 
           kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
@@ -759,7 +759,7 @@ function resource_mark()
   local board status
 
   shift
-  
+
   board=$1
   status=$2
 
@@ -930,7 +930,7 @@ function subordinate_list()
     else
       group=${v[2]}
     fi
-    
+
     ports[${key}]=${v[0]}
     hosts[${key}]=${v[1]}
     groups[${key}]=${group}
@@ -999,11 +999,11 @@ function subordinate_create()
   shift
 
   key=$1
-  
+
 # TODO: process key into group name via prefix
 
   group=${key}
-  
+
   push_failure
 
   send_request   group-list "${group}"
@@ -1020,13 +1020,13 @@ function subordinate_create()
 #       match=$[match+1]
 #     fi
 #   done
-# 
+#
 #   if [ "${match}" -le "0" ] ; then
 #     kcpmsg -l error "no instruments available for a subarray of $# inputs"
 #     echo "!subordinate-create fail unsupported-size"
 #     return
 #   fi
-# 
+#
 #   kcpmsg -l info "have ${match} instruments on offer for a subarray of $# inputs"
 
   if [ -n "${CORR_DIR}" ] ; then
@@ -1054,9 +1054,9 @@ function subordinate_create()
     return 1
   fi
 
-# TODO: a prune_holder here, to clean out stale resources 
+# TODO: a prune_holder here, to clean out stale resources
 
-# WARNING: we have created the group - now committed to deleting it on failure ... 
+# WARNING: we have created the group - now committed to deleting it on failure ...
 
   push_failure
 
@@ -1084,7 +1084,7 @@ function subordinate_create()
 
     send_request   group-halt "${group}"
     retrieve_reply group-halt
-    
+
     pop_failure
 
     kcpmsg -l warn "unable to record inputs for group ${group}"
@@ -1261,5 +1261,5 @@ while read line ; do
   done
 
   clear_queue
- 
+
 done
