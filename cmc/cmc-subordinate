@@ -694,6 +694,13 @@ function activate_servlet_sensors()
 {
   local key remote
 
+  remote=$1
+
+  if [ -z "${remote}" ] ; then
+    kcpmsg "need a remote party to query"
+    return 1
+  fi
+
   push_failure
 
   send_request relay "${remote}" relay "${remote}" sensor-list
@@ -712,7 +719,7 @@ function activate_servlet_sensors()
     retrieve_inform
   done
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l warn "unable to subscribe to sensors of ${remote}"
     return 1
   fi
@@ -1081,16 +1088,6 @@ function instrument_activate()
     return 1
   fi
 
-#   if [ -n "${dmc_address}" ] ; then
-#     echo "?client-exec dmc-${subarray}-${instrument} ${subarray} kcpmpx -r -l dmc "${dmc_address}" -k -l cmc - -m -e cmc-dmc"
-#     if ! get_katcp_reply client-exec ; then
-#       kcpmsg -l warn "unable to launch dmc synchronisation helper"
-#       status=warn
-#     else
-#       kcpmsg "launching synchronisation dmc monitor"
-#     fi
-#   fi
-
   status=nominal
   if [ "${state/no-sensors/}" = "${state}" ] ; then
     extraport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
@@ -1101,11 +1098,6 @@ function instrument_activate()
 
     send_request   client-exec "monitor-${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}" kcprun -e debug -o debug -n "CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}" corr2_sensor_servlet.py -p "${extraport}"
     retrieve_reply client-exec
-
-#    if ! get_katcp_reply client-exec ; then
-#      kcpmsg -l warn "unable to launch sensors for instrument ${INSTRUMENT} but going on anyway"
-#      status=warn
-#    fi
 
     send_request   client-config client "monitor-${SUBARRAY}-${INSTRUMENT}"
     retrieve_reply client-config
@@ -1126,13 +1118,14 @@ function instrument_activate()
     send_request   client-config fixed    "${label}"
     retrieve_reply client-config
 
-
-#    send_request   client-rename corr-sensors "localhost:${extraport}"
-#    retrieve_reply client-rename
-
-    if ! pop_failure ; then
-       kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
-       status=warn
+    if pop_failure ; then
+      if ! activate_servlet_sensors "${label}" ; then
+        kcpmsg -l warn "unable to subscribe to sensors of ${label}"
+        status=warn
+      fi
+    else
+      kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
+      status=warn
     fi
 
   else
