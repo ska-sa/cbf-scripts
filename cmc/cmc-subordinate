@@ -704,7 +704,7 @@ function activate_servlet_sensors()
   push_failure
 
   send_request relay "${remote}" relay "${remote}" sensor-list
-  retrieve_inform
+  retrieve_inform relay
 
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to interrogate sensors of ${remote}"
@@ -716,7 +716,7 @@ function activate_servlet_sensors()
 # risky, we assume inform_result isn't clobbered
   for key in "${!inform_result[@]}" ; do
     send_request relay "${remote}" relay "${remote}" sensor-sampling "${key}" "auto"
-    retrieve_inform
+    retrieve_inform relay
   done
 
   if ! pop_failure ; then
