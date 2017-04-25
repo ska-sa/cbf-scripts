@@ -31,6 +31,7 @@ fi
 ### essential declarations ##############################
 
 declare -a -r resource_types=(roach skarab)
+declare -A resource_free
 
 # valid command names and their minimum parameter count
 declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1)
@@ -351,7 +352,7 @@ retrieve_reply var-declare
 send_request   var-declare  "instrument-resources*"  map
 retrieve_reply var-declare
 
-if ! pop_failure  ; then
+if ! pop_failure ; then
   kcpmsg -l fatal "unable to declare essential instrument tracking state"
 fi
 
@@ -455,14 +456,18 @@ push_failure
 send_request   var-declare  "resources*"  map,readonly
 retrieve_reply var-declare
 
-if ! pop_failure  ; then
+if ! pop_failure ; then
   kcpmsg -l fatal "unable to declare essential resource tracking state"
 fi
 
 function check_resources()
 {
   local -l board
-  local now mode art status when fresh key tmp board
+  local now mode art status when fresh key tmp board holder
+
+  for art in ${resource_types[*]} ; do
+    resource_free[${art}]=0
+  done
 
   now=$(date +%s)
 
@@ -487,6 +492,7 @@ function check_resources()
       art=roach
       when=${now}
       status=unknown
+      holder=""
 
     else
       fresh=1
@@ -495,6 +501,7 @@ function check_resources()
       art="${var_result[resources:${board}:type]}"
       when="${var_result[resources:${board}:when]}"
       status="${var_result[resources:${board}:status]}"
+      holder="${var_result[resources:${board}:holder]}"
 
       if [ "${mode}" = "auto" ] ; then
         if [ "$[when+checkperiod]" -lt "${now}" ] ; then
@@ -522,7 +529,13 @@ function check_resources()
       kcpmsg "checked ${board} at ${when} showing status ${status}"
     fi
 
-    if ! pop_failure  ; then
+    if [ "${status}" = up ] ; then
+      if [ -z "${holder}" ] ; then
+        resource_free[${art}]=$[resource_free[${art}]+1]
+      fi
+    fi
+
+    if ! pop_failure ; then
       kcpmsg -l fatal "unable to update status of board ${board}"
       return 1
     fi
@@ -533,7 +546,7 @@ function check_resources()
 
   fetch_var "resources"
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l warn "unable to retrieve resource variables"
     return 1
   fi
@@ -546,12 +559,23 @@ function check_resources()
       if [ "$[when+checkperiod]" -le "${now}" ] ; then
         tmp="${key#resources:}"
         board="${tmp%%:*}"
-        if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
-          if [ "${var_result[resources:${board}:status]}" = "up" ] ; then
-            if [ "${var_result[resources:${board}:mode]}" = "auto" ] ; then
+
+        art="${var_result[resources:${board}:type]}"
+        status="${var_result[resources:${board}:status]}"
+        mode="${var_result[resources:${board}:mode]}"
+        holder="${var_result[resources:${board}:holder]}"
+
+        if [ "${art}" = "roach" ] ; then
+          if [ "${status}" = "up" ] ; then
+            if [ "${mode}" = "auto" ] ; then
               if ! kcpcmd -kir -f -t 1 -s "${board}" watchdog >& /dev/null ; then
-                send_request   var-set      "resources" standby string ":${board}:status"
+                send_request   var-set    "resources" standby string ":${board}:status"
                 retrieve_reply var-set
+
+                if [ -z "${holder}" ] ; then
+                  resource_free[${art}]=$[resource_free[${art}]-1]
+                fi
+
               fi
             fi
           fi
@@ -560,7 +584,7 @@ function check_resources()
     fi
   done
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l warn "unable to update expired resource"
     return 1
   fi
@@ -590,7 +614,7 @@ function group_destroyed()
 
   fetch_var "resources"
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l warn "unable to query resource set while deallocating subarray ${subarray}"
     return 1
   fi
@@ -645,7 +669,7 @@ function group_destroyed()
     fi
   done
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l error "unable to free all resources held by ${subarray}"
   else
     kcpmsg -l info "released ${count} resources held by ${subarray}"
@@ -658,9 +682,11 @@ function instrument_list()
 {
   local -A size input outputs
   local -a index
-  local instrument key
+  local instrument key art availability
 
   shift
+
+  check_resources
 
   if ! setup_instruments ; then
     echo "!instrument-list fail"
@@ -675,7 +701,7 @@ function instrument_list()
     fetch_var "instrument-size"
   fi
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l error "unable to retrieve instrument list"
     echo "!instrument-list fail"
   fi
@@ -697,10 +723,20 @@ function instrument_list()
     fetch_var "instrument-outputs:${instrument}"
     outputs="${var_result[*]}"
 
-    if ! pop_failure  ; then
-      kcpmsg -l warn "unable to retrieve needed information for instrument ${instrument}"
+    fetch_var "instrument-resources:${instrument}"
+    availability="sufficient"
+
+    for art in ${resource_types[*]} ; do
+      if [ "${var_result[instrument-resources:${instrument}:${art}]}" -gt "${resource_free[${art}]}" ] ; then
+        kcpmsg "instrument ${instrument} requires ${var_result[instrument-resources:${instrument}:${art}]} ${art} resources but currently only ${resource_free[${art}]} are available"
+        availability="oversubscribed"
+      fi
+    done
+
+    if ! pop_failure ; then
+      kcpmsg -l error "unable to retrieve needed information for instrument ${instrument}"
     else
-      echo "#instrument-list ${instrument} sufficient ${size} ${input} ${outputs}"
+      echo "#instrument-list ${instrument} ${availability} ${size} ${input} ${outputs}"
     fi
   done
 
@@ -735,7 +771,7 @@ function resource_list()
     fetch_var "resources"
   fi
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l error "unable to retrieve resource variables"
     echo "!resource-list fail"
   fi
@@ -769,7 +805,7 @@ function resource_mark()
 
   fetch_var "resources:${board}"
 
-  if ! pop_failure  ; then
+  if ! pop_failure ; then
     kcpmsg -l error "unable to retrieve resource ${board}"
     echo "!resource-mark fail unknown-item"
     return 1
@@ -806,7 +842,7 @@ function resource_mark()
         retrieve_reply var-set
       fi
 
-      if ! pop_failure  ; then
+      if ! pop_failure ; then
         kcpmsg -l error "unable to update resource state for ${board}"
         echo "!resource-mark fail read-logs"
         return 1
@@ -835,7 +871,7 @@ function resource_mark()
         retrieve_reply var-set
       fi
 
-      if ! pop_failure  ; then
+      if ! pop_failure ; then
         kcpmsg -l error "unable to update resource state for ${board}"
         echo "!resource-mark fail read-logs"
         return 1
@@ -876,7 +912,7 @@ function resource_mark()
         retrieve_reply var-set
       fi
 
-      if ! pop_failure  ; then
+      if ! pop_failure ; then
         kcpmsg -l error "unable to update resource state for ${board}"
         echo "!resource-mark fail read-logs"
         return 1
