@@ -1088,6 +1088,16 @@ function instrument_activate()
     return 1
   fi
 
+  push_failure
+
+  send_request   relay "${label}" relay "${label}" version-list
+  retrieve_reply relay
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve version information"
+    status=warn
+  fi
+
   status=nominal
   if [ "${state/no-sensors/}" = "${state}" ] ; then
     extraport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
