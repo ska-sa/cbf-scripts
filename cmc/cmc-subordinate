@@ -1035,40 +1035,32 @@ function instrument_activate()
   fi
 
   push_failure
-  send_request   client-rename corr "${label}"
-  retrieve_reply client-rename
-
-  if ! pop_failure ; then
-# TODO: kill the corr instance to release resources
-    echo "!instrument-activate fail read-logs"
-    adjust_sensors
-    return 1
-  fi
-
-  push_failure
 
   fetch_var "synchronisation-epoch"
 
-  if ! pop_failure  ; then
-# TODO: kill the corr instance to release resources
-    kcpmsg -l warn "unable to retrieve synchronisation epoch"
-  fi
+  if ! pop_failure ; then
+# we probably should terminate here
+    kcpmsg -l error "no synchronisation epoch seems to be set"
+  else
+    kcpmsg -l info "got a synchronisation epoch"
 
-  if [ "${var_result[synchronisation-epoch:status]}" != nominal ] ; then
-    kcpmsg -l error "synchronisation epoch is not nominal"
-  fi
-
-  epoch="${var_result[synchronisation-epoch:value]}"
-
-  if [ "${epoch%%.*}" -gt 0 ] ; then
-    if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then
-      kcpmsg "preliminary sync epoch set to ${epoch}"
-    else
-      kcpmsg -l error "servlet unwilling to accept epoch ${epoch}"
-      echo "!instrument-activate fail read-logs"
-      adjust_sensors
-      return 1
+    if [ "${var_result[synchronisation-epoch:status]}" != nominal ] ; then
+      kcpmsg -l error "synchronisation epoch is not nominal"
     fi
+
+    epoch="${var_result[synchronisation-epoch:value]}"
+
+    if [ "${epoch%%.*}" -gt 0 ] ; then
+      if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then
+        kcpmsg "preliminary sync epoch set to ${epoch}"
+      else
+        kcpmsg -l error "servlet unwilling to accept epoch ${epoch}"
+        echo "!instrument-activate fail read-logs"
+        adjust_sensors
+        return 1
+      fi
+    fi
+
   fi
 
   shift
@@ -1090,13 +1082,37 @@ function instrument_activate()
 
   push_failure
 
+  send_request   client-config prefixed "${label}"
+  retrieve_reply client-config
+
+#  send_request   client-config native "${label}"
+#  retrieve_reply client-config
+
   send_request   relay "${label}" relay "${label}" version-list
   retrieve_reply relay
+
+  send_request   client-config fixed "${label}"
+  retrieve_reply client-config
 
   if ! pop_failure ; then
     kcpmsg -l warn "unable to retrieve version information"
     status=warn
   fi
+
+  push_failure
+
+  send_request   client-rename corr "${label}"
+  retrieve_reply client-rename
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to relabel and configure servlet"
+# TODO: kill the corr instance to release resources
+    echo "!instrument-activate fail read-logs"
+    adjust_sensors
+    return 1
+  fi
+
+  label=corr
 
   status=nominal
   if [ "${state/no-sensors/}" = "${state}" ] ; then
