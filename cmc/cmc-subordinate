@@ -257,7 +257,7 @@ declare -A var_result
 
 function fetch_var()
 {
-  local del line
+  local del line label match
   local -a vector
 
   for del in "${!var_result[@]}" ; do
