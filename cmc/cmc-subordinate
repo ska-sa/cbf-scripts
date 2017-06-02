@@ -890,7 +890,7 @@ function instrument_activate()
 
   if [ -n "${INSTRUMENT}" ] ; then
     kcpmsg -l error "unable to launch another instrument ${instrument} as only one instrument per subordinate is supported"
-    echo "!instrument-activate fail read-logs"
+    echo "!instrument-activate fail already-exists"
     adjust_sensors
     return 1
   fi
