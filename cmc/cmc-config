@@ -1,48 +1,18 @@
 #!/bin/bash
 
-declare -a input_vector
-declare -a resource_set
+set -x
 
 export KATCP_LABEL=cmc-config
 
-if [ -n "${CMC_CONFIG}" ] ; then
-  source "${CMC_CONFIG}"
-else
-  kcpmsg "running standalone"
-  source ../misc/cmc.conf
-fi
-
-if [ "$#" -lt 5 ] ; then
+if [ "$#" -lt 2 ] ; then
   kcpmsg -l error "insufficient parameters to launch instrument"
   exit 1
 fi
 
-array=$1
-shift
+template=${1}
+file=${2}
 
-instrument=$1
-shift
-
-port=$1
-shift
-
-while [ "${1:0:5}" != "roach" ] ; do
-  input_vector+=($1)
-  shift
-done
-
-while [ -n "$1" ] ; do
-  resource_set+=($1)
-  shift
-done
-
-name=${array}-${instrument}
-file=${CORR_DIR}/${name}
-template=${CORR_TEMPLATE}/${instrument}
-
-kcpmsg -l debug "intending to build ${file} using ${template}"
-kcpmsg -l debug "have been given resources ${resource_set[*]}"
-kcpmsg -l debug "need to use inputs ${input_vector[*]}"
+kcpmsg -l debug "intending to build ${file##*/} using ${template##*/}"
 
 if [ ! -f ${template} ] ; then
   kcpmsg -l error "unable to locate template ${template}"
@@ -50,22 +20,14 @@ if [ ! -f ${template} ] ; then
 fi
 
 if [ -f ${file} ] ; then
-  kcpmsg "removing previous config ${name}"
+  kcpmsg "removing previous config ${file##*/}"
   rm -f ${file}
 fi
 
 # build config file for corr
-(echo "#define PORT ${port}"
-i=0
-for board in ${resource_set[*]} ; do 
-  echo "#define ROACH${i} ${board}"
-  i=$[i+1]
-done
-i=0
-for input in ${input_vector[*]} ; do 
-  echo "#define INPUT${i} ${input}"
-  i=$[i+1]
-done
+(echo "#define PORT ${PORT}"
+ for roach in "${!ROACH@}" ; do echo "#define ${roach} ${!roach}" ; done
+ for input in "${!INPUT@}" ; do echo "#define ${input} ${!input}" ; done
 grep -v '^ *#' ${template} ) | cpp - > ${file}
 
-kcpmsg "generated config ${name}"
+kcpmsg "generated config ${file##*/}"

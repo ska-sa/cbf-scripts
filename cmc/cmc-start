@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# To run this in test mode use
+# CMC_CONFIG=$(pwd)/tests/cmc.conf PATH=$PATH:$(pwd)/ike:$(pwd)/../katcp/kcs:$(pwd)/cmc cmc-start
+
 NAME=cmc
 
 export KATCP_LABEL=${NAME}-start
@@ -25,13 +28,15 @@ else
   LOGFLAGS="-a 10"
 fi
 
+if [ "${state/retain-path/}" = "${state}" ] ; then
+  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
+fi
+
 if [ "${state/tmp-log/}" != "${state}" ] ; then
-  export PATH=.:${NAME}:/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/tmp/${NAME}.kcplog
   ERRFILE=/tmp/${NAME}.log
   cd /tmp
 else 
-  export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin/
   LOGFILE=/var/log/${NAME}.kcplog
   ERRFILE=/var/log/${NAME}.log
   cd /var/log
@@ -86,8 +91,10 @@ kcpcmd -i client-exec primary primary ${NAME}-primary
 kcpcmd -i client-exec corr primary ${NAME}-null
 
 # start the ntp monitor
-kcpcmd -i client-exec time primary tmon
-kcpcmd -i client-config client time
+if [ "${state/no-time/}" = "${state}" ] ; then
+  kcpcmd -i client-exec time primary tmon
+  kcpcmd -i client-config client time
+fi
 
 function kfwd()
 {
@@ -95,23 +102,31 @@ function kfwd()
   kcpcmd -i cmd-help $1 "$3"
 }
 
-kfwd resource-mark primary "set availability of a processing resource (?resource-mark resource marking)"
-kfwd resource-list primary "show processing resources (?resource-list [resource])"
-kfwd array-halt    primary "halt a subordinate (?array-halt [subordinate])"
-kfwd array-list    primary "show subordinates (?array-list)"
-kfwd array-assign  primary "define and launch a subordinate (?array-assign subordinates [inputs]*)"
+kfwd resource-mark       primary  "set availability of a processing resource (?resource-mark resource marking)"
+kfwd resource-list       primary  "show processing resources (?resource-list [resource])"
 
-kcpcmd -i forward-symbolic subordinate-halt    primary array-halt %1+
-kcpcmd -i cmd-help         subordinate-halt   "halt an subordinate (?subordinate-halt [subordinate])"
+kfwd subordinate-halt    primary  "halt a subarray (?subordinate-halt [subarray])"
+kfwd subordinate-list    primary  "show subarrays (?subordinate-list)"
+kfwd subordinate-create  primary  "define and launch a subarray (?subordinate-create subarray [inputs]*)"
 
-kcpcmd -i forward-symbolic subordinate-list    primary array-list %1+
-kcpcmd -i cmd-help         subordinate-list   "show running subordinates (?subordinate-list)"
-
-kcpcmd -i forward-symbolic subordinate-create  primary array-assign %1+
-kcpcmd -i cmd-help         subordinate-create "define and launch a subordinate (?subordinate-create subarray [inputs]*)"
+# moved from suordinate to primary
+kfwd instrument-list     primary  "show available instruments (?instrument-list)"
 
 kcpcmd -i cmd-delete halt  
-kfwd halt          primary "halt the system (?halt)"
+kfwd halt                primary  "halt the system (?halt)"
+
+# backward compatebility
+kcpcmd -i forward-symbolic array-halt          primary subordinate-halt %1+
+kcpcmd -i cmd-help         array-halt         "halt a subarray (?array-halt [subordinate])"
+kcpcmd -i forward-symbolic array-list          primary subordinate-list %1+
+kcpcmd -i cmd-help         array-list         "show running subarray (?array-list)"
+kcpcmd -i forward-symbolic array-assign        primary subordinate-create %1+
+kcpcmd -i cmd-help         array-assign       "define and launch a subarray (?array-assign subarray [inputs]*)"
+
+if [ -n "${server_part}" ] ; then
+  kcpcmd -i var-declare 'cbf-server*' map,version
+  kcpcmd -i var-set cbf-server ${server_part} string :version
+fi
 
 kcpcmd -i var-declare 'katcp-device*' map,version
 kcpcmd -i var-set katcp-device ${device_api:-unknown} string :version
@@ -130,11 +145,11 @@ kcpcmd -i var-set "*device-status*" fail     string ":range#2"
 # switch back to default/setup, this will be used to clone subordinates
 export KATCP_SERVER=localhost:${setup_port}
 
-kfwd instrument-list  primary "show fielded instruments (?instrument-list)"
-kfwd instrument-probe primary "check resources for an instrument (?instrument-probe instrument)"
+kfwd digitiser-synch-epoch subordinate  "digitiser synchronisation time (?digitiser-synch-epoch time)"
 
-kcpcmd -i forward-symbolic instrument-activate primary instrument-activate %g %1+
-kcpcmd -i cmd-help instrument-activate "launch the specified instrument (?instrument-activate instrument)"
+kfwd instrument-list       subordinate  "show fielded instruments (?instrument-list)"
+kfwd instrument-probe      subordinate  "check resources for an instrument (?instrument-probe instrument)"
+kfwd instrument-activate   subordinate  "launch the specified instrument (?instrument-activate instrument)"
 
 # might have to glue all corr-* capture-list output together 
 kfwd capture-list        corr "list data products"
@@ -147,14 +162,14 @@ kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
 kfwd gain                corr "set gain factors (?gain input [values])"
 kfwd gain-all            corr "set gain factors (?gain-all [values])"
 kfwd delays              corr "set delay and fringe correction (?delays unix-time [coefficient-set]*)"
-kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream centerfrequency)"
+kfwd frequency-select    corr "set the center of the frequency band (?frequency-select stream center frequency)"
 
 # request by martin: inhibit accumulation length
 kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
 #kcpcmd -i cmd-alias accumulation-length watchdog
 
 kfwd beam-weights        corr "set the beam weigths (?beam-weights beam [values]*)"
-kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth centerfrequency)"
+kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth center frequency)"
 kfwd beam-quant-gains    corr "set the quantiser gain for a beam (?beam-quant-gain beam [gain])"
 
 kfwd adc-snapshot        corr "retrieve a snapshot of ADC data for a specific input (?adc-snapshot input-label [unix-time])"
@@ -163,4 +178,4 @@ kfwd transient-buffer-trigger  corr "trigger the transient buffer for all inputs
 kfwd quantiser-snapshot  corr "retrieve quantiser data"
 kfwd fft-shift           corr "set the FFT shift value (?fft-shift [value])"
 
-kfwd digitiser-synch-epoch corr "internal synchronisation interface"
+#kfwd digitiser-synch-epoch corr "internal synchronisation interface"
