@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 export KATCP_LABEL=cmc-config
 
 if [ "$#" -lt 2 ] ; then
