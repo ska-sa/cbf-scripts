@@ -954,12 +954,12 @@ function instrument_activate()
           if [ "$n" -gt 0 ] ; then
             push_failure
 
-            send_request   var-set  resources "${SUBARRAY}" string "${t#resources}:holder"
+            send_request   var-set  resources "${SUBARRAY}" string "${t#resources:}:holder"
             retrieve_reply var-set
 
             if pop_failure ; then
               wants[${art}]=$[n-1]
-              eval export ${art^^}$[n-1]=${t#resources}
+              eval export ${art^^}$[n-1]=${t#resources:}
             fi
           fi
         fi
