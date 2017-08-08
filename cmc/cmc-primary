@@ -471,75 +471,88 @@ function check_resources()
 
   now=$(date +%s)
 
-  for board in $(grep roach ${leases} | cut -f4 -d ' ') ; do
+  for art in roach skarab ; do
 
-    push_failure
+    for board in $(grep ${art} ${leases} | cut -f4 -d ' ') ; do
 
-    fetch_var "resources:${board}"
-    fresh=0
+      push_failure
 
-    if ! clear_failure ; then
-      send_request   var-declare resources map    ":${board}"
-      retrieve_reply var-declare
+      fetch_var "resources:${board}"
+      fresh=0
 
-      send_request   var-set     resources roach  string ":${board}:type"
-      retrieve_reply var-set
+      if ! clear_failure ; then
+        send_request   var-declare resources map    ":${board}"
+        retrieve_reply var-declare
 
-      send_request   var-set     resources auto   string ":${board}:mode"
-      retrieve_reply var-set
+        send_request   var-set     resources ${art}  string ":${board}:type"
+        retrieve_reply var-set
 
-      mode=auto
-      art=roach
-      when=${now}
-      status=unknown
-      holder=""
+        send_request   var-set     resources auto   string ":${board}:mode"
+        retrieve_reply var-set
 
-    else
-      fresh=1
+        mode=auto
+        when=${now}
+        status=unknown
+        holder=""
 
-      mode="${var_result[resources:${board}:mode]}"
-      art="${var_result[resources:${board}:type]}"
-      when="${var_result[resources:${board}:when]}"
-      status="${var_result[resources:${board}:status]}"
-      holder="${var_result[resources:${board}:holder]}"
+      else
+        fresh=1
 
-      if [ "${mode}" = "auto" ] ; then
-        if [ "$[when+checkperiod]" -lt "${now}" ] ; then
-          fresh=0
-          send_request   var-delete  "resources:${board}:when"
-          retrieve_reply var-delete
-          send_request   var-delete  "resources:${board}:status"
-          retrieve_reply var-delete
+        mode="${var_result[resources:${board}:mode]}"
+        art="${var_result[resources:${board}:type]}"
+        when="${var_result[resources:${board}:when]}"
+        status="${var_result[resources:${board}:status]}"
+        holder="${var_result[resources:${board}:holder]}"
+
+        if [ "${mode}" = "auto" ] ; then
+          if [ "$[when+checkperiod]" -lt "${now}" ] ; then
+            fresh=0
+            send_request   var-delete  "resources:${board}:when"
+            retrieve_reply var-delete
+            send_request   var-delete  "resources:${board}:status"
+            retrieve_reply var-delete
+          fi
         fi
       fi
-    fi
 
-    if [ "${fresh}" = "0" ] ; then
-      if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
-        status=up
-      else
-        status=standby
+      if [ "${fresh}" = "0" ] ; then
+        if [ "${art}" = "roach" ; then
+          if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
+            status=up
+          else
+            status=standby
+          fi
+        elif [ "${art}" = "skarab" ; then
+          if kcprun -o debug -q ping -c 1 "${board}" ; then
+            status=up
+          else
+            status=standby
+          fi
+        else
+# TODO: have a way of working out what the status is
+          status=standby
+        fi
+
+        send_request   var-set      "resources" ${now}     string ":${board}:when"
+        retrieve_reply var-set
+        send_request   var-set      "resources" ${status}  string ":${board}:status"
+        retrieve_reply var-set
+
+        kcpmsg "checked ${board} at ${when} showing status ${status}"
       fi
 
-      send_request   var-set      "resources" ${now}     string ":${board}:when"
-      retrieve_reply var-set
-      send_request   var-set      "resources" ${status}  string ":${board}:status"
-      retrieve_reply var-set
-
-      kcpmsg "checked ${board} at ${when} showing status ${status}"
-    fi
-
-    if [ "${status}" = up ] ; then
-      if [ -z "${holder}" ] ; then
-        resource_free[${art}]=$[resource_free[${art}]+1]
+      if [ "${status}" = up ] ; then
+        if [ -z "${holder}" ] ; then
+          resource_free[${art}]=$[resource_free[${art}]+1]
+        fi
       fi
-    fi
 
-    if ! pop_failure ; then
-      kcpmsg -l fatal "unable to update status of board ${board}"
-      return 1
-    fi
+      if ! pop_failure ; then
+        kcpmsg -l fatal "unable to update status of board ${board}"
+        return 1
+      fi
 
+    done
   done
 
   push_failure
@@ -565,9 +578,9 @@ function check_resources()
         mode="${var_result[resources:${board}:mode]}"
         holder="${var_result[resources:${board}:holder]}"
 
-        if [ "${art}" = "roach" ] ; then
-          if [ "${status}" = "up" ] ; then
-            if [ "${mode}" = "auto" ] ; then
+        if [ "${status}" = "up" ] ; then
+          if [ "${mode}" = "auto" ] ; then
+            if [ "${art}" = "roach" ] ; then
               if ! kcpcmd -kir -f -t 1 -s "${board}" watchdog >& /dev/null ; then
                 send_request   var-set    "resources" standby string ":${board}:status"
                 retrieve_reply var-set
@@ -577,6 +590,17 @@ function check_resources()
                 fi
 
               fi
+            elif [ "${art}" = "skarab" ] ; then
+              if ! kcprun -o debug -q ping -c 1 "${board}" ; then
+                send_request   var-set    "resources" standby string ":${board}:status"
+                retrieve_reply var-set
+
+                if [ -z "${holder}" ] ; then
+                  resource_free[${art}]=$[resource_free[${art}]-1]
+                fi
+
+              fi
+
             fi
           fi
         fi
