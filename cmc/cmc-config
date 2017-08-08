@@ -26,8 +26,9 @@ fi
 
 # build config file for corr
 (echo "#define PORT ${PORT}"
- for roach in "${!ROACH@}" ; do echo "#define ${roach} ${!roach}" ; done
- for input in "${!INPUT@}" ; do echo "#define ${input} ${!input}" ; done
+ for roach  in "${!ROACH@}"  ; do echo "#define ${roach}  ${!roach}"  ; done
+ for skarab in "${!SKARAB@}" ; do echo "#define ${skarab} ${!skarab}" ; done
+ for input  in "${!INPUT@}"  ; do echo "#define ${input}  ${!input}"  ; done
 grep -v '^ *#' ${template} ) | cpp - > ${file}
 
 kcpmsg "generated config ${file##*/}"
