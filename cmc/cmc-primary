@@ -526,6 +526,7 @@ function check_resources()
           if ping -c 1 "${board}" >& /dev/null ; then
             status=up
           else
+            kcpmsg -l warn "ping failed on ${board}"
             status=standby
           fi
         else
@@ -592,6 +593,7 @@ function check_resources()
               fi
             elif [ "${art}" = "skarab" ] ; then
               if ! ping -c 1 "${board}" >& /dev/null ; then
+                kcpmsg -l warn "confirming ping failed on ${board}"
                 send_request   var-set    "resources" standby string ":${board}:status"
                 retrieve_reply var-set
 
