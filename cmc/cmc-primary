@@ -516,13 +516,13 @@ function check_resources()
       fi
 
       if [ "${fresh}" = "0" ] ; then
-        if [ "${art}" = "roach" ; then
+        if [ "${art}" = "roach" ] ; then
           if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
             status=up
           else
             status=standby
           fi
-        elif [ "${art}" = "skarab" ; then
+        elif [ "${art}" = "skarab" ] ; then
           if ping -c 1 "${board}" >& /dev/null ; then
             status=up
           else
