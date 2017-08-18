@@ -89,6 +89,7 @@ kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 
 kcpcmd -i client-exec primary primary ${NAME}-primary
 kcpcmd -i client-exec corr primary ${NAME}-null
+kcpcmd -i client-config info-none corr
 
 # start the ntp monitor
 if [ "${state/no-time/}" = "${state}" ] ; then
