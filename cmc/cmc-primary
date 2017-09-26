@@ -34,7 +34,7 @@ declare -a -r resource_types=(roach skarab)
 declare -A resource_free
 
 # valid command names and their minimum parameter count
-declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1)
+declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1 [cmc-halt]=1)
 
 declare -A -r inform_set=([group-destroyed]=1)
 
@@ -1263,6 +1263,20 @@ function subordinate_halt()
   echo "!subordinate-halt ok"
   return 0
 }
+
+### halt ###
+
+function cmc_halt()
+{
+  shift
+
+  if kcprun sudo shutdown -h now ; then
+    echo "!cmc-halt ok"
+  else
+    echo "!cmc-halt fail"
+  fi
+}
+
 
 ### main loop ###########################################
 
