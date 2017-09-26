@@ -114,8 +114,8 @@ kfwd subordinate-create  primary  "define and launch a subarray (?subordinate-cr
 # moved from suordinate to primary
 kfwd instrument-list     primary  "show available instruments (?instrument-list)"
 
-kcpcmd -i cmd-delete halt  
-kfwd halt                primary  "halt the system (?halt)"
+kcpcmd -i cmd-delete halt
+kfwd cmc-halt            primary  "power down the cmc server (?cmc-halt)"
 
 # backward compatebility
 kcpcmd -i forward-symbolic array-halt          primary subordinate-halt %1+
