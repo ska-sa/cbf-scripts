@@ -473,7 +473,7 @@ function check_resources()
 
   for art in roach skarab ; do
 
-    for board in $(grep ${art} ${leases} | cut -f4 -d ' ') ; do
+    for board in $(grep ${art} ${leases} | cut -f4 -d ' ' | tr [A-Z] [a-z]) ; do
 
       push_failure
 
@@ -792,7 +792,7 @@ function resource_list()
   push_failure
 
   if [ -n "$1" ] ; then
-    fetch_var "resources:$1"
+    fetch_var "resources:${1,,}"
   else
     fetch_var "resources"
   fi
@@ -822,7 +822,7 @@ function resource_mark()
 
   shift
 
-  board=$1
+  board=${1,,}
   status=$2
 
   check_resources
