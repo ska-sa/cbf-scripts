@@ -1217,6 +1217,8 @@ function subordinate_create()
 
 #  make_subarray_sensors ${key}
 
+  sleep 0.1
+
   echo "!subordinate-create ok ${port}"
   return 0
 }
