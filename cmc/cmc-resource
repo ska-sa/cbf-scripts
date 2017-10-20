@@ -1,0 +1,272 @@
+#!/bin/bash
+
+
+# resources:name:when       - last time we checked it
+# resources:name:status     - what the user status is
+#
+# resources:name:type       - what type of resource it is
+# resources:name:mode       - did the user decide its status
+# resources:name:holder     - which subarray owns it
+
+### support functions ###################################
+
+function init_resources()
+{
+  push_failure
+  send_request   var-declare  "resources*"  map,readonly
+  retrieve_reply var-declare
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to declare essential resource tracking state"
+    return 1
+  fi
+  
+  return 0
+}
+
+function compute_resources()
+{
+  local -A location_free
+  local -A location_busy
+
+  local prior
+  local key
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource variables"
+    return 1
+  fi
+
+# this requires the existence of a switch subfield
+
+  for key in "${!var_result[@]}" ; do
+    if [ "${key##*:}" = "switch" ] ; then
+      location="${var_result[${key}]}"
+
+      tmp="${key#resources:}"
+      board="${tmp%%:*}"
+
+      holder="${var_result[resources:${board}:holder]}"
+
+      if [ -n "${holder}" ] ; then
+        location_busy[${location}]="${holder}"
+      else 
+        if [ -z "${location_free[${location}]}" ] ; then
+          prior=0
+        else
+          prior="location_free[${location}]"
+        fi
+        location_free[${location}]=$[prior+1]
+      fi
+    fi
+  done
+
+# now location_free[$switch] should contain a number 
+# and location_busy[$switch] be nonzero if somebody else already using a part of it 
+
+  local name
+
+  for name in "${!location_free[@]}" ; do
+    if [ "${location_busy[${name}]}" -gt 0 ] ; then
+      kcpmsg "shared switch ${name} has ${location_free[${name}]} slots available"
+    else 
+      kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available"
+    fi
+  done
+
+  return 0
+
+#   local pool role needs art count
+# 
+#   local -A slots
+# 
+#   for pool in $(ike -k hosts ${template}) ; do
+#     needs="${pool#*=}"
+#     role="${pool%%.*}"
+# 
+#     for art in ${resource_types[*]} ; do
+#       count=$(echo -e "${needs//,/\\n}" | grep -c ${art^^}[0-9])
+#       if [ "${count}" -gt 0 ] ; then
+#         slots[${role}_${art}]="${count}"
+#       fi
+#     done
+# 
+#   done
+
+# now slots[engine_boardtype] should contain a count
+
+# TODO - now unify as per rules
+
+}
+
+function check_resources()
+{
+  local -l board
+  local now mode art status when fresh key tmp board holder network
+
+  for art in ${resource_types[*]} ; do
+    resource_free[${art}]=0
+  done
+
+  now=$(date +%s)
+
+  for art in roach skarab ; do
+
+    for board in $(grep ${art} ${leases} | cut -f4 -d ' ' ) ; do
+
+      push_failure
+
+      fetch_var "resources:${board}"
+      fresh=0
+
+      if ! clear_failure ; then
+
+        send_request   var-declare resources map      ":${board}"
+        retrieve_reply var-declare
+
+        send_request   var-set     resources "${art}" string ":${board}:type"
+        retrieve_reply var-set
+
+        send_request   var-set     resources auto     string ":${board}:mode"
+        retrieve_reply var-set
+
+# NOTE: special case: the 3rd octet of a scarab encodes its switch
+        if [ "${art}" = "skarab" ] ; then
+          network=$(grep -i "${board}" ${leases} | cut -f3 -d '.' | head -1 )
+          if [ -n "${network}" ] ; then
+            send_request   var-set     resources "${network}" string ":${board}:switch"
+            retrieve_reply var-set
+          fi
+        fi
+
+        mode=auto
+        when=${now}
+        status=unknown
+        holder=""
+
+      else
+        fresh=1
+
+        mode="${var_result[resources:${board}:mode]}"
+        art="${var_result[resources:${board}:type]}"
+        when="${var_result[resources:${board}:when]}"
+        status="${var_result[resources:${board}:status]}"
+        holder="${var_result[resources:${board}:holder]}"
+
+        if [ "${mode}" = "auto" ] ; then
+          if [ "$[when+checkperiod]" -lt "${now}" ] ; then
+            fresh=0
+            send_request   var-delete  "resources:${board}:when"
+            retrieve_reply var-delete
+            send_request   var-delete  "resources:${board}:status"
+            retrieve_reply var-delete
+          fi
+        fi
+      fi
+
+      if [ "${fresh}" = "0" ] ; then
+        if [ "${art}" = "roach" ] ; then
+          if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
+            status=up
+          else
+            status=standby
+          fi
+        elif [ "${art}" = "skarab" ] ; then
+          if ping -c 1 "${board}" >& /dev/null ; then
+            status=up
+          else
+            kcpmsg -l warn "ping failed on ${board}"
+            status=standby
+          fi
+        else
+# TODO: have a way of working out what the status is
+          status=standby
+        fi
+
+        send_request   var-set      "resources" ${now}     string ":${board}:when"
+        retrieve_reply var-set
+        send_request   var-set      "resources" ${status}  string ":${board}:status"
+        retrieve_reply var-set
+
+        kcpmsg "checked ${board} at ${when} showing status ${status}"
+      fi
+
+      if [ "${status}" = up ] ; then
+        if [ -z "${holder}" ] ; then
+          resource_free[${art}]=$[resource_free[${art}]+1]
+        fi
+      fi
+
+      if ! pop_failure ; then
+        kcpmsg -l fatal "unable to update status of board ${board}"
+        return 1
+      fi
+
+    done
+  done
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource variables"
+    return 1
+  fi
+
+  push_failure
+
+  for key in "${!var_result[@]}" ; do
+    if [ "${key##*:}" = "when" ] ; then
+      when="${var_result[${key}]}"
+      if [ "$[when+checkperiod]" -le "${now}" ] ; then
+        tmp="${key#resources:}"
+        board="${tmp%%:*}"
+
+        art="${var_result[resources:${board}:type]}"
+        status="${var_result[resources:${board}:status]}"
+        mode="${var_result[resources:${board}:mode]}"
+        holder="${var_result[resources:${board}:holder]}"
+
+        if [ "${status}" = "up" ] ; then
+          if [ "${mode}" = "auto" ] ; then
+            if [ "${art}" = "roach" ] ; then
+              if ! kcpcmd -kir -f -t 1 -s "${board}" watchdog >& /dev/null ; then
+                send_request   var-set    "resources" standby string ":${board}:status"
+                retrieve_reply var-set
+
+                if [ -z "${holder}" ] ; then
+                  resource_free[${art}]=$[resource_free[${art}]-1]
+                fi
+
+              fi
+            elif [ "${art}" = "skarab" ] ; then
+              if ! ping -c 1 "${board}" >& /dev/null ; then
+                kcpmsg -l warn "confirming ping failed on ${board}"
+                send_request   var-set    "resources" standby string ":${board}:status"
+                retrieve_reply var-set
+
+                if [ -z "${holder}" ] ; then
+                  resource_free[${art}]=$[resource_free[${art}]-1]
+                fi
+
+              fi
+
+            fi
+          fi
+        fi
+      fi
+    fi
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to update expired resource"
+    return 1
+  fi
+
+  return 0
+}

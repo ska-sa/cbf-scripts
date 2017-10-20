@@ -1,0 +1,192 @@
+#!/bin/bash
+
+### support functions ###################################
+
+# about to be wrong:
+# instrument-size:name           - how many inputs does it need
+# instrument-input:name          - what input product does it require
+# instrument-outputs:name:#N     - what output products does it generate
+# instrument-resources:name:type - how many boards of what type do we need
+
+function init_instruments()
+{
+  push_failure
+
+  send_request   var-declare  "instruments"            map
+  retrieve_reply var-declare
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to declare essential instrument tracking state"
+    return 1
+  fi
+
+  return 0
+}
+
+function load_instruments()
+{
+  local size instrument template geometry art count top available product i required input
+
+  if [ "${#instruments_deployed[@]}" -le 0 ] ; then
+    kcpmsg -l fatal "no instruments deployed"
+    return 1
+  fi
+
+  push_failure
+
+  available=0
+
+  for instrument in ${instruments_deployed[*]} ; do
+    template=${CORR_TEMPLATE}/${instrument}
+
+    kcpmsg -l debug "checking templates for instrument ${instrument}"
+
+    if [ -f ${template} ] ; then
+
+      size=$(ike -o -k source_mcast_ips ${template} | tr -s ',' '\n' | wc -l)
+      input=$(ike -o -k source_products ${template})
+
+      if [ "${size}" -gt 0 -a -n "${input}" ] ; then
+
+        kcpmsg "instrument ${instrument} uses ${size} inputs"
+
+        send_request   var-declare instruments   map   ":${instrument}"
+        retrieve_reply var-declare
+
+        ############################
+
+        send_request   var-declare instruments   array  ":${instrument}:output-products"
+        retrieve_reply var-declare
+
+        send_request   var-declare instruments   array  ":${instrument}:input-products"
+        retrieve_reply var-declare
+
+        send_request   var-declare instruments   string ":${instrument}:input-size"
+        retrieve_reply var-declare
+
+#         send_request   var-declare instruments   map    ":${instrument}"
+#         retrieve_reply var-declare
+# 
+#         send_request   var-set     instruments   "${size}"  string  ":${instrument}"
+#         retrieve_reply var-set
+# 
+#         send_request   var-set     instrument-input  "${input}" string  ":${instrument}"
+#         retrieve_reply var-set
+# 
+#         i=0
+#         for product in $(ike -o -k output_products ${template}) ; do
+#           send_request   var-set instrument-outputs "${product}" string ":${instrument}#${i}"
+#           retrieve_reply var-set
+#           i=$[i+1]
+#         done
+# 
+#         if [ "${i}" -le 0 ] ; then
+#           kcpmsg -l error "no data products discoverable in instrument ${instrument}"
+#           set_failure
+#         fi
+# 
+#         required=0
+#         for art in ${resource_types[*]} ; do
+# 
+# # could make it search for upper case only ...
+#           required=$(ike -o -k hosts ${template} | tr -s , '\n' | sort -u | grep -ic ${art})
+# 
+#           kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
+# 
+#           send_request   var-set instrument-resources "${required}" string ":${instrument}:${art}"
+#           retrieve_reply var-set
+#         done
+# 
+#         if [ "${required}" -le 0 ] ; then
+#           if [ "${state/missing-roaches/}" = "${state}" ] ; then
+#             kcpmsg -l fatal "unable to determine resource needs for instrument ${instrument}"
+#             set_failure
+#           fi
+#         fi
+
+      else
+        kcpmsg -l error "unable to establish what and how many inputs ${instrument} requires"
+        set_failure
+      fi
+
+    else
+      kcpmsg -l fatal "no template available for instrument ${instrument}"
+    fi
+
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to determine instrument layouts"
+    return 1
+  fi
+
+  return 0
+}
+
+########################
+
+function instrument_list()
+{
+  local -A size input outputs
+  local -a index
+  local instrument key art availability
+
+  shift
+
+  check_resources
+
+  if ! setup_instruments ; then
+    echo "!instrument-list fail"
+    return 1
+  fi
+
+  push_failure
+
+  if [ -n "$1" ] ; then
+    fetch_var "instrument-size:$1"
+  else
+    fetch_var "instrument-size"
+  fi
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to retrieve instrument list"
+    echo "!instrument-list fail"
+  fi
+
+  for key in "${!var_result[@]}" ; do
+    instrument="${key#instrument-size:}"
+    index+=("${instrument}")
+  done
+
+  for instrument in "${index[@]}" ; do
+    push_failure
+
+    fetch_var "instrument-size:${instrument}"
+    size="${var_result[*]}"
+
+    fetch_var "instrument-input:${instrument}"
+    input="${var_result[*]}"
+
+    fetch_var "instrument-outputs:${instrument}"
+    outputs="${var_result[*]}"
+
+    fetch_var "instrument-resources:${instrument}"
+    availability="sufficient"
+
+    for art in ${resource_types[*]} ; do
+      if [ "${var_result[instrument-resources:${instrument}:${art}]}" -gt "${resource_free[${art}]}" ] ; then
+        kcpmsg "instrument ${instrument} requires ${var_result[instrument-resources:${instrument}:${art}]} ${art} resources but currently only ${resource_free[${art}]} are available"
+        availability="oversubscribed"
+      fi
+    done
+
+    if ! pop_failure ; then
+      kcpmsg -l error "unable to retrieve needed information for instrument ${instrument}"
+    else
+      echo "#instrument-list ${instrument} ${availability} ${size} ${input} ${outputs}"
+    fi
+  done
+
+  echo "!instrument-list ok"
+}
+
