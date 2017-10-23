@@ -12,7 +12,7 @@ function init_instruments()
 {
   push_failure
 
-  send_request   var-declare  "instruments"            map
+  send_request   var-declare  "instruments*"           map
   retrieve_reply var-declare
 
   if ! pop_failure ; then
@@ -25,7 +25,7 @@ function init_instruments()
 
 function load_instruments()
 {
-  local size instrument template geometry art count top available product i required input
+  local size instrument template geometry art count top available product i required inputs outputs
 
   if [ "${#instruments_deployed[@]}" -le 0 ] ; then
     kcpmsg -l fatal "no instruments deployed"
@@ -44,9 +44,10 @@ function load_instruments()
     if [ -f ${template} ] ; then
 
       size=$(ike -o -k source_mcast_ips ${template} | tr -s ',' '\n' | wc -l)
-      input=$(ike -o -k source_products ${template})
+      inputs=$(ike -o -k source_products ${template})
+      outputs=$(ike -o -k output_products ${template})
 
-      if [ "${size}" -gt 0 -a -n "${input}" ] ; then
+      if [ "${size}" -gt 0 -a -n "${inputs}" ] ; then
 
         kcpmsg "instrument ${instrument} uses ${size} inputs"
 
@@ -55,31 +56,31 @@ function load_instruments()
 
         ############################
 
-        send_request   var-declare instruments   array  ":${instrument}:output-products"
+        send_request   var-declare instruments   string ":${instrument}:input-size"
         retrieve_reply var-declare
 
         send_request   var-declare instruments   array  ":${instrument}:input-products"
         retrieve_reply var-declare
 
-        send_request   var-declare instruments   string ":${instrument}:input-size"
+        send_request   var-declare instruments   array  ":${instrument}:output-products"
         retrieve_reply var-declare
 
-#         send_request   var-declare instruments   map    ":${instrument}"
-#         retrieve_reply var-declare
-# 
-#         send_request   var-set     instruments   "${size}"  string  ":${instrument}"
-#         retrieve_reply var-set
-# 
-#         send_request   var-set     instrument-input  "${input}" string  ":${instrument}"
-#         retrieve_reply var-set
-# 
-#         i=0
-#         for product in $(ike -o -k output_products ${template}) ; do
-#           send_request   var-set instrument-outputs "${product}" string ":${instrument}#${i}"
-#           retrieve_reply var-set
-#           i=$[i+1]
-#         done
-# 
+        ############################
+
+        send_request   var-set     instruments   "${size}"  string  ":${instrument}:input-size"
+        retrieve_reply var-set
+
+        for product in ${inputs} ; do 
+          send_request   var-set     instruments   "${product}"  string  ":${instrument}:input-products#-"
+          retrieve_reply var-set
+        done
+
+        for product in ${outputs} ; do 
+          send_request   var-set     instruments   "${product}"  string  ":${instrument}:output-products#-"
+          retrieve_reply var-set
+        done
+
+
 #         if [ "${i}" -le 0 ] ; then
 #           kcpmsg -l error "no data products discoverable in instrument ${instrument}"
 #           set_failure
@@ -110,7 +111,7 @@ function load_instruments()
       fi
 
     else
-      kcpmsg -l fatal "no template available for instrument ${instrument}"
+      kcpmsg -l fatal "no template available in ${template} for instrument ${instrument}"
     fi
 
   done

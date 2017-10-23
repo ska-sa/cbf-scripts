@@ -71,7 +71,7 @@ function compute_resources()
   local name
 
   for name in "${!location_free[@]}" ; do
-    if [ "${location_busy[${name}]}" -gt 0 ] ; then
+    if [ -n "${location_busy[${name}]}" ] ; then
       kcpmsg "shared switch ${name} has ${location_free[${name}]} slots available"
     else 
       kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available"
