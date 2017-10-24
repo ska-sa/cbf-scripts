@@ -25,7 +25,7 @@ function init_instruments()
 
 function load_instruments()
 {
-  local size instrument template geometry art count top available product i required inputs outputs
+  local size instrument template geometry art count top available product i required inputs outputs channels boutput binput art engine candidates word
 
   if [ "${#instruments_deployed[@]}" -le 0 ] ; then
     kcpmsg -l fatal "no instruments deployed"
@@ -46,6 +46,15 @@ function load_instruments()
       size=$(ike -o -k source_mcast_ips ${template} | tr -s ',' '\n' | wc -l)
       inputs=$(ike -o -k source_products ${template})
       outputs=$(ike -o -k output_products ${template})
+      channels=$(ike -o -k n_chans ${template})
+
+      boutput=0
+      binput=0
+# TODO
+# boutput=$(ike -o -k output_ ${template})
+# binput=$(ike -o -k output_ ${template})
+
+# TODO: more checking that we can find input and output products too ?
 
       if [ "${size}" -gt 0 -a -n "${inputs}" ] ; then
 
@@ -65,45 +74,65 @@ function load_instruments()
         send_request   var-declare instruments   array  ":${instrument}:output-products"
         retrieve_reply var-declare
 
-        ############################
+        send_request   var-declare instruments   string  ":${instrument}:input-bandwidth"
+        retrieve_reply var-declare
 
-        send_request   var-set     instruments   "${size}"  string  ":${instrument}:input-size"
+        send_request   var-declare instruments   string  ":${instrument}:output-bandwidth"
+        retrieve_reply var-declare
+
+        send_request   var-declare instruments   string  ":${instrument}:channels"
+        retrieve_reply var-declare
+
+        send_request   var-declare instruments   map     ":${instrument}:resources"
+        retrieve_reply var-declare
+
+        for art in ${resource_types[*]} ; do
+          send_request   var-declare instruments   map    ":${instrument}:resources:${art}"
+          retrieve_reply var-declare
+
+          for engine in ${engine_types[*]} ; do
+            send_request   var-declare instruments string ":${instrument}:resources:${art}:${engine}"
+            retrieve_reply var-declare
+          done
+        done
+
+        send_request   var-set     instruments   "${size}"       string  ":${instrument}:input-size"
         retrieve_reply var-set
 
-        for product in ${inputs} ; do 
+        send_request   var-set     instruments   "${channels}"   string  ":${instrument}:channels"
+        retrieve_reply var-set
+
+        send_request   var-set     instruments   "${binput}"     string  ":${instrument}:input-bandwidth"
+        retrieve_reply var-set
+
+        send_request   var-set     instruments   "${boutput}"    string  ":${instrument}:output-bandwidth"
+        retrieve_reply var-set
+
+        for product in ${inputs} ; do
           send_request   var-set     instruments   "${product}"  string  ":${instrument}:input-products#-"
           retrieve_reply var-set
         done
 
-        for product in ${outputs} ; do 
+        for product in ${outputs} ; do
           send_request   var-set     instruments   "${product}"  string  ":${instrument}:output-products#-"
           retrieve_reply var-set
         done
 
+        for art in ${resource_types[*]} ; do
 
-#         if [ "${i}" -le 0 ] ; then
-#           kcpmsg -l error "no data products discoverable in instrument ${instrument}"
-#           set_failure
-#         fi
-# 
-#         required=0
-#         for art in ${resource_types[*]} ; do
-# 
-# # could make it search for upper case only ...
-#           required=$(ike -o -k hosts ${template} | tr -s , '\n' | sort -u | grep -ic ${art})
-# 
-#           kcpmsg "instrument ${instrument} requires ${required} ${art} resources"
-# 
-#           send_request   var-set instrument-resources "${required}" string ":${instrument}:${art}"
-#           retrieve_reply var-set
-#         done
-# 
-#         if [ "${required}" -le 0 ] ; then
-#           if [ "${state/missing-roaches/}" = "${state}" ] ; then
-#             kcpmsg -l fatal "unable to determine resource needs for instrument ${instrument}"
-#             set_failure
-#           fi
-#         fi
+          for word in $(ike -k hosts ${template} | grep ${art}) ; do
+            kcpmsg -l debug "examing ${word} for dynamic resources"
+
+            engine=${word%%.*}
+            count=$(echo "${word#*=}" | tr ',' '\n' | grep ${art^^} | sort -n | uniq | wc -l)
+
+            kcpmsg "instrument ${instrument} requires ${count} dynamically allocated ${art} resources as ${engine} components"
+
+            send_request   var-set   instruments   "${count}"    string  ":${instrument}:resources:${art}:${engine}"
+            retrieve_reply var-set
+          done
+
+        done
 
       else
         kcpmsg -l error "unable to establish what and how many inputs ${instrument} requires"

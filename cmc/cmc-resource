@@ -7,6 +7,7 @@
 # resources:name:type       - what type of resource it is
 # resources:name:mode       - did the user decide its status
 # resources:name:holder     - which subarray owns it
+# resources:name:switch     - on which switch does it live
 
 ### support functions ###################################
 

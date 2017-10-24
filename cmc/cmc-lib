@@ -3,6 +3,7 @@
 ### essential constants #################################
 
 declare -a -r resource_types=(roach skarab)
+declare -a -r engine_types=(fengine xengine)
 
 configuration=${CMC_CONFIG:-/etc/cmc.conf}
 
