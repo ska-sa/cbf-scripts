@@ -1,0 +1,144 @@
+[FxCorrelator]
+katcp_port = 7147
+sample_rate_hz = 1712000000
+timestamp_bits = 48
+# Version of IGMP protocol to force on the engines
+igmp_version = 2
+# How long should we wait for ARP resolution?
+arp_wait_time = 20
+# at what interval do we poll sensors?
+sensor_poll_time = 10
+# how much time difference between the received f-engine times is allowed?
+time_jitter_allowed_ms = 500
+# how close should the received f-engine times be to the actual time
+time_offset_allowed_s = 5
+# how long should we wait to allow the switches to configure, default 10s
+switch_delay = 10
+# what is the TTL for SPEAD metadata packets?
+spead_metapacket_ttl = 4
+# what is the source to this instrument?
+source_products = baseband-voltage
+
+[bengine]
+
+[beam0]
+output_products = tied-array-channelised-voltage.0x
+output_destinations_base = 239.8.3.0:7148
+stream_index = 0
+center_freq = 1284000000
+bandwidth = 856000000
+weight_ant0_x = 0.25
+weight_ant1_x = 0.25
+weight_ant2_x = 0.25
+weight_ant3_x = 0.25
+source_poly = 2
+
+[beam1]
+output_products=tied-array-channelised-voltage.0y
+output_destinations_base = 239.8.4.0:7148
+stream_index = 1
+center_freq = 1284000000
+bandwidth = 856000000
+weight_ant0_y = 0.25
+weight_ant1_y = 0.25
+weight_ant2_y = 0.25
+weight_ant3_y = 0.25
+source_poly = 3
+
+[fengine]
+hosts = SKARAB020426-01,skarab020428-01,skarab020502-01,skarab02040A-01
+#bitstream = /home/alec/bofs/s_c856m4k_2017-09-29_1450.fpg
+#now with new ELF uB and integrated 40G snap blocks:
+#bitstream = /srv/bofs/feng/s_c856m4k_2017-10-18_1711.fpg
+#now with new ELF uB, but old style snap blocks:
+bitstream = /srv/bofs/feng/s_c856m4k_oldsnaps_2017-10-19_1454.fpg
+
+# names and IPs of the sources to the f-engines
+n_antennas = 4
+# Number of f-engines per host - the PFB does two-pols, so only one, but it is two f-engines/pols
+f_per_fpga = 2
+# names to give the source polarisations - these must map to the IPs
+source_names = ant0_x,ant0_y,ant1_x,ant1_y,ant2_x,ant2_y,ant3_x,ant3_y
+# henno's lab dengine
+source_mcast_ips = INPUT0,INPUT1,INPUT2,INPUT3,INPUT4,INPUT5,INPUT6,INPUT7
+# number of 10gbe ports per f-engine
+ports_per_fengine = 2
+# how many bits per ADC sample
+sample_bits = 10
+# how many parallel ADC samples do we get per digitiser clock?
+adc_demux_factor = 8
+# The processed analogue bandwidth
+bandwidth = 856000000
+# the centre frequency on the sky
+true_cf = 1284000000
+# Number of channels produced by the f-engine
+n_chans = 4096
+# FFT shifting schedule in decimal. A binary '1' shifts, a zero does not.
+fft_shift = 511
+# The fixed-point format post FFT in the F engines
+quant_format = 8.7
+# Packet length of 10Gbe exchange data in 64 bit words.
+10gbe_pkt_len = 128
+## MAC, IP and port for 10Gbe cores
+10gbe_start_mac = 02:02:00:00:01:10
+10gbe_start_ip = 10.100.0.150
+10gbe_port = 7148
+# SPEAD flavour, string in the form XX,YY. Default: 64,48. See the SPEAD documentation for details.
+spead_flavour = 64,48
+# Equalisation settings - one per input - must have the same suffix as the source names above
+eq_poly_ant0_x = 200
+eq_poly_ant0_y = 200
+eq_poly_ant1_x = 200
+eq_poly_ant1_y = 200
+eq_poly_ant2_x = 200
+eq_poly_ant2_y = 200
+eq_poly_ant3_x = 200
+eq_poly_ant3_y = 200
+# Delay settings
+min_load_time = 0.2
+network_latency_adjust = 0
+## How many QDR CT errors are acceptable?
+## qdr_ct_error_threshold = 100
+# where should the f-data go?
+output_products = antenna-channelised-voltage
+output_destinations_base = 239.8.1.0:7148
+
+[xengine]
+hosts = skarab02040B-01,skarab02040C-01,skarab02040D-01,skarab02040E-01
+#bitstream = /home/alec/bofs/s_b4a4x256f_2017-10-03_1502.fpg
+#now with new ELF file:
+bitstream = /srv/bofs/xeng/s_b4a4x256f_2017-10-19_1001.fpg
+
+# x fpga clock speed
+x_fpga_clock = 230000000
+# Number of X engines per host
+x_per_fpga = 4
+# Number of spectra to integrate in QDR
+accumulation_len = 408
+# Number of accumulations performed in the X engine cores
+xeng_accumulation_len = 256
+# Number of bits the vacc uses to represent one number
+xeng_outbits = 32
+## MAC, IP and port for 10Gbe cores
+10gbe_start_mac = 02:02:00:00:02:10
+10gbe_start_ip = 10.101.0.110
+10gbe_port = 7148
+# data product names and destinations
+output_products = baseline-correlation-products
+output_destinations_base = 239.8.2.0:7148
+# Packet length of 10Gbe exchange data in 64 bit words.
+10gbe_pkt_len = 512
+# Gap, in cycles, enforced between output packets
+10gbe_pkt_gapsize = 262144
+## How many QDR VACC errors are acceptable?
+##qdr_vacc_error_threshold = 100
+
+[dsimengine]
+sample_rate_hz = 1712000000
+bitstream = /srv/mkat_fpga/bitstreams/deng/r2_deng_tvg_rev1_13.fpg
+host = roach02064F
+10gbe_start_mac = 01:fe:00:02:06:4F:00
+10gbe_start_ip = 10.100.15.141
+10gbe_port = 7148
+pol0_destination_start_ip = 239.101.0.0
+pol1_destination_start_ip = 239.101.0.2
