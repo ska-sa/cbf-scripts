@@ -1,0 +1,41 @@
+#!/bin/bash
+
+declare -A -r command_set=([resource-test]=1)
+declare -A -r command_help=([resource-test]="test resource logic")
+
+#################################################
+
+kcpmsg "about to launch helper"
+
+function resource_test()
+{
+  kcpmsg "about to check resources"
+
+  if ! check_resources ; then
+    echo "!resource-test fail"
+  fi
+
+  compute_resources
+
+  load_instruments
+
+  echo "!resource-test ok"
+}
+
+#################################################
+
+source cmc-lib
+source cmc-resource
+source cmc-instrument
+
+inhibit_logging
+register_commands child
+
+#################################################
+
+init_resources 
+init_instruments
+
+#################################################
+
+main_loop

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -ex
+
+BASE=$(realpath ../../..)
+
+if [ -d ${BASE}/katcp ] ; then
+  PATH=${BASE}/katcp/kcs:${BASE}/katcp/cmd:${BASE}/katcp/msg:${PATH}
+else
+  echo "unable to find katcp library"
+fi
+
+if [ -d ${BASE}/cbf ] ; then
+  PATH=${BASE}/cbf/ike:${BASE}/cbf/cmc:${PATH}
+else 
+  echo "unable to find cbf support"
+fi
+
+export KATCP_SERVER=localhost:8400
+
+export PATH=$(pwd):${PATH}
+export TESTDIR=$(pwd)
+
+if ! kcpcmd watchdog ; then
+  kcs -d -l kcs-logfile -p ${KATCP_SERVER}
+fi
+
+sleep 0.5
+
+kcpcmd watchdog 
+
+kcpcmd listener-create test 8401
+
+export KATCP_SERVER=localhost:8401
+
+kcpcmd watchdog
+
+kcpcmd client-exec child default child-resources
+
+#export KATCP_SERVER=localhost:8400
+
