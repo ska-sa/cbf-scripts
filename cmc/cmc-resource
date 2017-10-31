@@ -29,9 +29,9 @@ function compute_resources()
 {
   local -A location_free
   local -A location_busy
+  local -A location_pool
 
-  local prior
-  local key
+  local prior key location
 
   push_failure
 
@@ -58,8 +58,10 @@ function compute_resources()
       else 
         if [ -z "${location_free[${location}]}" ] ; then
           prior=0
+          location_pool[${location}]="${board}"
         else
           prior="location_free[${location}]"
+          location_pool[${location}]="${location_pool[${location}] ${board}"
         fi
         location_free[${location}]=$[prior+1]
       fi
@@ -67,15 +69,16 @@ function compute_resources()
   done
 
 # now location_free[$switch] should contain a number 
+#     location_pool[$switch] should contain a set of *free* boards 
 # and location_busy[$switch] be nonzero if somebody else already using a part of it 
 
   local name
 
   for name in "${!location_free[@]}" ; do
     if [ -n "${location_busy[${name}]}" ] ; then
-      kcpmsg "shared switch ${name} has ${location_free[${name}]} slots available"
+      kcpmsg "shared switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
     else 
-      kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available"
+      kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
     fi
   done
 
@@ -114,6 +117,8 @@ function check_resources()
   done
 
   now=$(date +%s)
+
+  kcpcmd "checking set of available resources"
 
   for art in roach skarab ; do
 
@@ -241,7 +246,7 @@ function check_resources()
                 retrieve_reply var-set
 
                 if [ -z "${holder}" ] ; then
-                  resource_free[${art}]=$[resource_free[${art}]-1]
+                  resource_free[${art}]=${resource_free[${art}]-1}
                 fi
 
               fi
@@ -252,7 +257,7 @@ function check_resources()
                 retrieve_reply var-set
 
                 if [ -z "${holder}" ] ; then
-                  resource_free[${art}]=$[resource_free[${art}]-1]
+                  resource_free[${art}]=${resource_free[${art}]-1}
                 fi
 
               fi
@@ -269,5 +274,6 @@ function check_resources()
     return 1
   fi
 
+  kcpmsg "completed checking resources"
   return 0
 }
