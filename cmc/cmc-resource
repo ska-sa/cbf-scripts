@@ -21,7 +21,7 @@ function init_resources()
     kcpmsg -l fatal "unable to declare essential resource tracking state"
     return 1
   fi
-  
+
   return 0
 }
 
@@ -30,8 +30,9 @@ function compute_resources()
   local -A location_free
   local -A location_busy
   local -A location_pool
+  local -A solution_pool
 
-  local prior key location
+  local prior key location candidate art engine failed best count
 
   push_failure
 
@@ -55,50 +56,110 @@ function compute_resources()
 
       if [ -n "${holder}" ] ; then
         location_busy[${location}]="${holder}"
-      else 
+      else
         if [ -z "${location_free[${location}]}" ] ; then
           prior=0
           location_pool[${location}]="${board}"
         else
           prior="location_free[${location}]"
-          location_pool[${location}]="${location_pool[${location}] ${board}"
+          location_pool[${location}]="${location_pool[${location}]} ${board}"
         fi
         location_free[${location}]=$[prior+1]
       fi
     fi
   done
 
-# now location_free[$switch] should contain a number 
-#     location_pool[$switch] should contain a set of *free* boards 
-# and location_busy[$switch] be nonzero if somebody else already using a part of it 
+# now location_free[$switch] should contain a number
+#     location_pool[$switch] should contain a set of *free* boards
+# and location_busy[$switch] be nonzero if somebody else already using a part of it
 
   local name
 
   for name in "${!location_free[@]}" ; do
     if [ -n "${location_busy[${name}]}" ] ; then
       kcpmsg "shared switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
-    else 
+    else
       kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
     fi
   done
 
+  push_failure
+
+  fetch_var "instruments"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource variables"
+    return 1
+  fi
+
+# now the hardcoded heuristics/rules
+# BIG FAT WARNING: can't split same engine over multiple switches yet
+
+  failed=""
+
+  while [ "$#" -ge 1 ] ; do
+    candidate="$1"
+
+    kcpmsg "checking if it is feasible to instantiate ${candidate}"
+
+    for art in ${resource_types[*]} ; do
+      for engine in ${engine_types[*]} ; do
+        if [ "${var_result[instruments:${candidate}:resources:${art}:${engine}]}" -gt 0 ] ; then
+          count=0
+          for location in "${!location_free[@]}" ; do
+            if [ -z "${location_busy[${location}]}" ] ; then
+              if [ "${location_free[${location}]}" -ge "${var_result[instruments:${candidate}:resources:${art}:${engine}]}" ] ; then
+                kcpmsg "switch ${location} has ${location_free[${location}]} ${engine} ${art} resources available which meets the requirement of ${var_result[instruments:${candidate}:resources:${art}:${engine}]}"
+                if [ "${count}" -le 0 ] ; then
+                  count="${location_free[${location}]}"
+                  best="${location}"
+                elif [ "${count}" -gt "${location_free[${location}]}" ] ; then
+                  count="${location_free[${location}]}"
+                  best="${location}"
+                fi
+              fi
+            fi
+          done
+
+          if [ "${count}" -gt 0 ] ; then
+            kcpmsg "selected switch ${best} which has ${count} available slots for ${engine} use"
+            solution_pool[${art}:${engine}]=${best}
+            location_free[${best}]=$[location_free[${best}]-${count}]
+          else
+            kcpmsg -l warn "unable to satisfy the need for ${var_result[instruments:${candidate}:resources:${art}:${engine}]} ${art} boards need by ${candidate} ${engine}"
+            failed=1
+          fi
+
+        else
+          kcpmsg "instrument ${candidate} does not require any ${art} resources for ${engine}"
+        fi
+      done
+    done
+
+    shift
+  done
+
+  if [ -n "${failed}" ]; then
+    return 1
+  fi
+
   return 0
 
 #   local pool role needs art count
-# 
+#
 #   local -A slots
-# 
+#
 #   for pool in $(ike -k hosts ${template}) ; do
 #     needs="${pool#*=}"
 #     role="${pool%%.*}"
-# 
+#
 #     for art in ${resource_types[*]} ; do
 #       count=$(echo -e "${needs//,/\\n}" | grep -c ${art^^}[0-9])
 #       if [ "${count}" -gt 0 ] ; then
 #         slots[${role}_${art}]="${count}"
 #       fi
 #     done
-# 
+#
 #   done
 
 # now slots[engine_boardtype] should contain a count
@@ -118,7 +179,7 @@ function check_resources()
 
   now=$(date +%s)
 
-  kcpcmd "checking set of available resources"
+  kcplog "checking set of available resources"
 
   for art in roach skarab ; do
 

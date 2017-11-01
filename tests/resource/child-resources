@@ -9,16 +9,20 @@ kcpmsg "about to launch helper"
 
 function resource_test()
 {
-  kcpmsg "about to check resources"
+  shift
 
+  kcpmsg "loading instrument definitions"
+  load_instruments
+
+  kcpmsg "about to check resources"
   if ! check_resources ; then
     echo "!resource-test fail"
     return 1
   fi
 
-  compute_resources
+  kcpmsg "computing resource layout for $*"
+  compute_resources $*
 
-  load_instruments
 
   echo "!resource-test ok"
   return 0
