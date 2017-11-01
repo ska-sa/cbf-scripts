@@ -125,6 +125,7 @@ function compute_resources()
             kcpmsg "selected switch ${best} which has ${count} available slots for ${engine} use"
             solution_pool[${art}:${engine}]=${best}
             location_free[${best}]=$[location_free[${best}]-${count}]
+            kcpmsg -l debug "reduced free count on switch ${best} by ${count} to ${location_free[${best}]}"
           else
             kcpmsg -l warn "unable to satisfy the need for ${var_result[instruments:${candidate}:resources:${art}:${engine}]} ${art} boards need by ${candidate} ${engine}"
             failed=1
@@ -144,28 +145,6 @@ function compute_resources()
   fi
 
   return 0
-
-#   local pool role needs art count
-#
-#   local -A slots
-#
-#   for pool in $(ike -k hosts ${template}) ; do
-#     needs="${pool#*=}"
-#     role="${pool%%.*}"
-#
-#     for art in ${resource_types[*]} ; do
-#       count=$(echo -e "${needs//,/\\n}" | grep -c ${art^^}[0-9])
-#       if [ "${count}" -gt 0 ] ; then
-#         slots[${role}_${art}]="${count}"
-#       fi
-#     done
-#
-#   done
-
-# now slots[engine_boardtype] should contain a count
-
-# TODO - now unify as per rules
-
 }
 
 function check_resources()
