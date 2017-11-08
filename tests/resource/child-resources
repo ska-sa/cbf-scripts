@@ -3,6 +3,8 @@
 declare -A -r command_set=([resource-test]=1)
 declare -A -r command_help=([resource-test]="test resource logic")
 
+export SUBARRAY=foo
+
 #################################################
 
 kcpmsg "about to launch helper"

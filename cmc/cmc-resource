@@ -3,7 +3,6 @@
 
 # resources:name:when       - last time we checked it
 # resources:name:status     - what the user status is
-#
 # resources:name:type       - what type of resource it is
 # resources:name:mode       - did the user decide its status
 # resources:name:holder     - which subarray owns it
@@ -32,7 +31,7 @@ function compute_resources()
   local -A location_pool
   local -A solution_pool
 
-  local prior key location candidate art engine failed best count
+  local prior key location instrument art engine failed best count take total word template target group holder prefix
 
   push_failure
 
@@ -96,20 +95,23 @@ function compute_resources()
 # BIG FAT WARNING: can't split same engine over multiple switches yet
 
   failed=""
+  total=0
 
   while [ "$#" -ge 1 ] ; do
-    candidate="$1"
 
-    kcpmsg "checking if it is feasible to instantiate ${candidate}"
+    instrument="$1"
+    total=$[total+1]
+
+    kcpmsg "checking if it is feasible to instantiate ${instrument}"
 
     for art in ${resource_types[*]} ; do
       for engine in ${engine_types[*]} ; do
-        if [ "${var_result[instruments:${candidate}:resources:${art}:${engine}]}" -gt 0 ] ; then
+        if [ "${var_result[instruments:${instrument}:resources:${art}:${engine}]}" -gt 0 ] ; then
           count=0
           for location in "${!location_free[@]}" ; do
             if [ -z "${location_busy[${location}]}" ] ; then
-              if [ "${location_free[${location}]}" -ge "${var_result[instruments:${candidate}:resources:${art}:${engine}]}" ] ; then
-                kcpmsg "switch ${location} has ${location_free[${location}]} ${engine} ${art} resources available which meets the requirement of ${var_result[instruments:${candidate}:resources:${art}:${engine}]}"
+              if [ "${location_free[${location}]}" -ge "${var_result[instruments:${instrument}:resources:${art}:${engine}]}" ] ; then
+                kcpmsg "switch ${location} has ${location_free[${location}]} ${engine} ${art} resources available which meets the requirement of ${var_result[instruments:${instrument}:resources:${art}:${engine}]}"
                 if [ "${count}" -le 0 ] ; then
                   count="${location_free[${location}]}"
                   best="${location}"
@@ -127,12 +129,12 @@ function compute_resources()
             location_free[${best}]=$[location_free[${best}]-${count}]
             kcpmsg -l debug "reduced free count on switch ${best} by ${count} to ${location_free[${best}]}"
           else
-            kcpmsg -l warn "unable to satisfy the need for ${var_result[instruments:${candidate}:resources:${art}:${engine}]} ${art} boards need by ${candidate} ${engine}"
+            kcpmsg -l warn "unable to satisfy the need for ${var_result[instruments:${instrument}:resources:${art}:${engine}]} ${art} boards need by ${instrument} ${engine}"
             failed=1
           fi
 
         else
-          kcpmsg "instrument ${candidate} does not require any ${art} resources for ${engine}"
+          kcpmsg "instrument ${instrument} does not require any ${art} resources for ${engine}"
         fi
       done
     done
@@ -150,6 +152,85 @@ function compute_resources()
     engine=${name#*:}
     kcpmsg "proposing switch ${solution_pool[${name}]} to hold ${engine} ${art} resources"
   done
+
+  if [ -z "${SUBARRAY}" ] ; then
+    kcpmsg "not in a subarray thus operating in probe mode only"
+    return 0
+  fi
+
+  if [ "${total}" -ne 1 ] ; then
+    kcpmsg -l error "only able to allocate one instrument at a time"
+    return 1
+  fi
+
+# Now the actual allocation step using solution_pool as a guide
+
+  template=${CORR_TEMPLATE}/${instrument}
+
+  kcpmsg "about to allocate resources for ${instrument} via ${template}"
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource variables for a second time"
+    return 1
+  fi
+
+  push_failure
+
+  for word in $(ike -k hosts ${template}) ; do
+    engine="${word%%.*}"
+    group="${word#*=}"
+    for name in ${group//,/ } ; do
+      kcpmsg "examining entry ${name} of ${engine}"
+      target=${name}
+      for art in ${resource_types[*]} ; do
+        if [ "${name#${art^^}}" != "${name}" ] ; then
+# TODO: solution pool will be a set once the heuristics are smarter
+          location="${solution_pool[${art}:${engine}]}"
+          kcpmsg "will have to substitute a ${art} resource on switch ${location} for ${name} used in ${engine}"
+          for key in "${!var_result[@]}" ; do
+            if [ "${key##*:}" = "switch" ] ; then
+              if [ "${var_result[${key}]}" = "${location}" ] ; then
+                prefix="${key%:*}"
+                holder="${var_result[${prefix}:holder]}"
+# TODO - could also check if it is us holding it, as well as its status
+# WARNING - will also have to check if any element on switch hasn't also been allocated elsewhere behind our back
+                if [ -z "${holder}" ] ; then
+                  tmp="${key#resources:}"
+                  target="${tmp%%:*}"
+                  kcpmsg "substituting ${name} with ${target}"
+                fi
+              fi
+            fi
+          done
+        fi
+      done
+
+      if [ -n "${var_result[resources:${target}:when]}" ] ; then
+        send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
+        retrieve_reply var-set
+
+# TODO maybe refresh our var_result
+        if [ "${name}" = "${target}" ] ; then
+          kcpmsg "resource ${name} appears to be assigned statically to ${engine} of ${instrument}"
+        else
+          kcpmsg "resource ${target} from template ${name} assigned dynamically to ${engine} of ${instrument}"
+          export ${name}=${target}
+        fi
+      else
+        kcpmsg -l warn "have no record of resource ${target} in ${engine} of ${instrument} and will thus ignore it"
+      fi
+
+    done
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to assign needed resources to instrument ${instrument}"
+    return 1
+  fi
 
   return 0
 }
