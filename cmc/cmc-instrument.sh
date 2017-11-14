@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ### support functions ###################################
 
 # about to be wrong:
@@ -35,6 +33,8 @@ function load_instruments()
   push_failure
 
   available=0
+
+# TODO: this should be smarter: it should be safe to call this many times not just once
 
   for instrument in ${instruments_deployed[*]} ; do
     template=${CORR_TEMPLATE}/${instrument}

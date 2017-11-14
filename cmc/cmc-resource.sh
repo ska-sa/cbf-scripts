@@ -1,6 +1,3 @@
-#!/bin/bash
-
-
 # resources:name:when       - last time we checked it
 # resources:name:status     - what the user status is
 # resources:name:type       - what type of resource it is
@@ -143,7 +140,7 @@ function compute_resources()
   done
 
   if [ -n "${failed}" ]; then
-    return 1
+    return 2
   fi
 
   kcpmsg "solution keys are ${!solution_pool[@]}"

@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ### essential constants #################################
 
 declare -a -r resource_types=(roach skarab)
@@ -28,7 +26,7 @@ elif [ -d "${TESTDIR}" ] ; then
 
   CORR_TEMPLATE=${TESTDIR}
 
-else 
+else
   kcpmsg -l fatal "no config file found and not in test mode"
   exit 1
 fi
@@ -280,8 +278,23 @@ function fetch_var()
 
 ## command loop ###################################
 
+function enable_misc_informs()
+{
+  push_failure
+
+  send_request   client-config info-all
+  retrieve_reply client-config
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to inhibit logging to script"
+    return 1
+  fi
+
+  return 0
+}
+
 function inhibit_logging()
-{  
+{
   push_failure
 
   send_request   log-limit off
@@ -289,7 +302,10 @@ function inhibit_logging()
 
   if ! pop_failure ; then
     kcpmsg -l fatal "unable to inhibit logging to script"
+    return 1
   fi
+
+  return 0
 }
 
 ## command loop ###################################
@@ -303,7 +319,7 @@ function register_commands()
 
   if [ "$#" -lt 1 ] ; then
     kcpmsg -l fatal "need to specify name of target to forward commands"
-    return 1 
+    return 1
   fi
 
   target="$1"

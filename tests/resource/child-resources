@@ -32,9 +32,9 @@ function resource_test()
 
 #################################################
 
-source cmc-lib
-source cmc-resource
-source cmc-instrument
+source cmc-lib.sh
+source cmc-resource.sh
+source cmc-instrument.sh
 
 inhibit_logging
 register_commands child

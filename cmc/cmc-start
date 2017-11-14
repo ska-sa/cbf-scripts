@@ -104,18 +104,19 @@ function kfwd()
   kcpcmd -i cmd-help $1 "$3"
 }
 
-kfwd resource-mark       primary  "set availability of a processing resource (?resource-mark resource marking)"
-kfwd resource-list       primary  "show processing resources (?resource-list [resource])"
-
-kfwd subordinate-halt    primary  "halt a subarray (?subordinate-halt [subarray])"
-kfwd subordinate-list    primary  "show subarrays (?subordinate-list)"
-kfwd subordinate-create  primary  "define and launch a subarray (?subordinate-create subarray [inputs]*)"
-
-# moved from suordinate to primary
-kfwd instrument-list     primary  "show available instruments (?instrument-list)"
+# kfwd resource-mark       primary  "set availability of a processing resource (?resource-mark resource marking)"
+# kfwd resource-list       primary  "show processing resources (?resource-list [resource])"
+# 
+# kfwd subordinate-halt    primary  "halt a subarray (?subordinate-halt [subarray])"
+# kfwd subordinate-list    primary  "show subarrays (?subordinate-list)"
+# kfwd subordinate-create  primary  "define and launch a subarray (?subordinate-create subarray [inputs]*)"
+# 
+# # moved from suordinate to primary
+# kfwd instrument-list     primary  "show available instruments (?instrument-list)"
+# 
+# kfwd cmc-halt            primary  "power down the cmc server (?cmc-halt)"
 
 kcpcmd -i cmd-delete halt
-kfwd cmc-halt            primary  "power down the cmc server (?cmc-halt)"
 
 # backward compatebility
 kcpcmd -i forward-symbolic array-halt          primary subordinate-halt %1+
@@ -168,7 +169,6 @@ kfwd frequency-select    corr "set the center of the frequency band (?frequency-
 
 # request by martin: inhibit accumulation length
 kfwd accumulation-length corr "set the integration interval (?accumulation length period)"
-#kcpcmd -i cmd-alias accumulation-length watchdog
 
 kfwd beam-weights        corr "set the beam weigths (?beam-weights beam [values]*)"
 kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth center frequency)"

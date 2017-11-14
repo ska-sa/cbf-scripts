@@ -1,476 +1,30 @@
 #!/bin/bash
 
+#################################################
 
 if [ -n "$1" ] ; then
   export KATCP_LABEL="cmc-${1}"
+  export SUBARRAY=${1}
 else
   export KATCP_LABEL=cmc-subordinate
+  export SUBARRAY=unknown
 fi
 
-configuration=${CMC_CONFIG:-/etc/cmc.conf}
-
-if [ -f "${configuration}" ] ; then
-  source "${configuration}"
-
-  if [ "${state/verbose-log/}" != "${state}" ] ; then
-    set -x
-  fi
-
-else
-  kcpmsg -l fatal "unable to locate ${configuration} thus making things up"
-  set -x
-
-  if [ ! -d "${CORR_TEMPLATE}" ] ; then
-    CORR_TEMPLATE=../tests/corr-templates/
-  fi
-
-fi
-
-### essential declarations ##############################
-
-declare -a -r resource_types=(roach skarab)
+#################################################
 
 # valid command names and their minimum parameter count
-declare -A -r command_set=([digitiser-synch-epoch]=1 [instrument-list]=1 [instrument-probe]=2 [instrument-activate]=2)
+declare -A -r command_set=([synchronisation-epoch]=1 [instrument-activate]=2)
+declare -A -r command_help=([synchronisation-epoch]="digitiser synchronisation time (?synchronisation-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)")
 
-declare -a command_vector
-declare -i command_size=0
+#################################################
 
-### queue library #######################################
+source cmc-lib.sh
+source cmc-resource.sh
+source cmc-instrument.sh
 
-declare -a queue_data
-declare -i queue_tail=0
+#################################################
 
-function clear_queue()
-{
-  local i=0
-
-  while [ "${i}" -lt "${queue_tail}" ] ; do
-    unset queue_data[${i}]
-    i=$[i+1]
-  done
-
-  queue_tail=0
-}
-
-function add_queue()
-{
-  if [ "$#" -lt 1 ] ; then
-    kcpmsg -l error "no parameters"
-    return 1
-  fi
-
-  queue_data[${queue_tail}]="$*"
-
-  kcpmsg -l debug "queue[${queue_tail}]: $*"
-
-  queue_tail=$[queue_tail+1]
-}
-
-function show_queue()
-{
-  local i
-
-  kcpmsg -l debug "#### dump start ####"
-
-  i=0
-  while [ "${i}" -lt "${queue_tail}" ] ; do
-    kcpmsg -l debug "queue[${i}]: ${queue_data[${i}]}"
-    i=$[i+1]
-  done
-
-  kcpmsg -l debug "#### dump end ####"
-}
-
-### error stack #########################################
-
-declare -a failure_stack
-declare -i failure_depth=0
-
-function push_failure()
-{
-  failure_depth=$[failure_depth+1]
-  failure_stack[${failure_depth}]=0
-}
-
-# pop failure to be used in if statement where we return or we are no longer interested in error codes
-# clear failure to be used in if statements where there is no return
-
-function pop_failure()
-{
-  result=${failure_stack[${failure_depth}]}
-
-  kcpmsg -l trace "stack at ${failure_depth} has code ${result}"
-
-  if [ "${failure_depth}" -gt "0" ] ; then
-    failure_depth=$[failure_depth-1]
-  else
-    kcpmsg -l warn "unwound stack too far"
-  fi
-
-  return ${result}
-}
-
-function clear_failure()
-{
-  result=${failure_stack[${failure_depth}]}
-
-  kcpmsg -l trace "stack at ${failure_depth} has code ${result}"
-
-  failure_stack[${failure_depth}]=0
-
-  return ${result}
-}
-
-function set_failure()
-{
-  failure_stack[${failure_depth}]=$[failure_stack[${failure_depth}]+1]
-}
-
-### transform line into vector ##########################
-
-function make_vector()
-{
-  local i
-
-  i=0
-  while [ ${i} -lt ${command_size} ] ; do
-    unset command_vector[$i]
-    i=$[i+1]
-  done
-
-  command_size=0
-  while [ $# -gt 0 ] ; do
-    command_vector[${command_size}]=$1
-    command_size=$[command_size+1]
-    shift
-  done
-
-  kcpmsg -l debug "parsed ${command_size} parameters"
-}
-
-### io functions with failure stack #####################
-
-send_count=0
-
-function send_request()
-{
-  local name="$1"
-
-  if [ -z "$name" ] ; then
-    set_failure
-    return 1
-  fi
-
-  if [ "${send_count}" -gt 0 ] ; then
-    kcpmsg -l warn "sending ${send_count} request(s) without waiting for reply"
-  fi
-
-  send_count=$[send_count+1]
-
-  echo -n "?${name}"
-  shift
-
-  while [ $# -gt 0 ] ; do
-    echo -n " ${1// /-}"
-    shift
-  done
-
-  echo
-}
-
-function retrieve_reply()
-{
-  local name="$1"
-  local line art reply code
-  local -a vector
-
-  if [ -z "$name" ] ; then
-    set_failure
-    return 1
-  fi
-
-  while read line ; do
-    art=${line:0:1}
-    if [ "${art}" = "?" ] ; then
-      add_queue ${line}
-    elif [ "${art}" = "!" ] ; then
-      vector=(${line})
-      reply=${vector[0]}
-      if [ "${reply:1}" = "${name}" ]; then
-        send_count=$[send_count-1]
-        code=${vector[1]}
-        if [ "${code}" = "ok" ] ; then
-          return 0
-        else
-          set_failure
-          return 1
-        fi
-      else
-        kcpmsg -l warn "discarding unexpected response ${reply:1}"
-      fi
-    fi
-  done
-}
-
-declare -A inform_result
-
-function retrieve_inform()
-{
-  local name="$1"
-  local match="$2"
-  local del line label
-  local -a vector
-
-  for del in "${!inform_result[@]}" ; do
-    unset inform_result[${del}]
-  done
-
-  while read line ; do
-    if [ "${line:0:1}" = "?" ] ; then
-      add_queue ${line}
-    else
-      vector=(${line})
-      if [ "${vector[0]}" = "#${name}" ] ; then
-        label=${vector[1]}
-        if [ -z "${match}" -o "${match}" = "${label}" ] ; then
-          inform_result[${label}]="${line#* * }"
-        fi
-      elif [ "${vector[0]}" = "!${name}" ] ; then
-        send_count=$[send_count-1]
-        if [ "${vector[1]}" = "ok" ] ; then
-          return 0
-        else
-          set_failure
-          return 1
-        fi
-      else
-        if [ "${line:0:1}" = "!" ] ; then
-          kcpmsg -l warn "discarding unexpected response ${line:1}"
-        fi
-      fi
-    fi
-  done
-}
-
-declare -A var_result
-
-function fetch_var()
-{
-  local del line label match
-  local -a vector
-
-  for del in "${!var_result[@]}" ; do
-    unset var_result[${del}]
-  done
-
-  if [ "$1" = '-a' ] ; then
-    shift
-    echo "?var-show"
-  else
-    echo "?var-show $1"
-  fi
-
-  match=$1
-
-  while read line ; do
-    if [ "${line:0:1}" = "?" ] ; then
-      add_queue ${line}
-    else
-      vector=(${line})
-      if [ "${vector[0]}" = "#var-show" ] ; then
-        label=${vector[1]}
-        if [ -z "${match}" -o "${label}" != "${label#${match}}" ] ; then
-          var_result[${label}]="${vector[2]}"
-        fi
-      elif [ "${vector[0]}" = "!var-show" ] ; then
-        if [ "${vector[1]}" = "ok" ] ; then
-          return 0
-        else
-          set_failure
-          return 1
-        fi
-      else
-        if [ "${line:0:1}" = "!" ] ; then
-          kcpmsg -l warn "discarding unexpected response ${line:1}"
-        fi
-      fi
-    fi
-  done
-}
-
-### support functions - subarray name ###################
-
-function setup_name()
-{
-  push_failure
-  fetch_var "subordinate"
-
-  if ! pop_failure ; then
-    kcpmsg -l error "unable to indentify subarray"
-    adjust_sensors
-    return 1
-  fi
-
-  SUBARRAY="${var_result[subordinate]}"
-  if [ -z "${SUBARRAY}" ] ; then
-    kcpmsg -l error "malformed subarray identification ${var_result[*]}"
-    adjust_sensors
-    return 1
-  fi
-
-  export SUBARRAY
-
-  return 0
-}
-
-### support functions ###################################
-
-# requirements:instrument:type   - number of resources needed of type
-
-push_failure
-send_request   var-declare  "*requires*"  map
-retrieve_reply var-declare
-send_request   var-declare  "*products*"  map
-retrieve_reply var-declare
-
-if ! pop_failure ; then
-  kcpmsg -l error "unable to declare instrument property variables"
-  return 1
-fi
-
-function setup_instruments()
-{
-  local instrument template geometry art count top available product i required
-
-  if [ "${#instruments_deployed[@]}" -le 0 ] ; then
-    kcpmsg -l fatal "no instruments deployed"
-    return 1
-  fi
-
-  push_failure
-
-  fetch_var "inputs"
-
-  if ! pop_failure ; then
-    kcpmsg -l error "unable to determine number of inputs"
-    return 1
-  fi
-
-  geometry="${#var_result[*]}"
-
-  if [ "${geometry}" -le 0 ] ; then
-    kcpmsg -l error "regarding ${geometry} as an unreasonable number of inputs"
-    return 1
-  fi
-
-  kcpmsg -l info "working on subarray with ${geometry} inputs"
-
-  push_failure
-
-  available=0
-  for instrument in ${instruments_deployed[*]} ; do
-    template=${CORR_TEMPLATE}/${instrument}
-
-    kcpmsg -l debug "checking templates for instrument ${instrument}"
-
-    if [ -f ${template} ] ; then
-
-# TODO: maybe use ike here too ?
-      top=$(cat $template  | tr ',=' '\n' | grep INPUT[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
-
-      if [ -z "${top}" ] ; then
-        kcpmsg -l fatal "unable to determine input count for instrument ${instrument}"
-      else
-        count=$[top+1]
-
-        kcpmsg "instrument ${instrument} uses ${count} inputs"
-      fi
-
-      if [ "${count}" = "${geometry}" ] ; then
-
-        send_request   var-declare requires map    ":${instrument}"
-        retrieve_reply var-declare
-
-        send_request   var-declare products array  ":${instrument}"
-        retrieve_reply var-declare
-
-        i=0
-        for product in $(ike -o -k output_products $template) ; do
-          send_request   var-set products "${product}" string ":${instrument}#${i}"
-          retrieve_reply var-set
-          i=$[i+1]
-        done
-
-        if [ "${i}" -le 0 ] ; then
-          kcpmsg -l error "no data products discoverable in instrument ${instrument}"
-        fi
-
-        required=0
-        for art in ${resource_types[*]} ; do
-
-# TODO: maybe use ike here too ?
-          top=$(cat $template  | tr ',=' '\n' | grep ${art^^}[0-9] | tr -dc '[0-9\n]' | sort -n | tail -1)
-
-          if [ -z "${top}" ] ; then
-            kcpmsg "instrument ${instrument} does not appear to need any dynamic resources of type ${art}"
-          else
-            required=$[top+1]
-
-            kcpmsg "instrument ${instrument} requires ${required} dynamically allocated ${art} resources"
-
-            send_request   var-set requires "${required}" string ":${instrument}:${art}"
-            retrieve_reply var-set
-          fi
-        done
-#         if [ "${required}" -le 0 ] ; then
-#           if [ "${state/missing-roaches/}" = "${state}" ] ; then
-#             kcpmsg -l fatal "unable to determine resource needs for instrument ${instrument}"
-#             set_failure
-#           fi
-#         fi
-
-
-      else
-        kcpmsg "ignorning instrument ${instrument} as it requires ${count} inputs but we are using ${geometry}"
-      fi
-
-    else
-      kcpmsg -l fatal "no template available for instrument ${instrument}"
-    fi
-
-  done
-
-  if ! pop_failure ; then
-    kcpmsg -l error "unable to determine instrument layouts"
-    return 1
-  fi
-
-  return 0
-}
-
-# function update_git_versions()
-# {
-#   local v
-#
-#   v=$(cd ${BITSTREAM_DIR:-/srv/mkat_fpga} ; git describe --always --tags --long --dirty)
-#
-#   if [ -n "${v}" ] ; then
-#     echo "?var-set gateware-images* ${v} string"
-#     get_katcp_reply var-set
-#   fi
-#
-#
-#   v=$(cd ${CORR_TEMPLATE} ; git describe --always --tags --long --dirty)
-#
-#   if [ -n "${v}" ] ; then
-#     echo "?var-set correlator-configs* ${v} string"
-#     get_katcp_reply var-set
-#   fi
-# }
-#
-
-function setup_sync()
+function make_sync_sensor()
 {
   local value epoch status
 
@@ -487,28 +41,11 @@ function setup_sync()
   send_request   var-set "*synchronisation-epoch*"  float string :type
   retrieve_reply var-set
 
-  if [ -n "${dmc_address}" ] ; then
+  send_request   var-set "*synchronisation-epoch*"  unknown string :status
+  retrieve_reply var-set
 
-    value=$(kcpcmd -r -s ${dmc_address} sensor-value synchronisation-epoch | grep sensor-value | cut -f5- -d ' ')
-    status="${value% *}"
-    epoch="${value#* }"
-  fi
-
-  if [ -n "${status}" -a -n "${epoch}" ] ; then
-
-    send_request   var-set "*synchronisation-epoch*"  "${epoch}"  string :value
-    retrieve_reply var-set
-
-    send_request   var-set "*synchronisation-epoch*"  "${status}" string :status
-    retrieve_reply var-set
-  else
-
-    send_request   var-set "*synchronisation-epoch*"  unknown string :status
-    retrieve_reply var-set
-
-    send_request   var-set "*synchronisation-epoch*"  0 string :value
-    retrieve_reply var-set
-  fi
+  send_request   var-set "*synchronisation-epoch*"  0 string :value
+  retrieve_reply var-set
 
   if ! pop_failure  ; then
     kcpmsg -l error "unable to generate synchronisation-epoch sensor"
@@ -518,100 +55,9 @@ function setup_sync()
   return 0
 }
 
-### support functions ###################################
-
-function setup_io()
-{
-  kcpmsg -l debug "configuring logging levels"
-
-  push_failure
-
-  send_request   client-config info-all
-  retrieve_reply client-config
-  send_request   log-limit off
-  retrieve_reply log-limit
-
-  if ! pop_failure  ; then
-    kcpmsg -l warn "unable to configure subordinate control verbosity"
-    return 1
-  fi
-
-  return 0
-}
-
-### support functions: resources ########################
-
-function add_static_resources()
-{
-  local art template status
-  local -l resource
-  local -i count
-
-  template=$1
-
-  kcpmsg "checking for static allocations of ${template##*/}"
-
-  if [ ! -f "${template}" ] ; then
-    kcpmsg -l error "${template} not a valid file"
-    return 1
-  fi
-
-  if [ -z "${SUBARRAY}" ] ; then
-    kcpmsg -l error "unable to identify own subarray"
-    return 1
-  fi
-
-  push_failure
-
-  fetch_var "resources"
-
-  if ! pop_failure  ; then
-    kcpmsg -l warn "unable to query resource pool while accounting for static allocations"
-    return 1
-  fi
-
-  push_failure
-
-  for art in ${resource_types[*]} ; do
-    count=0
-
-    for resource in $(ike -o -k hosts ${template} | tr -s , '\n' | sort -u | grep ${art}) ; do
-      status="${var_result[resources:${resource}:status]}"
-
-      if [ -n "${status}" ] ; then
-        if [ "${status}" != up ] ; then
-          kcpmsg -l error "expect problems as resource ${resource} not up but statically allocated"
-        fi
-
-        send_request   var-set  resources "${SUBARRAY}" string ":${resource}:holder"
-        retrieve_reply var-set
-
-        count=$[count+1]
-
-      else
-        kcpmsg -l error "ignoring statically allocated resource ${resource} as it is undetectable"
-      fi
-
-    done
-
-    if [ "${count}" -gt 0 ] ; then
-      kcpmsg "marked an extra ${count} ${art} resources in use as they are statically allocated"
-    fi
-  done
-
-  if ! pop_failure ; then
-    kcpmsg -l error "unable to allocate all static resources to subarray"
-    return 1
-  fi
-
-  kcpmsg "completed static allocation check"
-
-  return 0
-}
-
 ### support functions: sensors ##########################
 
-function setup_sensors()
+function make_misc_sensors()
 {
   push_failure
 
@@ -690,6 +136,8 @@ function adjust_sensors()
   return 0
 }
 
+### support functions: subscibe to servlet ##############
+
 function activate_servlet_sensors()
 {
   local key remote
@@ -727,9 +175,71 @@ function activate_servlet_sensors()
   return 0
 }
 
+### support functions: export INPUT? variables ##########
+
+function retrieve_inputs()
+{
+  local geometry key suffix instrument template count
+
+  instrument=$1
+
+  if [ -z "${instrument}" ] ; then
+    kcpmsg -l fatal "no instrument given"
+    return 1
+  fi
+
+# TODO: check if instrument is enabled
+#  if [ "${#instruments_deployed[@]}" -le 0 ] ; then
+#    kcpmsg -l fatal "no instruments deployed"
+#    return 1
+#  fi
+
+  template="${CORR_TEMPLATE}/${instrument}"
+
+  kcpmsg -l debug "checking templates for instrument ${instrument}"
+
+  if [ ! -f "${template}" ] ; then
+    kcpmsg -l error "no template available for instrument ${instrument}"
+    return 1
+  fi
+
+  count=$(ike -o -k source_mcast_ips ${template} | tr ',' '\n' | sort -u | wc -l)
+
+  kcpmsg -l debug "instrument ${instrument} requires ${count} inputs"
+
+  push_failure
+
+  fetch_var "inputs"
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to determine number of inputs"
+    return 1
+  fi
+
+  geometry="${#var_result[*]}"
+
+  if [ "${geometry}" -le 0 ] ; then
+    kcpmsg -l error "regarding ${geometry} as an unreasonable number of inputs"
+    return 1
+  fi
+
+  if [ "${geometry}" -ne "${count}" ] ; then
+    kcpmsg -l error "instrument ${instrument} requires ${count} inputs but we have only been given ${geometry}"
+    return 1
+  fi
+
+  for key in "${!var_result[@]}" ; do
+    suffix=${key##*#}
+    export INPUT${suffix}="${var_result[${key}]}"
+  done
+
+  return 0
+}
+
+#########################################################
 ### api functions ### sync epoch ########################
 
-function digitiser_synch_epoch()
+function synchronisation_epoch()
 {
   local epoch
 
@@ -737,7 +247,7 @@ function digitiser_synch_epoch()
 
   if [ "$#" -lt 1 ] ; then
     kcpmsg -l warn "require an epoch to set where value is available in synchronisation-epoch sensor"
-    echo "!digitiser-synch-epoch fail"
+    echo "!synchronisation-epoch fail"
     return 1
   fi
 
@@ -753,123 +263,18 @@ function digitiser_synch_epoch()
 
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to set epoch variable"
-    echo "!digitiser-synch-epoch fail"
+    echo "!synchronisation-epoch fail"
     return 1
   fi
 
   kcpmsg -l info "will use epoch ${epoch}"
 
 
-  echo "!digitiser-synch-epoch ok"
+  echo "!synchronisation-epoch ok"
 }
 
+#########################################################
 ### api functions ### instrument ########################
-
-function instrument_list()
-{
-  local instrument i j
-  local -A vector
-
-  shift
-
-  setup_instruments
-
-  push_failure
-
-  fetch_var "products"
-
-  if ! pop_failure  ; then
-    kcpmsg -l warn "unable to retrieve product information"
-    echo "!instrument-list fail"
-    return 1
-  fi
-
-  for instrument in "${!var_result[@]}" ; do
-    j=${instrument#products:}
-    i=${j%%#*}
-    vector[$i]="${vector[$i]} ${var_result[${instrument}]}"
-  done
-
-  for instrument in "${!vector[@]}" ; do
-    echo "#instrument-list ${instrument} ${vector[${instrument}]}"
-  done
-
-  echo "!instrument-list ok"
-}
-
-function instrument_probe()
-{
-  local instrument art resource t
-  local -A wants has
-  local -i sofar
-
-  shift
-
-  setup_instruments
-
-  push_failure
-
-  instrument=$1
-
-  fetch_var "requires:${instrument}"
-
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve resource requirement information for instrument ${instrument}"
-    echo "!instrument-probe fail unknown-item"
-    return 1
-  fi
-
-  for art in ${resource_types[*]} ; do
-    wants[${art}]=${var_result[requires:${instrument}:${art}]}
-    if [ -n "${wants[${art}]}" ] ; then
-      kcpmsg "instrument ${instrument} requires "${wants[${art}]}" resources of type ${art}"
-    else
-      wants[${art}]=0
-    fi
-    has[${art}]=0
-  done
-
-  push_failure
-
-  fetch_var "resources"
-
-  if ! pop_failure  ; then
-    kcpmsg -l warn "unable to query current resource set while checking availabilty for ${instrument}"
-    echo "!instrument-probe fail read-logs"
-    return 1
-  fi
-
-  for resource in "${!var_result[@]}" ; do
-    if [ "${resource##*:}" = status ] ; then
-      if [ "${var_result[${resource}]}" = up ] ; then
-        t=${resource%:*}
-        if [ -z "${var_result[${t}:holder]}" ] ; then
-          sofar=${has[${var_result[${t}:type]}]}
-          has[${var_result[${t}:type]}]=$[sofar+1]
-        fi
-      fi
-    fi
-  done
-
-  push_failure
-
-  for art in ${resource_types[*]} ; do
-    if [ "${has[${art}]}" -ge "${wants[${art}]}" ] ; then
-      kcpmsg "can supply ${has[${art}]} ${art} resources for ${instrument}"
-    else
-      kcpmsg "unable to supply ${wants[${art}]} ${art} resources for ${instrument} have only ${has[${art}]}"
-      set_failure
-    fi
-  done
-
-  if ! pop_failure ; then
-    echo "!instrument-probe ok oversubscribed"
-    return 0
-  fi
-
-  echo "!instrument-probe ok sufficient"
-  return 0
-}
 
 function instrument_activate()
 {
@@ -898,90 +303,21 @@ function instrument_activate()
   INSTRUMENT=${instrument}
   export INSTRUMENT
 
-  setup_instruments
-
-  push_failure
-  fetch_var "inputs"
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve set of inputs while initialising instrument ${instrument}"
+  if ! retrieve_inputs "${instrument}" ; then
+    kcpmsg -l error "encountered problem initialising inputs for instrument ${instrument}"
     echo "!instrument-activate fail read-logs"
     adjust_sensors
     return 1
   fi
+# NOW we should have INPUT? in environment
 
-  for input in "${!var_result[@]}" ; do
-    n=${input##*#}
-    eval export INPUT${n}=${var_result[${input}]}
-  done
-
-  push_failure
-  fetch_var "requires:${instrument}"
-
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve resource requirement information for instrument ${instrument}"
-    echo "!instrument-activate fail unknown-item"
-    adjust_sensors
-    return 1
-  fi
-
-  for art in ${resource_types[*]} ; do
-    wants[${art}]=${var_result[requires:${instrument}:${art}]}
-    if [ -n "${wants[${art}]}" ] ; then
-      kcpmsg "instrument ${instrument} requires ${wants[${art}]} resources of type ${art}"
-    else
-      wants[${art}]=0
-    fi
-  done
-
-  push_failure
-
-  fetch_var "resources"
-
-  if ! pop_failure  ; then
-    kcpmsg -l warn "unable to query current resource set while checking availabilty for ${instrument}"
+  if ! compute_resources "${instrument}" ; then
+    kcpmsg -l error "unable to allocate resources needed by ${instrument}"
     echo "!instrument-activate fail read-logs"
     adjust_sensors
     return 1
   fi
-
-  for resource in "${!var_result[@]}" ; do
-    if [ "${resource##*:}" = status ] ; then
-      if [ "${var_result[${resource}]}" = up ] ; then
-        t=${resource%:*}
-        if [ -z "${var_result[${t}:holder]}" ] ; then
-          art=${var_result[${t}:type]}
-          n=${wants[${art}]}
-          if [ "$n" -gt 0 ] ; then
-            push_failure
-
-            send_request   var-set  resources "${SUBARRAY}" string "${t#resources}:holder"
-            retrieve_reply var-set
-
-            if pop_failure ; then
-              wants[${art}]=$[n-1]
-              eval export ${art^^}$[n-1]=${t#resources:}
-            fi
-          fi
-        fi
-      fi
-    fi
-  done
-
-  for art in ${resource_types[*]} ; do
-    if [ "${wants[${art}]}" -gt 0 ] ; then
-      kcpmsg -l error "insufficient resources to launch ${instrument} as we are short of ${wants[${art}]} ${art} resources"
-      echo "!instrument-activate fail oversubscribed"
-      adjust_sensors
-      return 1
-    fi
-  done
-
-  if ! add_static_resources "${CORR_TEMPLATE}/${INSTRUMENT}" ; then
-    kcpmsg -l error "static resource tracking failed"
-    echo "!instrument-activate fail read-logs"
-    adjust_sensors
-    return 1
-  fi
+# NOW we should have SKARAB? and ROACH? in environment
 
   PORT=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
   export PORT
@@ -1166,48 +502,40 @@ function instrument_activate()
   echo "!instrument-activate ok"
   adjust_sensors "${status}" "${instrument}"
 }
+#########################################################
 
-### main loop ###########################################
+inhibit_logging
+register_commands subordinate
 
-setup_io
-setup_name
-setup_sync
-setup_sensors
+make_sync_sensor
+make_misc_sensors
 
-while read line ; do
-  add_queue ${line}
-#  show_queue
+#init_resources 
+#init_instruments
 
-  k=0
-  while [ "${k}" -lt "${queue_tail}" ] ; do
+#################################################
 
-    string=${queue_data[${k}]}
-    k=$[k+1]
+main_loop
 
-    if [ "${string:0:1}" = "?" ] ; then
 
-      make_vector ${string}
+# function update_git_versions()
+# {
+#   local v
+#
+#   v=$(cd ${BITSTREAM_DIR:-/srv/mkat_fpga} ; git describe --always --tags --long --dirty)
+#
+#   if [ -n "${v}" ] ; then
+#     echo "?var-set gateware-images* ${v} string"
+#     get_katcp_reply var-set
+#   fi
+#
+#
+#   v=$(cd ${CORR_TEMPLATE} ; git describe --always --tags --long --dirty)
+#
+#   if [ -n "${v}" ] ; then
+#     echo "?var-set correlator-configs* ${v} string"
+#     get_katcp_reply var-set
+#   fi
+# }
+#
 
-      first=${command_vector[0]}
-      cmd=${first:1}
-
-      if [ -z "${command_set[${cmd}]}" ] ; then
-        kcpmsg -l warn "cmc primary got unsupported request ${cmd}"
-        echo "!${cmd} fail unknown-item"
-      else
-        if [ "${command_size}" -lt "${command_set[${cmd}]}" ] ; then
-          kcpmsg -l warn "need at least ${command_set[${cmd}]} parameters for ${cmd} but saw only ${command_size}"
-          echo "!${cmd} fail usage"
-        else
-          actual=${cmd//-/_}
-          ${actual} ${command_vector[@]}
-        fi
-      fi
-
-    fi
-
-  done
-
-  clear_queue
-
-done
