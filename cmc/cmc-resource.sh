@@ -28,7 +28,7 @@ function compute_resources()
   local -A location_pool
   local -A solution_pool
 
-  local prior key location instrument art engine failed best count take total word template target group holder prefix
+  local prior key location instrument art engine failed best count take total word template target group holder prefix dynamic
 
   push_failure
 
@@ -143,12 +143,14 @@ function compute_resources()
     return 2
   fi
 
-  kcpmsg "solution keys are ${!solution_pool[@]}"
-  for name in "${!solution_pool[@]}" ; do
-    art=${name%:*}
-    engine=${name#*:}
-    kcpmsg "proposing switch ${solution_pool[${name}]} to hold ${engine} ${art} resources"
-  done
+  if [ -n "${!solution_pool[@]}" ] ; then
+    kcpmsg "solution keys are ${!solution_pool[@]}"
+    for name in "${!solution_pool[@]}" ; do
+      art=${name%:*}
+      engine=${name#*:}
+      kcpmsg "proposing switch ${solution_pool[${name}]} to hold ${engine} ${art} resources"
+    done
+  fi
 
   if [ -z "${SUBARRAY}" ] ; then
     kcpmsg "not in a subarray thus operating in probe mode only"
@@ -182,7 +184,8 @@ function compute_resources()
     group="${word#*=}"
     for name in ${group//,/ } ; do
       kcpmsg "examining entry ${name} of ${engine}"
-      target=${name}
+      target=${name,,}
+      dynamic=""
       for art in ${resource_types[*]} ; do
         if [ "${name#${art^^}}" != "${name}" ] ; then
 # TODO: solution pool will be a set once the heuristics are smarter
@@ -198,6 +201,7 @@ function compute_resources()
                 if [ -z "${holder}" ] ; then
                   tmp="${key#resources:}"
                   target="${tmp%%:*}"
+                  dynamic=true
                   kcpmsg "substituting ${name} with ${target}"
                 fi
               fi
@@ -211,11 +215,11 @@ function compute_resources()
         retrieve_reply var-set
 
 # TODO maybe refresh our var_result
-        if [ "${name}" = "${target}" ] ; then
-          kcpmsg "resource ${name} appears to be assigned statically to ${engine} of ${instrument}"
-        else
+        if [ -n "${dynamic}" ] ; then
           kcpmsg "resource ${target} from template ${name} assigned dynamically to ${engine} of ${instrument}"
           export ${name}=${target}
+        else
+          kcpmsg "resource ${name} appears to be assigned statically to ${engine} of ${instrument}"
         fi
       else
         kcpmsg -l warn "have no record of resource ${target} in ${engine} of ${instrument} and will thus ignore it"
