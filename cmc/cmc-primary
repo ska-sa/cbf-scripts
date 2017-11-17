@@ -13,8 +13,8 @@ declare -A -r inform_set=([group-destroyed]=1)
 
 function group_destroyed()
 {
-  local subarray resource board t now count list
-  local -a roaches
+  local subarray resource board prefix now count list
+  local -a roaches skarabs
 
   shift
 
@@ -39,10 +39,13 @@ function group_destroyed()
   for resource in "${!var_result[@]}" ; do
     if [ "${resource##*:}" = holder ] ; then
       if [ "${var_result[${resource}]}" = "${subarray}" ] ; then
-        t=${resource%:*}
-        if [ "${var_result[${t}:type]}" = roach ] ; then
-          board=${t#resources:}
+        prefix=${resource%:*}
+        if [ "${var_result[${prefix}:type]}" = roach ] ; then
+          board=${prefix#resources:}
           roaches+=("${board}")
+        elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
+          board=${prefix#resources:}
+          skarabs+=("${board}")
         fi
       fi
     fi
@@ -54,6 +57,8 @@ function group_destroyed()
     kcppar -q -i -n -s "${list// /,}" -x progdev
   fi
 
+# TODO: could we have a bulk skarab deprogram option ?
+
   count=0
 
   push_failure
@@ -61,22 +66,45 @@ function group_destroyed()
   for resource in "${!var_result[@]}" ; do
     if [ "${resource##*:}" = holder ] ; then
       if [ "${var_result[${resource}]}" = "${subarray}" ] ; then
-        t=${resource%:*}
-        if [ "${var_result[${t}:type]}" = roach ] ; then
-          board=${t#resources:}
+        prefix=${resource%:*}
+        now=""
+        if [ "${var_result[${prefix}:type]}" = roach ] ; then
+          board=${prefix#resources:}
 
           if kcpcmd -f -kr -s ${board}:7147 progdev ; then
             now=$(date +%s)
-            if [ -n "${now}" ] ; then
-              send_request   var-delete  "${t}:when"
-              retrieve_reply var-delete
-              send_request   var-set     "resources" ${now} string ":${board}:when"
-              retrieve_reply var-set
-            fi
-
           else
             kcpmsg -l error "unable to deprogram roach ${board} which was part of array ${subarray}"
+            set_failure
           fi
+
+        elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
+          board=${prefix#resources:}
+          if kcprun reboot_skarab.py ${board} 60 ; then
+            now=$(date +%s)
+          else
+            kcpmsg -l error "unable to deprogram skarab ${board} which was part of array ${subarray}"
+            set_failure
+          fi
+        fi
+
+        if [ -n "${now}" ] ; then
+          send_request   var-delete  "${prefix}:when"
+          retrieve_reply var-delete
+          send_request   var-set     resources ${now} string ":${board}:when"
+          retrieve_reply var-set
+        else
+
+# WARNING: risky: if network partitioned, the bad skarab may continue to spam us. Unclear how to make this safe
+
+          if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
+            send_request   var-delete  "${prefix}:mode"
+            retrieve_reply var-delete
+
+            send_request   var-set   resources standby string ":${board}:status"
+            retrieve_reply var-set
+          fi
+
         fi
 
         send_request   var-delete  "${resource}"
