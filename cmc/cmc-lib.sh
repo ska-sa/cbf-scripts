@@ -168,10 +168,10 @@ function retrieve_reply()
   fi
 
   while read line ; do
-    art=${line:0:1}
+    art="${line:0:1}"
     if [ "${art}" = "?" ] ; then
       kcpmsg "deferring request ${line}"
-      add_queue ${line}
+      add_queue "${line}"
     else
       vector=(${line})
       reply=${vector[0]}
@@ -179,7 +179,7 @@ function retrieve_reply()
       if [ "${art}" = '#' ] ; then
         if [ -n "${inform_set[${reply:1}]}" ] ; then
           kcpmsg "deferring inform ${line}"
-          add_queue ${line}
+          add_queue "${line}"
         fi
       elif [ "${art}" = "!" ] ; then
         if [ "${reply:1}" = "${name}" ]; then
@@ -205,7 +205,7 @@ function retrieve_inform()
 {
   local name="$1"
   local match="$2"
-  local del line label
+  local del line art reply label
   local -a vector
 
   for del in "${!inform_result[@]}" ; do
@@ -213,26 +213,34 @@ function retrieve_inform()
   done
 
   while read line ; do
-    if [ "${line:0:1}" = "?" ] ; then
+    art=${line:0:1}
+    if [ "${art}" = "?" ] ; then
       add_queue ${line}
     else
       vector=(${line})
-      if [ "${vector[0]}" = "#${name}" ] ; then
-        label=${vector[1]}
-        if [ -z "${match}" -o "${match}" = "${label}" ] ; then
-          inform_result[${label}]="${line#* * }"
+      reply="${vector[0]}"
+
+      if [ "${art}" = '#' ] ; then
+        if [ "${reply:1}" = "${name}" ] ; then
+          label=${vector[1]}
+          if [ -z "${match}" -o "${match}" = "${label}" ] ; then
+            inform_result[${label}]="${line#* * }"
+          fi
+        elif [ -n "${inform_set[${reply:1}]}" ] ; then
+          add_queue ${line}
         fi
-      elif [ "${vector[0]}" = "!${name}" ] ; then
-        send_count=$[send_count-1]
-        if [ "${vector[1]}" = "ok" ] ; then
-          return 0
+      elif [ "${art}" = "!" ] ; then
+        if [ "${reply:1}" = "${name}" ]; then
+          send_count=$[send_count-1]
+          code=${vector[1]}
+          if [ "${code}" = "ok" ] ; then
+            return 0
+          else
+            set_failure
+            return 1
+          fi
         else
-          set_failure
-          return 1
-        fi
-      else
-        if [ "${line:0:1}" = "!" ] ; then
-          kcpmsg -l warn "discarding unexpected response ${line:1}"
+          kcpmsg -l warn "discarding unexpected response ${reply:1}"
         fi
       fi
     fi
@@ -243,7 +251,8 @@ declare -A var_result
 
 function fetch_var()
 {
-  local del line label match
+  local match
+  local del line art reply label
   local -a vector
 
   for del in "${!var_result[@]}" ; do
@@ -260,25 +269,32 @@ function fetch_var()
   match=$1
 
   while read line ; do
-    if [ "${line:0:1}" = "?" ] ; then
+    art=${line:0:1}
+    if [ "${art}" = "?" ] ; then
       add_queue ${line}
     else
       vector=(${line})
-      if [ "${vector[0]}" = "#var-show" ] ; then
-        label=${vector[1]}
-        if [ -z "${match}" -o "${label}" != "${label#${match}}" ] ; then
-          var_result[${label}]="${vector[2]}"
+      reply="${vector[0]}"
+
+      if [ "${art}" = '#' ] ; then
+        if [ "${reply}" = "#var-show" ] ; then
+          label=${vector[1]}
+          if [ -z "${match}" -o "${label}" != "${label#${match}}" ] ; then
+            var_result[${label}]="${vector[2]}"
+          fi
+        elif [ -n "${inform_set[${reply:1}]}" ] ; then
+          add_queue ${line}
         fi
-      elif [ "${vector[0]}" = "!var-show" ] ; then
-        if [ "${vector[1]}" = "ok" ] ; then
-          return 0
+      elif [ "${art}" = "!" ] ; then
+        if [ "${reply}" = "!var-show" ]; then
+          if [ "${vector[1]}" = "ok" ] ; then
+            return 0
+          else
+            set_failure
+            return 1
+          fi
         else
-          set_failure
-          return 1
-        fi
-      else
-        if [ "${line:0:1}" = "!" ] ; then
-          kcpmsg -l warn "discarding unexpected response ${line:1}"
+          kcpmsg -l warn "discarding unexpected response ${reply:1}"
         fi
       fi
     fi
