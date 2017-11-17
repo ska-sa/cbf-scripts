@@ -735,6 +735,7 @@ init_resources
 init_instruments
 
 load_instruments
+check_resources
 
 #################################################
 
