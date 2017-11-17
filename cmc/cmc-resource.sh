@@ -131,7 +131,7 @@ function compute_resources()
           fi
 
         else
-          kcpmsg "instrument ${instrument} does not require any ${art} resources for ${engine}"
+          kcpmsg "instrument ${instrument} does not require any dynamic ${art} resources for ${engine}"
         fi
       done
     done

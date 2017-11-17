@@ -171,20 +171,27 @@ function retrieve_reply()
     art=${line:0:1}
     if [ "${art}" = "?" ] ; then
       add_queue ${line}
-    elif [ "${art}" = "!" ] ; then
+    else
       vector=(${line})
       reply=${vector[0]}
-      if [ "${reply:1}" = "${name}" ]; then
-        send_count=$[send_count-1]
-        code=${vector[1]}
-        if [ "${code}" = "ok" ] ; then
-          return 0
-        else
-          set_failure
-          return 1
+
+      if [ "${art}" = '#' ] ; then
+        if [ -n "${inform_set[${reply:1}]}" ] ; then
+          add_queue ${line}
         fi
-      else
-        kcpmsg -l warn "discarding unexpected response ${reply:1}"
+      elif [ "${art}" = "!" ] ; then
+        if [ "${reply:1}" = "${name}" ]; then
+          send_count=$[send_count-1]
+          code=${vector[1]}
+          if [ "${code}" = "ok" ] ; then
+            return 0
+          else
+            set_failure
+            return 1
+          fi
+        else
+          kcpmsg -l warn "discarding unexpected response ${reply:1}"
+        fi
       fi
     fi
   done
