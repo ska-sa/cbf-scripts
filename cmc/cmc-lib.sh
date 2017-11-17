@@ -170,6 +170,7 @@ function retrieve_reply()
   while read line ; do
     art=${line:0:1}
     if [ "${art}" = "?" ] ; then
+      kcpmsg "deferring request ${line}"
       add_queue ${line}
     else
       vector=(${line})
@@ -177,6 +178,7 @@ function retrieve_reply()
 
       if [ "${art}" = '#' ] ; then
         if [ -n "${inform_set[${reply:1}]}" ] ; then
+          kcpmsg "deferring inform ${line}"
           add_queue ${line}
         fi
       elif [ "${art}" = "!" ] ; then
@@ -390,7 +392,7 @@ function main_loop()
     k=0
     while [ "${k}" -lt "${queue_tail}" ] ; do
 
-      string=${queue_data[${k}]}
+      string="${queue_data[${k}]}"
       k=$[k+1]
 
       if [ "${string:0:1}" = "?" ] ; then
