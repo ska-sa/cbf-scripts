@@ -80,12 +80,10 @@ function group_destroyed()
 
         elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
           board=${prefix#resources:}
-          if kcprun -t 10 -j reboot_skarab.py ${board} 60 ; then
-            now=$(date +%s)
-          else
-            kcpmsg -l error "unable to deprogram skarab ${board} which was part of array ${subarray}"
-            set_failure
-          fi
+
+# WARNING: reboot of skarab takes too long, clear timeout so that the next resource check sees if given skarab is reachable
+          kcprun -q -t 500 -j reboot_skarab.py ${board} 10
+          now=0
         fi
 
         if [ -n "${now}" ] ; then
