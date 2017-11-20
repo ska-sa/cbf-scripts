@@ -61,7 +61,7 @@ function add_queue()
 
   queue_data[${queue_tail}]="$*"
 
-  kcpmsg "stashing queue[${queue_tail}]: $*"
+  kcpmsg -l debug "stashing queue[${queue_tail}]: $*"
 
   queue_tail=$[queue_tail+1]
 }
@@ -170,7 +170,7 @@ function retrieve_reply()
   while read line ; do
     art="${line:0:1}"
     if [ "${art}" = "?" ] ; then
-      kcpmsg "deferring request ${line}"
+      kcpmsg "deferring request ${line} while awaiting reply for ${name}"
       add_queue "${line}"
     else
       vector=(${line})
@@ -215,6 +215,7 @@ function retrieve_inform()
   while read line ; do
     art=${line:0:1}
     if [ "${art}" = "?" ] ; then
+      kcpmsg "deferring request ${line} while gathering informs for ${name}"
       add_queue "${line}"
     else
       vector=(${line})
@@ -271,6 +272,7 @@ function fetch_var()
   while read line ; do
     art=${line:0:1}
     if [ "${art}" = "?" ] ; then
+      kcpmsg "deferring request ${line} while fetching variable $1"
       add_queue "${line}"
     else
       vector=(${line})
