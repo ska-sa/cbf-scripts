@@ -61,7 +61,7 @@ function add_queue()
 
   queue_data[${queue_tail}]="$*"
 
-  kcpmsg -l debug "queue[${queue_tail}]: $*"
+  kcpmsg "stashing queue[${queue_tail}]: $*"
 
   queue_tail=$[queue_tail+1]
 }
@@ -215,7 +215,7 @@ function retrieve_inform()
   while read line ; do
     art=${line:0:1}
     if [ "${art}" = "?" ] ; then
-      add_queue ${line}
+      add_queue "${line}"
     else
       vector=(${line})
       reply="${vector[0]}"
@@ -227,7 +227,7 @@ function retrieve_inform()
             inform_result[${label}]="${line#* * }"
           fi
         elif [ -n "${inform_set[${reply:1}]}" ] ; then
-          add_queue ${line}
+          add_queue "${line}"
         fi
       elif [ "${art}" = "!" ] ; then
         if [ "${reply:1}" = "${name}" ]; then
@@ -271,7 +271,7 @@ function fetch_var()
   while read line ; do
     art=${line:0:1}
     if [ "${art}" = "?" ] ; then
-      add_queue ${line}
+      add_queue "${line}"
     else
       vector=(${line})
       reply="${vector[0]}"
@@ -283,7 +283,7 @@ function fetch_var()
             var_result[${label}]="${vector[2]}"
           fi
         elif [ -n "${inform_set[${reply:1}]}" ] ; then
-          add_queue ${line}
+          add_queue "${line}"
         fi
       elif [ "${art}" = "!" ] ; then
         if [ "${reply}" = "!var-show" ]; then
@@ -402,7 +402,7 @@ function main_loop()
   fi
 
   while read line ; do
-    add_queue ${line}
+    add_queue "${line}"
 #  show_queue
 
     k=0
