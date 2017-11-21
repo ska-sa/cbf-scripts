@@ -82,7 +82,7 @@ function group_destroyed()
           board=${prefix#resources:}
 
 # WARNING: reboot of skarab takes too long, clear timeout so that the next resource check sees if given skarab is reachable
-          kcprun -q -t 500 -j reboot_skarab.py ${board} 10
+          kcprun -q -t 250 -j reboot_skarab.py ${board} 10
           now=0
         fi
 
