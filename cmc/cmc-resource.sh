@@ -360,13 +360,13 @@ function check_resources()
             fi
           elif [ "${art}" = "skarab" ] ; then
 
-            if ping -c ${grace} "${board}" >& /dev/null ; then
+            if ping -c 1 -w ${grace} "${board}" >& /dev/null ; then
               if [ -z "${holder}" ] ; then
                 resource_free[${art}]=${resource_free[${art}]+1}
               fi
               status=up
             else
-              kcpmsg -l warn "ping failed on ${board}"
+              kcpmsg -l warn "ping failed on ${board} after timeout ${grace}"
               status=standby
             fi
           else
