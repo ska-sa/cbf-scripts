@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#################################################
+
+export KATCP_LABEL=cmc-primary
+
 # valid command names and their minimum parameter count
 
 declare -A -r command_set=([resource-reload]=1 [resource-list]=1 [resource-mark]=3 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1 [instrument-probe]=2 [cmc-halt]=1)
