@@ -6,22 +6,7 @@
 # instrument-outputs:name:#N     - what output products does it generate
 # instrument-resources:name:type - how many boards of what type do we need
 
-function init_instruments()
-{
-  push_failure
-
-  send_request   var-declare  "instruments*"           map
-  retrieve_reply var-declare
-
-  if ! pop_failure ; then
-    kcpmsg -l fatal "unable to declare essential instrument tracking state"
-    return 1
-  fi
-
-  return 0
-}
-
-function load_instruments()
+function reload_instruments()
 {
   local size instrument template geometry art count top available product i required inputs outputs channels boutput binput art engine candidates word
 
@@ -32,9 +17,37 @@ function load_instruments()
 
   push_failure
 
-  available=0
+  fetch_var "resources"
 
-# TODO: this should be smarter: it should be safe to call this many times not just once
+  if pop_failure ; then
+    push_failure
+
+    kcpmsg "clearing previous instrument settings"
+
+    send_request   var-delete  "instruments"
+    retrieve_reply var-delete
+
+    if ! pop_failure ; then
+      kcpmsg -l fatal "unable to initialise essential instrument tracking state"
+      return 1
+    fi
+  fi
+
+  kcpmsg "initialising instrument settings"
+
+  push_failure
+
+  send_request   var-declare  "instruments*"           map
+  retrieve_reply var-declare
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to initialise essential instrument tracking state"
+    return 1
+  fi
+
+  push_failure
+
+  available=0
 
   for instrument in ${instruments_deployed[*]} ; do
     template=${CORR_TEMPLATE}/${instrument}
@@ -154,72 +167,5 @@ function load_instruments()
   fi
 
   return 0
-}
-
-########################
-
-function instrument_list()
-{
-  local -A size input outputs
-  local -a index
-  local instrument key art availability
-
-  shift
-
-  check_resources
-
-  if ! setup_instruments ; then
-    echo "!instrument-list fail"
-    return 1
-  fi
-
-  push_failure
-
-  if [ -n "$1" ] ; then
-    fetch_var "instrument-size:$1"
-  else
-    fetch_var "instrument-size"
-  fi
-
-  if ! pop_failure ; then
-    kcpmsg -l error "unable to retrieve instrument list"
-    echo "!instrument-list fail"
-  fi
-
-  for key in "${!var_result[@]}" ; do
-    instrument="${key#instrument-size:}"
-    index+=("${instrument}")
-  done
-
-  for instrument in "${index[@]}" ; do
-    push_failure
-
-    fetch_var "instrument-size:${instrument}"
-    size="${var_result[*]}"
-
-    fetch_var "instrument-input:${instrument}"
-    input="${var_result[*]}"
-
-    fetch_var "instrument-outputs:${instrument}"
-    outputs="${var_result[*]}"
-
-    fetch_var "instrument-resources:${instrument}"
-    availability="sufficient"
-
-    for art in ${resource_types[*]} ; do
-      if [ "${var_result[instrument-resources:${instrument}:${art}]}" -gt "${resource_free[${art}]}" ] ; then
-        kcpmsg "instrument ${instrument} requires ${var_result[instrument-resources:${instrument}:${art}]} ${art} resources but currently only ${resource_free[${art}]} are available"
-        availability="oversubscribed"
-      fi
-    done
-
-    if ! pop_failure ; then
-      kcpmsg -l error "unable to retrieve needed information for instrument ${instrument}"
-    else
-      echo "#instrument-list ${instrument} ${availability} ${size} ${input} ${outputs}"
-    fi
-  done
-
-  echo "!instrument-list ok"
 }
 

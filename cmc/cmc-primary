@@ -11,7 +11,50 @@ declare -A -r command_help=([resource-reload]="refresh resource status (?resourc
 
 declare -A -r inform_set=([group-destroyed]=1)
 
-#################################################
+# support: auto-reload ##########################
+
+declare -i config_file_time=$(date +%s)
+declare -i template_dir_time=$(date +%s)
+
+function recheck_configs()
+{
+  local current_time update
+
+  update=""
+
+  if [ -f "${configuration}" ] ; then
+
+    current_time=$(stat -c %Y ${configuration})
+
+    if [ -n "${current_time}" ] ; then
+      if [ "${current_time}" -gt "${config_file_time}" ] ; then
+        config_file_time=${current_time}
+        if source "${configuration}" ; then
+          kcpmsg "reloaded configuration ${configuration}"
+          update=1
+        else
+          kcpmsg -l error "failed to reload configuration ${configuration}"
+          return 1
+        fi
+      fi
+    fi
+
+  else
+    kcpmsg -l error "no configuration available"
+  fi
+
+  if [ -d "${CORR_TEMPLATE}" ] ; then
+    current_time=$(stat -c %Y ${CORR_TEMPLATE})
+    if [ "${current_time}" -gt "${template_dir_time}" ] ; then
+      template_dir_time=${current_time}
+      update=1
+    fi
+  fi
+
+  if [ -n "${update}" ] ; then
+    reload_instruments
+  fi
+}
 
 ### hidden api functions ### resources ##################
 
@@ -431,6 +474,11 @@ function subordinate_create()
   key=$1
   group=${key}
 
+  if ! recheck_configs ; then
+    echo "!subordinate-create fail read-logs"
+    return 1
+  fi
+
   if [ "${group}" = primary ] ; then
     kcpmsg -l warn "name ${group} reserved for internal use"
     echo "!subordinate-create fail already-exists"
@@ -690,6 +738,11 @@ function instrument_probe()
 {
   shift
 
+  if ! recheck_configs ; then
+    echo "!instrument-probe fail read-logs"
+    return 1
+  fi
+
   compute_resources "$@"
 
   if [ "$?" -eq 0 ] ; then
@@ -731,9 +784,9 @@ register_commands primary
 #################################################
 
 init_resources
-init_instruments
 
-load_instruments
+reload_instruments
+
 check_resources
 
 #################################################

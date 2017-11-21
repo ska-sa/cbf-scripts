@@ -510,9 +510,6 @@ register_commands subordinate
 make_sync_sensor
 make_misc_sensors
 
-#init_resources 
-#init_instruments
-
 #################################################
 
 main_loop
