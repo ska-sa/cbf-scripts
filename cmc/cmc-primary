@@ -92,7 +92,7 @@ function group_destroyed()
         else
 # redundant test; it must have been ready which now implies a mode auto
           if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
-            send_request   var-delete  "${prefix}:mode"
+            send_request   var-delete  "${prefix}:status"
             retrieve_reply var-delete
 
             send_request   var-set   resources standby string ":${board}:status"
@@ -101,6 +101,7 @@ function group_destroyed()
 
         fi
 
+# this deletes the holder
         send_request   var-delete  "${resource}"
         retrieve_reply var-delete
 
