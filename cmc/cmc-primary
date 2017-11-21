@@ -83,7 +83,7 @@ function group_destroyed()
 
   shift
 
-  subarray=$1
+  subarray="$1"
 
   if [ -z "${subarray}" ] ; then
     kcpmsg -l warn "unable to identify subarray to be released"
@@ -693,7 +693,7 @@ function subordinate_halt()
 function instrument_list()
 {
   local -A availability size instruments inputs outputs bandwidth_in bandwidth_out channels
-  local key art products prefix instrument problem
+  local key products prefix instrument problem tmp
 
   shift
 
@@ -718,11 +718,14 @@ function instrument_list()
 
   for key in "${!var_result[@]}" ; do
     # extract instrument ID
-    prefix=${key#*:}
+    tmp=${key#instruments:}
     instrument=${prefix%%:*}
+
+    prefix="instruments:${instrument}"
+
     instruments[${instrument}]=0
 
-    products=${key%#*}
+    # TODO: actually compute availability
     availability[${instrument}]="sufficient"
 
     # extract input size
@@ -730,7 +733,7 @@ function instrument_list()
       size[${instrument}]=${var_result[$key]}
 
     # extract input products
-    elif [ "$products" == "${prefix}:input-products" ] ; then
+    elif [ "${key%#*}" == "${prefix}:input-products" ] ; then
       if [ -z "${inputs[${instrument}]}" ] ; then
         inputs[${instrument}]=${var_result[$key]}
       else
@@ -738,7 +741,7 @@ function instrument_list()
       fi
 
     # extract output products
-    elif [ "$products" == "${prefix}:output-products" ] ; then
+    elif [ "${key%#*}" == "${prefix}:output-products" ] ; then
       if [ -z "${outputs[${instrument}]}" ] ; then
         outputs[${instrument}]=${var_result[$key]}
       else
