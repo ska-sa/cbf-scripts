@@ -457,7 +457,7 @@ function subordinate_list()
 
         fetch_var "${group}*inputs*"
         i=0
-        while [ "$i" -lt "${#var_result[*]}" ; do
+        while [ "$i" -lt "${#var_result[*]}" ] ; do
           inputs="${inputs} ${var_result[${group}*inputs*#${i}]}"
           i=$[i+1]
         done
