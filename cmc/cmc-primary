@@ -80,10 +80,8 @@ function group_destroyed()
 
         elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
           board=${prefix#resources:}
-
 # WARNING: reboot of skarab takes too long, clear timeout so that the next resource check sees if given skarab is reachable
           kcprun -q -t 250 -j reboot_skarab.py ${board} 10
-          now=0
         fi
 
         if [ -n "${now}" ] ; then
@@ -92,9 +90,7 @@ function group_destroyed()
           send_request   var-set     resources ${now} string ":${board}:when"
           retrieve_reply var-set
         else
-
-# WARNING: risky: if network partitioned, the bad skarab may continue to spam us. Unclear how to make this safe
-
+# WARNING: marking a roach ready by hand disables this test
           if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
             send_request   var-delete  "${prefix}:mode"
             retrieve_reply var-delete
