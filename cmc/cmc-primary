@@ -11,7 +11,25 @@ declare -A -r command_help=([resource-list]="show processing resources (?resourc
 
 declare -A -r inform_set=([group-destroyed]=1)
 
+# support function to sort var result #############
+
+# declare var_flat
+#
+# function flatten_var()
+# {
+# # This is needed to work around that associative arrays are hashed, thus order no longer ok
+# # Could be made less wasteful
+#   local name
+#
+#   var_flat=""
+#
+#   for name in $(echo ${!var_result[*]} | tr -s ' ' '\n' | sort -V) ;
+#     do var_flat="${var_flat} ${var_result[${name}]}"
+#   done
+# }
+
 # support: auto-reload ##########################
+
 
 declare -i config_file_time=$(date +%s)
 declare -i template_dir_time=$(date +%s)
@@ -378,7 +396,7 @@ function subordinate_list()
   local -A ports hosts groups
   local -a v
   local group port host key
-  local c t
+  local count t i inputs
 
   shift
 
@@ -406,12 +424,11 @@ function subordinate_list()
     ports[${key}]=${v[0]}
     hosts[${key}]=${v[1]}
     groups[${key}]=${group}
-
   done
 
   push_failure
 
-  c=0
+  count=0
   for key in "${!groups[@]}" ; do
 
     group="${groups[${key}]}"
@@ -439,11 +456,15 @@ function subordinate_list()
         fi
 
         fetch_var "${group}*inputs*"
-        flatten_var
+        i=0
+        while [ "$i" -lt "${#var_result[*]}" ; do
+          inputs="${inputs} ${var_result[${group}*inputs*#${i}]}"
+          i=$[i+1]
+        done
 
         if clear_failure ; then
-          echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${var_flat}"
-          c=$[c+1]
+          echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${inputs}"
+          count=$[count+1]
         fi
 
       fi
@@ -453,8 +474,8 @@ function subordinate_list()
 
   pop_failure
 
-  if [ "${c}" -lt "$#"  ] ; then
-    kcpmsg -l debug "was given $# parameters, could only list ${c} subarrays"
+  if [ "${count}" -lt "$#"  ] ; then
+    kcpmsg -l debug "was given $# parameters, could only list ${count} subarrays"
     echo "!subordinate-list fail unknown-array"
     return 1
   fi
