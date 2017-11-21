@@ -247,7 +247,7 @@ function check_resources()
   done
 
 # our initial grace period in seconds - makes allowance for skarabs to reboot
-  budget=${CHECK_BUDGET:-5}
+  budget=${CHECK_BUDGET:-7}
 
   now=$(date +%s)
   limit=$[now+budget]
