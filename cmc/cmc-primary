@@ -90,7 +90,7 @@ function group_destroyed()
           send_request   var-set     resources ${now} string ":${board}:when"
           retrieve_reply var-set
         else
-# WARNING: marking a roach ready by hand disables this test
+# redundant test; it must have been ready which now implies a mode auto
           if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
             send_request   var-delete  "${prefix}:mode"
             retrieve_reply var-delete
@@ -156,13 +156,10 @@ function resource_list()
       board="${prefix#resources:}"
 
       if [ -n "${board}" ] ; then
-#       if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
-#         setting="automatically"
-#       else
-#         setting="explicitly"
-#       fi
 
-#       kcpmsg "status of ${var_result[${prefix}:type]} resource ${board} is managed ${setting}"
+        if [ "${var_result[${prefix}:mode]}" != "auto" ] ; then
+          kcpmsg "resource ${board} is in mode ${var_result[${prefix}:mode]}"
+        fi
 
         if [ -n "${var_result[${prefix}:holder]}" ] ; then
           echo "#resource-list ${board} ${var_result[${prefix}:status]} ${var_result[${prefix}:holder]}"
@@ -222,11 +219,12 @@ function resource_mark()
         retrieve_reply var-set
       fi
 
-      if [ "${var_result[resources:${board}:mode]}" != "user" ] ; then
+# WARNING: introduces asymmetry: marking it up puts it into auto mode again
+      if [ "${var_result[resources:${board}:mode]}" != "auto" ] ; then
         send_request   var-delete  "resources:${board}:mode"
         retrieve_reply var-delete
 
-        send_request   var-set  "resources" user   string ":${board}:mode"
+        send_request   var-set  "resources" auto   string ":${board}:mode"
         retrieve_reply var-set
       fi
 
