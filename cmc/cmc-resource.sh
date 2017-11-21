@@ -380,6 +380,8 @@ function check_resources()
 
             send_request   var-set     "resources" ${status} string ":${board}:status"
             retrieve_reply var-set
+
+            kcplog "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
           fi
 
           send_request   var-delete  "resources:${board}:when"
