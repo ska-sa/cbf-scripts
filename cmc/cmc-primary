@@ -719,7 +719,7 @@ function instrument_list()
   for key in "${!var_result[@]}" ; do
     # extract instrument ID
     tmp=${key#instruments:}
-    instrument=${prefix%%:*}
+    instrument=${tmp%%:*}
 
     prefix="instruments:${instrument}"
 
