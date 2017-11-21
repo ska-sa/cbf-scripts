@@ -84,12 +84,14 @@ function group_destroyed()
           kcprun -q -t 250 -j reboot_skarab.py ${board} 10
         fi
 
-        if [ -n "${now}" ] ; then
-          send_request   var-delete  "${prefix}:when"
-          retrieve_reply var-delete
-          send_request   var-set     resources ${now} string ":${board}:when"
-          retrieve_reply var-set
-        else
+        send_request   var-delete  "${prefix}:when"
+        retrieve_reply var-delete
+
+# update check time on success case, otherwise force check the next time
+        send_request   var-set     resources ${now:-0} string ":${board}:when"
+        retrieve_reply var-set
+
+        if [ -z "${now}" ] ; then
 # redundant test; it must have been ready which now implies a mode auto
           if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
             send_request   var-delete  "${prefix}:status"
