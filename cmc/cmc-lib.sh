@@ -398,7 +398,7 @@ function main_loop()
 {
   local k line string first cmd actual
 
-  if [ -z "${!command_set[@]}" ] ; then
+  if [ -z "${!command_set[*]}" ] ; then
      kcpmsg -l fatal "no command set defined thus main loop pointless"
      exit 1
   fi

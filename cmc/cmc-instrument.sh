@@ -17,7 +17,7 @@ function reload_instruments()
 
   push_failure
 
-  fetch_var "resources"
+  fetch_var "instruments"
 
   if pop_failure ; then
     push_failure
