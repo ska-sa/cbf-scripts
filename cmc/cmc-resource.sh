@@ -239,26 +239,44 @@ function compute_resources()
 function check_resources()
 {
   local -l board
+  local -i budget limit grace
   local now mode art status when fresh key tmp board holder network
 
   for art in ${resource_types[*]} ; do
     resource_free[${art}]=0
   done
 
+# our initial grace period in seconds - makes allowance for skarabs to reboot
+  budget=${CHECK_BUDGET:-5}
+
   now=$(date +%s)
+  limit=$[now+budget]
+
+  fresh=0
 
   kcplog "checking set of available resources"
+
+# Fetch our existing set
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve resource variables"
+    return 1
+  fi
+
+# Try to find new devices from the leases file
+
+  push_failure
 
   for art in roach skarab ; do
 
     for board in $(grep ${art} ${leases} | cut -f4 -d ' ' ) ; do
 
-      push_failure
-
-      fetch_var "resources:${board}"
-      fresh=0
-
-      if ! clear_failure ; then
+      if [ -z "${var_result[resources:${board}:mode]}" ] ; then
+        fresh=$[fresh+1]
 
         send_request   var-declare resources map      ":${board}"
         retrieve_reply var-declare
@@ -267,6 +285,12 @@ function check_resources()
         retrieve_reply var-set
 
         send_request   var-set     resources auto     string ":${board}:mode"
+        retrieve_reply var-set
+
+        send_request   var-set     resources 0        string ":${board}:when"
+        retrieve_reply var-set
+
+        send_request   var-set     resources standby  string ":${board}:status"
         retrieve_reply var-set
 
 # NOTE: special case: the 3rd octet of a scarab encodes its switch
@@ -278,80 +302,28 @@ function check_resources()
           fi
         fi
 
-        mode=auto
-        when=${now}
-        status=unknown
-        holder=""
-
-      else
-        fresh=1
-
-        mode="${var_result[resources:${board}:mode]}"
-        art="${var_result[resources:${board}:type]}"
-        when="${var_result[resources:${board}:when]}"
-        status="${var_result[resources:${board}:status]}"
-        holder="${var_result[resources:${board}:holder]}"
-
-        if [ "${mode}" = "auto" ] ; then
-          if [ "$[when+checkperiod]" -lt "${now}" ] ; then
-            fresh=0
-            send_request   var-delete  "resources:${board}:when"
-            retrieve_reply var-delete
-            send_request   var-delete  "resources:${board}:status"
-            retrieve_reply var-delete
-          fi
-        fi
       fi
-
-      if [ "${fresh}" = "0" ] ; then
-        if [ "${art}" = "roach" ] ; then
-          if kcpcmd -kir -f -t 2 -s "${board}" watchdog ; then
-            status=up
-          else
-            status=standby
-          fi
-        elif [ "${art}" = "skarab" ] ; then
-          if ping -c 1 "${board}" >& /dev/null ; then
-            status=up
-          else
-            kcpmsg -l warn "ping failed on ${board}"
-            status=standby
-          fi
-        else
-# TODO: have a way of working out what the status is
-          status=standby
-        fi
-
-        send_request   var-set      "resources" ${now}     string ":${board}:when"
-        retrieve_reply var-set
-        send_request   var-set      "resources" ${status}  string ":${board}:status"
-        retrieve_reply var-set
-
-        kcpmsg "checked ${board} at ${when} showing status ${status}"
-      fi
-
-      if [ "${status}" = up ] ; then
-        if [ -z "${holder}" ] ; then
-          resource_free[${art}]=$[resource_free[${art}]+1]
-        fi
-      fi
-
-      if ! pop_failure ; then
-        kcpmsg -l fatal "unable to update status of board ${board}"
-        return 1
-      fi
-
     done
   done
 
-  push_failure
-
-  fetch_var "resources"
-
   if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve resource variables"
-    return 1
+    kcpmsg -l error "unable to identify new resources"
   fi
+
+  if [ "${fresh}" -gt 0 ] ; then
+    push_failure
+
+    fetch_var "resources"
+
+    if ! pop_failure ; then
+      kcpmsg -l warn "unable to reacquire resource variables"
+    fi
+  fi
+
+# WARNING: do we still use this global variable ?
+  for art in roach skarab ; do
+    resource_free[${art}]=0
+  done
 
   push_failure
 
@@ -363,43 +335,65 @@ function check_resources()
         board="${tmp%%:*}"
 
         art="${var_result[resources:${board}:type]}"
-        status="${var_result[resources:${board}:status]}"
+#        status="${var_result[resources:${board}:status]}"
         mode="${var_result[resources:${board}:mode]}"
         holder="${var_result[resources:${board}:holder]}"
 
-        if [ "${status}" = "up" ] ; then
-          if [ "${mode}" = "auto" ] ; then
-            if [ "${art}" = "roach" ] ; then
-              if ! kcpcmd -kir -f -t 1 -s "${board}" watchdog >& /dev/null ; then
-                send_request   var-set    "resources" standby string ":${board}:status"
-                retrieve_reply var-set
+        if [ "${mode}" = "auto" ] ; then
 
-                if [ -z "${holder}" ] ; then
-                  resource_free[${art}]=${resource_free[${art}]-1}
-                fi
+          now=$(date +%s)
 
-              fi
-            elif [ "${art}" = "skarab" ] ; then
-              if ! ping -c 1 "${board}" >& /dev/null ; then
-                kcpmsg -l warn "confirming ping failed on ${board}"
-                send_request   var-set    "resources" standby string ":${board}:status"
-                retrieve_reply var-set
-
-                if [ -z "${holder}" ] ; then
-                  resource_free[${art}]=${resource_free[${art}]-1}
-                fi
-
-              fi
-
-            fi
+          if [ "${limit}" -gt "${now}" ] ; then
+            grace=$[limit-now]
+          else
+            grace=1
           fi
+
+          if [ "${art}" = "roach" ] ; then
+            if kcpcmd -kir -f -t ${grace} -s "${board}" watchdog >& /dev/null ; then
+              if [ -z "${holder}" ] ; then
+                resource_free[${art}]=${resource_free[${art}]+1}
+              fi
+              status=up
+            else
+              status=standby
+            fi
+          elif [ "${art}" = "skarab" ] ; then
+
+            if ping -c ${grace} "${board}" >& /dev/null ; then
+              if [ -z "${holder}" ] ; then
+                resource_free[${art}]=${resource_free[${art}]+1}
+              fi
+              status=up
+            else
+              kcpmsg -l warn "ping failed on ${board}"
+              status=standby
+            fi
+          else
+            status=standby
+          fi
+
+          if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
+
+            send_request   var-delete  "resources:${board}:status"
+            retrieve_reply var-delete
+
+            send_request   var-set     "resources" ${status} string ":${board}:status"
+            retrieve_reply var-set
+          fi
+
+          send_request   var-delete  "resources:${board}:when"
+          retrieve_reply var-delete
+
+          send_request   var-set     "resources" ${now} string ":${board}:when"
+          retrieve_reply var-set
         fi
       fi
     fi
   done
 
   if ! pop_failure ; then
-    kcpmsg -l warn "unable to update expired resource"
+    kcpmsg -l warn "unable to re-check resource status"
     return 1
   fi
 
