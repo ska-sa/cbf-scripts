@@ -692,65 +692,91 @@ function subordinate_halt()
 
 function instrument_list()
 {
-  local -A size input outputs
-  local -a index
-  local instrument key art availability
+  local -A availability size instruments inputs outputs bandwidth_in bandwidth_out channels
+  local key art products prefix instrument problem
 
   shift
 
-  check_resources
-
-  if ! setup_instruments ; then
-    echo "!instrument-list fail"
+  if ! recheck_configs ; then
+    echo "!instrument-list fail read-logs"
     return 1
   fi
 
   push_failure
 
   if [ -n "$1" ] ; then
-    fetch_var "instrument-size:$1"
+    fetch_var "instruments:$1"
   else
-    fetch_var "instrument-size"
+    fetch_var "instruments"
   fi
 
   if ! pop_failure ; then
     kcpmsg -l error "unable to retrieve instrument list"
-    echo "!instrument-list fail"
+    echo "!instrument-list fail read-logs"
+    return 1
   fi
 
   for key in "${!var_result[@]}" ; do
-    instrument="${key#instrument-size:}"
-    index+=("${instrument}")
-  done
+    # extract instrument ID
+    prefix=${key#*:}
+    instrument=${prefix%%:*}
+    instruments[${instrument}]=0
 
-  for instrument in "${index[@]}" ; do
-    push_failure
+    products=${key%#*}
+    availability[${instrument}]="sufficient"
 
-    fetch_var "instrument-size:${instrument}"
-    size="${var_result[*]}"
+    # extract input size
+    if [ "$key" == "${prefix}:input-size" ] ; then
+      size[${instrument}]=${var_result[$key]}
 
-    fetch_var "instrument-input:${instrument}"
-    input="${var_result[*]}"
-
-    fetch_var "instrument-outputs:${instrument}"
-    outputs="${var_result[*]}"
-
-    fetch_var "instrument-resources:${instrument}"
-    availability="sufficient"
-
-    for art in ${resource_types[*]} ; do
-      if [ "${var_result[instrument-resources:${instrument}:${art}]}" -gt "${resource_free[${art}]}" ] ; then
-        kcpmsg "instrument ${instrument} requires ${var_result[instrument-resources:${instrument}:${art}]} ${art} resources but currently only ${resource_free[${art}]} are available"
-        availability="oversubscribed"
+    # extract input products
+    elif [ "$products" == "${prefix}:input-products" ] ; then
+      if [ -z "${inputs[${instrument}]}" ] ; then
+        inputs[${instrument}]=${var_result[$key]}
+      else
+        inputs[${instrument}]=${inputs[${instrument}]},${var_result[$key]}
       fi
-    done
 
-    if ! pop_failure ; then
-      kcpmsg -l error "unable to retrieve needed information for instrument ${instrument}"
+    # extract output products
+    elif [ "$products" == "${prefix}:output-products" ] ; then
+      if [ -z "${outputs[${instrument}]}" ] ; then
+        outputs[${instrument}]=${var_result[$key]}
+      else
+        outputs[${instrument}]=${outputs[${instrument}]},${var_result[$key]}
+      fi
+
+    # extract input bandwidth
+    elif [ "$key" == "${prefix}:input-bandwidth" ] ; then
+      bandwidth_in[${instrument}]=${var_result[$key]}
+
+    # extract output bandwidth
+    elif [ "$key" == "${prefix}:output-bandwidth" ] ; then
+      bandwidth_out[${instrument}]=${var_result[$key]}
+
+    # extract channels
+    elif [ "$key" == "${prefix}:channels" ] ; then
+      channels[${instrument}]=${var_result[$key]}
+
     else
-      echo "#instrument-list ${instrument} ${availability} ${size} ${input} ${outputs}"
+      kcpmsg -l debug "instrument field $key not used by listing"
     fi
   done
+
+  problem=""
+  for instrument in "${!instruments[@]}" ; do
+    #check if some instrument field is missing
+    if [[ -z "${availability[${instrument}]}" || -z "${size[${instrument}]}" || -z "${inputs[${instrument}]}" || -z "${outputs[${instrument}]}" || -z "${bandwidth_in[${instrument}]}" || -z "${bandwidth_out[${instrument}]}" || -z "${channels[${instrument}]}" ]] ; then
+      kcpmsg -l error "incomplete information for instrument ${instrument}"
+      problem="${instrument}"
+    else
+      echo "#instrument-list ${instrument[${instrument}]} ${availability[${instrument}]} ${size[${instrument}]} ${inputs[${instrument}]} ${outputs[${instrument}]} ${bandwidth_in[${instrument}]} ${bandwidth_out[${instrument}]} ${channels[${instrument}]}"
+    fi
+  done
+
+  if [ -n "${problem}" ] ; then
+    echo "!instrument-list fail read-logs"
+    return 1
+  fi
 
   echo "!instrument-list ok"
 }
