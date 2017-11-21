@@ -160,13 +160,13 @@ function resource_list()
       board="${prefix#resources:}"
 
       if [ -n "${board}" ] ; then
-        if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
-          setting="automatically"
-        else
-          setting="explicitly"
-        fi
+#       if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
+#         setting="automatically"
+#       else
+#         setting="explicitly"
+#       fi
 
-        kcpmsg "status of ${var_result[${prefix}:type]} resource ${board} is managed ${setting}"
+#       kcpmsg "status of ${var_result[${prefix}:type]} resource ${board} is managed ${setting}"
 
         if [ -n "${var_result[${prefix}:holder]}" ] ; then
           echo "#resource-list ${board} ${var_result[${prefix}:status]} ${var_result[${prefix}:holder]}"
