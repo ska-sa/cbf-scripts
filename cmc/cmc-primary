@@ -252,8 +252,6 @@ function resource_mark()
   board=${1,,}
   status=$2
 
-  check_resources
-
   push_failure
 
   fetch_var "resources:${board}"
