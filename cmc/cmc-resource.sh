@@ -66,18 +66,21 @@ function compute_resources()
       board="${tmp%%:*}"
 
       holder="${var_result[resources:${board}:holder]}"
+      status="${var_result[resources:${board}:status]}"
 
-      if [ -n "${holder}" ] ; then
-        location_busy[${location}]="${holder}"
-      else
-        if [ -z "${location_free[${location}]}" ] ; then
-          prior=0
-          location_pool[${location}]="${board}"
+      if [ "${status}" = "up" ] ; then
+        if [ -n "${holder}" ] ; then
+          location_busy[${location}]="${holder}"
         else
-          prior="location_free[${location}]"
-          location_pool[${location}]="${location_pool[${location}]} ${board}"
+          if [ -z "${location_free[${location}]}" ] ; then
+            prior=0
+            location_pool[${location}]="${board}"
+          else
+            prior="location_free[${location}]"
+            location_pool[${location}]="${location_pool[${location}]} ${board}"
+          fi
+          location_free[${location}]=$[prior+1]
         fi
-        location_free[${location}]=$[prior+1]
       fi
     fi
   done
