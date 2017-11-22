@@ -136,7 +136,7 @@ function reload_instruments()
 
         for art in ${resource_types[*]} ; do
 
-          for word in $(ike -k hosts ${template} | grep ${art}) ; do
+          for word in $(ike -k hosts ${template} | grep -i ${art}) ; do
             kcpmsg -l debug "examing ${word} for dynamic resources"
 
             engine=${word%%.*}
