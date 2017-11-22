@@ -282,7 +282,7 @@ function resource_mark()
           kcpmsg -l warn "roach resource ${board} not responsive but taking it to be ok"
         fi
       elif [ "${var_result[resources:${board}:type]}" = "skarab" ] ; then
-        if ! ping -c 1 -w ${grace} "${board}" >& /dev/null ; then
+        if ! ping -c 1 "${board}" >& /dev/null ; then
           if [ "${state/missing-roaches/}" = "${state}" ] ; then
             kcpmsg -l error "skarab resource ${board} unresponsive"
             echo "!resource-mark fail network"
