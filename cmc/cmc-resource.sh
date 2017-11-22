@@ -17,7 +17,7 @@ function reload_resource_exclusions()
   done
 
   for board in "${standby_resources[@]}" ; do
-    resources_excluded[${board}]="${board}"
+    resources_excluded[${board,,}]="${board,,}"
   done
 }
 
