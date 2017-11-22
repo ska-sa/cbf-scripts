@@ -10,12 +10,14 @@ declare -A resources_excluded
 
 function reload_resource_exclusions()
 {
+  local key board
+
   for key in "${!resources_excluded[@]}" ; do
     unset resources_excluded[${key}]
   done
 
   for board in "${standby_resources[@]}" ; do
-    resources_excluded[${key}]="${key}"
+    resources_excluded[${board}]="${board}"
   done
 }
 
