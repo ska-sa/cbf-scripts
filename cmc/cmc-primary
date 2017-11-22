@@ -30,13 +30,12 @@ declare -A -r inform_set=([group-destroyed]=1)
 
 # support: auto-reload ##########################
 
-
 declare -i config_file_time=$(date +%s)
 declare -i template_dir_time=$(date +%s)
 
 function recheck_configs()
 {
-  local current_time update
+  local current_time update board key
 
   update=""
 
@@ -55,8 +54,9 @@ function recheck_configs()
           return 1
         fi
       fi
-    fi
 
+      reload_resource_exclusions
+    fi
   else
     kcpmsg -l error "no configuration available"
   fi
@@ -832,6 +832,8 @@ enable_misc_informs
 register_commands primary
 
 #################################################
+
+reload_resource_exclusions
 
 init_resources
 

@@ -13,8 +13,8 @@ fi
 #################################################
 
 # valid command names and their minimum parameter count
-declare -A -r command_set=([synchronisation-epoch]=1 [instrument-activate]=2)
-declare -A -r command_help=([synchronisation-epoch]="digitiser synchronisation time (?synchronisation-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)")
+declare -A -r command_set=([synchronisation-epoch]=1 [instrument-activate]=2 [instrument-list]=1)
+declare -A -r command_help=([synchronisation-epoch]="digitiser synchronisation time (?synchronisation-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)" [instrument-list]="show fielded instruments (?instrument-list)")
 
 #################################################
 
@@ -390,6 +390,7 @@ function instrument_activate()
     epoch="${var_result[synchronisation-epoch:value]}"
 
     if [ "${epoch%%.*}" -gt 0 ] ; then
+# TODO: will this command get re-named too ? 
       if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then
         kcpmsg "preliminary sync epoch set to ${epoch}"
       else
@@ -502,6 +503,73 @@ function instrument_activate()
   echo "!instrument-activate ok"
   adjust_sensors "${status}" "${instrument}"
 }
+
+# old interface: instrument list ########################
+
+function instrument_list()
+{
+  local -A availability size instruments inputs outputs bandwidth_in bandwidth_out channels
+  local key products prefix instrument problem tmp
+
+  shift
+
+  if ! recheck_configs ; then
+    echo "!instrument-list fail read-logs"
+    return 1
+  fi
+
+  push_failure
+
+  if [ -n "$1" ] ; then
+    fetch_var "instruments:$1"
+  else
+    fetch_var "instruments"
+  fi
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to retrieve instrument list"
+    echo "!instrument-list fail read-logs"
+    return 1
+  fi
+
+  for key in "${!var_result[@]}" ; do
+    # extract instrument ID
+    tmp=${key#instruments:}
+    instrument=${tmp%%:*}
+
+    prefix="instruments:${instrument}"
+
+    instruments[${instrument}]=0
+
+    # extract output products
+    if [ "${key%#*}" == "${prefix}:output-products" ] ; then
+      if [ -z "${outputs[${instrument}]}" ] ; then
+        outputs[${instrument}]=${var_result[$key]}
+      else
+        outputs[${instrument}]="${outputs[${instrument}]} ${var_result[$key]}"
+      fi
+    fi
+  done
+
+  problem=""
+  for instrument in "${!instruments[@]}" ; do
+    #check if some instrument field is missing
+    if [ -z "${outputs[${instrument}]}" ] ; then
+      kcpmsg -l error "incomplete information for instrument ${instrument}"
+      problem="${instrument}"
+    else
+      echo "#instrument-list ${instrument[${instrument}]} ${outputs[${instrument}]}"
+    fi
+  done
+
+  if [ -n "${problem}" ] ; then
+    echo "!instrument-list fail read-logs"
+    return 1
+  fi
+
+  echo "!instrument-list ok"
+}
+
 #########################################################
 
 inhibit_logging
@@ -513,7 +581,6 @@ make_misc_sensors
 #################################################
 
 main_loop
-
 
 # function update_git_versions()
 # {

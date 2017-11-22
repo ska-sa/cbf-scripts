@@ -5,6 +5,20 @@
 # resources:name:holder     - which subarray owns it
 # resources:name:switch     - on which switch does it live
 
+# special case: allows one to exclude devices in cmc.conf
+declare -A resources_excluded
+
+function reload_resource_exclusions()
+{
+  for key in "${!resources_excluded[@]}" ; do
+    unset resources_excluded[${key}]
+  done
+
+  for board in "${standby_resources[@]}" ; do
+    resources_excluded[${key}]="${key}"
+  done
+}
+
 ### support functions ###################################
 
 function init_resources()
@@ -349,28 +363,32 @@ function check_resources()
             grace=1
           fi
 
-          if [ "${art}" = "roach" ] ; then
-            if kcpcmd -kir -f -t ${grace} -s "${board}" watchdog >& /dev/null ; then
-              if [ -z "${holder}" ] ; then
-                resource_free[${art}]=${resource_free[${art}]+1}
-              fi
-              status=up
-            else
-              status=standby
-            fi
-          elif [ "${art}" = "skarab" ] ; then
-
-            if ping -c 1 -w ${grace} "${board}" >& /dev/null ; then
-              if [ -z "${holder}" ] ; then
-                resource_free[${art}]=${resource_free[${art}]+1}
-              fi
-              status=up
-            else
-              kcpmsg -l warn "ping failed on ${board} after timeout ${grace}"
-              status=standby
-            fi
-          else
+          if [ -n "${resources_excluded[${board}]}" ] ; then
             status=standby
+          else
+            if [ "${art}" = "roach" ] ; then
+              if kcpcmd -kir -f -t ${grace} -s "${board}" watchdog >& /dev/null ; then
+                if [ -z "${holder}" ] ; then
+                  resource_free[${art}]=${resource_free[${art}]+1}
+                fi
+                status=up
+              else
+                status=standby
+              fi
+            elif [ "${art}" = "skarab" ] ; then
+
+              if ping -c 1 -w ${grace} "${board}" >& /dev/null ; then
+                if [ -z "${holder}" ] ; then
+                  resource_free[${art}]=${resource_free[${art}]+1}
+                fi
+                status=up
+              else
+                kcpmsg -l warn "ping failed on ${board} after timeout ${grace}"
+                status=standby
+              fi
+            else
+              status=standby
+            fi
           fi
 
           if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then

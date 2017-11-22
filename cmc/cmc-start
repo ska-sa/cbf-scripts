@@ -154,6 +154,9 @@ export KATCP_SERVER=localhost:${setup_port}
 # kfwd instrument-probe      subordinate  "check resources for an instrument (?instrument-probe instrument)"
 # kfwd instrument-activate   subordinate  "launch the specified instrument (?instrument-activate instrument)"
 
+kcpcmd -i forward-symbolic digitiser-synch-epoch    subordinate synchronisation-epoch %1+
+kcpcmd -i cmd-help         digitiser-synch-epoch   "internal synchronisation interface (?digitiser-synch-epoch epoch)"
+
 # might have to glue all corr-* capture-list output together
 kfwd capture-list        corr "list data products"
 kfwd capture-destination corr "set data stream destination (?capture-destination stream data-destination)"
