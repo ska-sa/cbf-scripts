@@ -43,8 +43,9 @@ function compute_resources()
   local -A location_busy
   local -A location_pool
   local -A solution_pool
+  local -a host_vector
 
-  local prior key location instrument art engine failed best count take total word template target group holder prefix dynamic
+  local prior key location instrument art engine failed best count take total word template target group holder prefix dynamic index actual status
 
   push_failure
 
@@ -159,7 +160,7 @@ function compute_resources()
     return 2
   fi
 
-  if [ -n "${!solution_pool[@]}" ] ; then
+  if [ -n "${!solution_pool[*]}" ] ; then
     kcpmsg "solution keys are ${!solution_pool[@]}"
     for name in "${!solution_pool[@]}" ; do
       art=${name%:*}
@@ -198,51 +199,81 @@ function compute_resources()
   for word in $(ike -k hosts ${template}) ; do
     engine="${word%%.*}"
     group="${word#*=}"
+    host_vector=()
+
     for name in ${group//,/ } ; do
-      kcpmsg "examining entry ${name} of ${engine}"
-      target=${name,,}
-      dynamic=""
       for art in ${resource_types[*]} ; do
         if [ "${name#${art^^}}" != "${name}" ] ; then
-# TODO: solution pool will be a set once the heuristics are smarter
-          location="${solution_pool[${art}:${engine}]}"
-          kcpmsg "will have to substitute a ${art} resource on switch ${location} for ${name} used in ${engine}"
-          for key in "${!var_result[@]}" ; do
-            if [ "${key##*:}" = "switch" ] ; then
-              if [ "${var_result[${key}]}" = "${location}" ] ; then
-                prefix="${key%:*}"
-                holder="${var_result[${prefix}:holder]}"
-# TODO - could also check if it is us holding it, as well as its status
-# WARNING - will also have to check if any element on switch hasn't also been allocated elsewhere behind our back
-                if [ -z "${holder}" ] ; then
-                  tmp="${key#resources:}"
-                  target="${tmp%%:*}"
-                  dynamic=true
-                  kcpmsg "substituting ${name} with ${target}"
-                fi
-              fi
+# TODO: could try to notice collisions, uniq ?
+          host_vector+=(${name})
+        else
+          kcpmsg "reserving static resource ${name}"
+          send_request   var-set  resources "${SUBARRAY}" string ":${name}:holder"
+          retrieve_reply var-set
+        fi
+      done
+    done
+
+    index=0
+
+    kcpmsg "need to map placeholders ${host_vector[*]} to actual resources"
+    actual=""
+
+    for key in "${!var_result[@]}" ; do
+      if [ "${index}" -lt "${#host_vector[@]}" ] ; then
+
+        name="${host_vector[${index}]}"
+        if [ -z "${actual}" ] ; then
+          for art in ${resource_types[*]} ; do
+            if [ "${name#${art^^}}" != "${name}" ] ; then
+              actual=${art}
             fi
           done
         fi
-      done
 
-      if [ -n "${var_result[resources:${target}:when]}" ] ; then
-        send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
-        retrieve_reply var-set
+        if [ -n "${actual}" ] ; then
+# TODO: solution pool will be a set, not single-valued once the heuristics are smarter
+          location="${solution_pool[${actual}:${engine}]}"
+# WARNING - will also have to check if any element on switch hasn't also been allocated elsewhere behind our back - might end up implying a global lock
 
-# TODO maybe refresh our var_result
-        if [ -n "${dynamic}" ] ; then
-          kcpmsg "resource ${target} from template ${name} assigned dynamically to ${engine} of ${instrument}"
-          export ${name}=${target}
+          if [ "${key##*:}" = "switch" ] ; then
+            if [ "${location}" = "${var_result[${key}]}" ] ; then
+              prefix="${key%:*}"
+              holder="${var_result[${prefix}:holder]}"
+              status="${var_result[${prefix}:status]}"
+
+              if [ "${status}" = up ] ; then
+                if [ -z "${holder}" ] ; then
+                  tmp="${key#resources:}"
+                  target="${tmp%%:*}"
+                  kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
+
+                  send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
+                  retrieve_reply var-set
+
+                  export ${name}=${target}
+                  index=$[index+1]
+                  actual=""
+                fi
+              else
+                kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
+              fi
+            fi
+          fi
         else
-          kcpmsg "resource ${name} appears to be assigned statically to ${engine} of ${instrument}"
+          kcpmsg "no way of establishing resource type of ${name}"
+          set_failure
+          index=$[index+1]
         fi
-      else
-        kcpmsg -l warn "have no record of resource ${target} in ${engine} of ${instrument} and will thus ignore it"
       fi
-
     done
   done
+
+  if [ "${index}" -lt "${#host_vector[@]}" ] ; then
+    kcpmsg "resource pool could not supply ${#host_vector[@]} dynamic resources"
+    set_failure
+  fi
+
 
   if ! pop_failure ; then
     kcpmsg -l error "unable to assign needed resources to instrument ${instrument}"
