@@ -208,7 +208,6 @@ function compute_resources()
 # TODO: could try to notice collisions, uniq ?
           host_vector+=(${name})
           match=${art}
-        else
         fi
       done
       if [ -z "${match}" ] ; then
