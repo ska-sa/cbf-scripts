@@ -45,7 +45,7 @@ function compute_resources()
   local -A solution_pool
   local -a host_vector
 
-  local prior key location instrument art engine failed best count take total word template target group holder prefix dynamic index actual status
+  local prior key location instrument art engine failed best count take total word template target group holder prefix index actual status match
 
   push_failure
 
@@ -202,16 +202,20 @@ function compute_resources()
     host_vector=()
 
     for name in ${group//,/ } ; do
+      match=""
       for art in ${resource_types[*]} ; do
         if [ "${name#${art^^}}" != "${name}" ] ; then
 # TODO: could try to notice collisions, uniq ?
           host_vector+=(${name})
+          match=${art}
         else
-          kcpmsg "reserving static resource ${name}"
-          send_request   var-set  resources "${SUBARRAY}" string ":${name}:holder"
-          retrieve_reply var-set
         fi
       done
+      if [ -z "${match}" ] ; then
+        kcpmsg "reserving static resource ${name}"
+        send_request   var-set  resources "${SUBARRAY}" string ":${name}:holder"
+        retrieve_reply var-set
+      fi
     done
 
     index=0
