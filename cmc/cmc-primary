@@ -35,7 +35,7 @@ declare -i template_dir_time=$(date +%s)
 
 function recheck_configs()
 {
-  local current_time update board key
+  local current_time update
 
   update=""
 
