@@ -97,9 +97,7 @@ function compute_multicast()
   fi
 
   while [ "${got}" -lt "${need}" ] ; do
-    if [ -n "${var_result[multicast#{index}]}" ] ; then
-      index=$[index+1]
-    else
+    if [ -z "${var_result[multicast#{index}]}" ] ; then
       push_failure
 
       send_request   var-set  multicast "${SUBARRAY}" string "#${index}"
@@ -111,10 +109,10 @@ function compute_multicast()
         kcpmsg "reserved range ${mutifix}${index}.0 for ${address_vector[index]}"
       else
         kcpmsg -l warn "unable to acquire range ${mutifix}${index}.0"
-        index=$[index+1]
       fi
-
     fi
+
+    index=$[index+1]
 
     if [ "${index}" -gt "${ceiling}" ] ; then
       if [ "${got}" -le 0 ] ; then
@@ -126,6 +124,8 @@ function compute_multicast()
       fi
     fi
   done
+
+  kcpmsg "successfully reserved ${got} multicast ranges"
 
   return 0
 }
