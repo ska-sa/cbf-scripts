@@ -65,9 +65,14 @@ function compute_multicast()
   address_vector=()
   for word in $(ike -o -k output_destinations_base ${template}) ; do
     if [ "${word#MULTICAST}" != "${word}" ] ; then
-      address_vector+=(${word})
+      address_vector+=(${word%:*})
     fi
   done
+
+  if [ -z "${address_vector[*]}" ] ; then
+    kcpmsg -l warn "found no MULTICAST fields thus not allocating addresses dynamically"
+    return 1
+  fi
 
   kcpmsg "need to find addresses for ${address_vector[*]}"
 
@@ -103,8 +108,9 @@ function compute_multicast()
       if pop_failure ; then
         export ${address_vector[index]}="${mutifix}${index}.0"
         got=$[got+1]
-        kcpmsg -l warn "unable to retrieve multicast tracking state"
+        kcpmsg "reserved range ${mutifix}${index}.0 for ${address_vector[index]}"
       else
+        kcpmsg -l warn "unable to acquire range ${mutifix}${index}.0"
         index=$[index+1]
       fi
 
