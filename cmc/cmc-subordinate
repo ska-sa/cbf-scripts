@@ -311,6 +311,7 @@ function instrument_activate()
   fi
 # NOW we should have INPUT? in environment
 
+# REQUIRES that SUBARRAY is set
   if ! compute_resources "${instrument}" ; then
     kcpmsg -l error "unable to allocate resources needed by ${instrument}"
     echo "!instrument-activate fail read-logs"
@@ -318,6 +319,14 @@ function instrument_activate()
     return 1
   fi
 # NOW we should have SKARAB? and ROACH? in environment
+
+  if ! compute_multicast "${instrument}" ; then
+    kcpmsg -l error "unable to allocate address ranges needed by ${instrument}"
+    echo "!instrument-activate fail read-logs"
+    adjust_sensors
+    return 1
+  fi
+# NOW we should have MULTICAST? in environment
 
   PORT=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
   export PORT

@@ -183,6 +183,9 @@ function group_destroyed()
   else
     kcpmsg -l info "released ${count} resources held by ${subarray}"
   fi
+
+# prints its own error messages
+  release_multicast subarray
 }
 
 ### api functions ### resources #########################
@@ -848,6 +851,7 @@ register_commands primary
 
 reload_resource_exclusions
 
+init_multicast
 init_resources
 
 reload_instruments

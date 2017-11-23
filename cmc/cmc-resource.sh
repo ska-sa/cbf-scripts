@@ -21,6 +21,153 @@ function reload_resource_exclusions()
   done
 }
 
+### support functions: multicast ########################
+
+function init_multicast()
+{
+  push_failure
+  send_request   var-declare  "multicast*" array,readonly
+  retrieve_reply var-declare
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to declare essential multicast tracking state"
+    return 1
+  fi
+
+  return 0
+}
+
+function compute_multicast()
+{
+  local template instrument word mutifix q
+  local -i ceiling index got need already
+  local -a address_vector
+
+  instrument="$1"
+
+  if [ -z "${instrument}" ] ; then
+    kcpmsg -l error "need an instrument to compute multicast addresses"
+    return 1
+  fi
+
+  template=${CORR_TEMPLATE}/${instrument}
+
+  if [ -z "${MULTICAST_PREFIX}" ] ; then
+    kcpmsg -l error "no multicast prefix defined"
+    return 1
+  fi
+
+  q=${MULTICAST_PREFIX#*.*.}
+  mutifix=${MULTICAST_PREFIX%$q}
+
+  kcpmsg "selecting multicast address ranges from ${mutifix}0.0/16"
+
+  address_vector=()
+  for word in $(ike -o -k output_destinations_base ${template}) ; do
+    if [ "${word#MULTICAST}" != "${word}" ] ; then
+      address_vector+=(${word})
+    fi
+  done
+
+  kcpmsg "need to find addresses for ${address_vector[*]}"
+
+  need="${#address_vector[@]}"
+
+  push_failure
+  fetch_var "multicast"
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to retrieve multicast tracking state"
+    return 1
+  fi
+
+  already="${#var_result[@]}"
+  got=0
+  index=0
+
+  ceiling=$[already+need+1]
+  if [ "${ceiling}" -gt 255 ] ; then
+    kcpmsg -l error "unwilling to allocate a further ${need} address ranges given that the pool has ${already} already in use"
+    return 1
+  fi
+
+  while [ "${got}" -lt "${need}" ] ; do
+    if [ -n "${var_result[multicast#{index}]}" ] ; then
+      index=$[index+1]
+    else
+      push_failure
+
+      send_request   var-set  multicast "${SUBARRAY}" string "#${index}"
+      retrieve_reply var-set
+
+      if pop_failure ; then
+        export ${address_vector[index]}="${mutifix}${index}.0"
+        got=$[got+1]
+        kcpmsg -l warn "unable to retrieve multicast tracking state"
+      else
+        index=$[index+1]
+      fi
+
+    fi
+
+    if [ "${index}" -gt "${ceiling}" ] ; then
+      if [ "${got}" -le 0 ] ; then
+        kcpmsg -l error "unable to reserve any address range despite having checked ${index}"
+        return 1
+      elif [ "${index}" -gt 255 ] ; then
+        kcpmsg -l error "only able to reserve ${got} of ${need} address ranges"
+        return 1
+      fi
+    fi
+  done
+
+  return 0
+}
+
+function release_multicast()
+{
+  local subarray key
+  local -i count
+
+  subarray="$1"
+
+  if [ -z "${subarray}" ] ; then
+    kcpmsg -l error "need a subarray in order to release multicast addresses"
+    return 1
+  fi
+
+  kcpmsg "releasing addresses held by subarray ${subarray}"
+
+  push_failure
+  fetch_var "multicast"
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to retrieve multicast tracking state"
+    return 1
+  fi
+
+  count=0
+  push_failure
+
+  for key in "${!var_result[@]}" ; do
+    if [ "${var_result[${key}]}" = "${subarray}" ] ; then
+      kcpmsg "releasing address range .${key#multicast#}.0"
+      send_request   var-delete  "${key}"
+      retrieve_reply var-delete
+      count=$[count+1]
+    fi
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to release all ${count} addresses held by subarray ${subarray}"
+    return 1
+  fi
+
+  kcpmsg "released ${count} address ranges held by subarray ${subarray}"
+
+  return 0
+}
+
 ### support functions ###################################
 
 function init_resources()
