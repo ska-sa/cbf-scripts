@@ -97,16 +97,16 @@ function compute_multicast()
   fi
 
   while [ "${got}" -lt "${need}" ] ; do
-    if [ -z "${var_result[multicast#{index}]}" ] ; then
+    if [ -z "${var_result[multicast#${index}]}" ] ; then
       push_failure
 
       send_request   var-set  multicast "${SUBARRAY}" string "#${index}"
       retrieve_reply var-set
 
       if pop_failure ; then
-        export ${address_vector[index]}="${mutifix}${index}.0"
+        export ${address_vector[${got}]}="${mutifix}${index}.0"
+        kcpmsg "reserved range ${mutifix}${index}.0 for ${address_vector[${got}]}"
         got=$[got+1]
-        kcpmsg "reserved range ${mutifix}${index}.0 for ${address_vector[index]}"
       else
         kcpmsg -l warn "unable to acquire range ${mutifix}${index}.0"
       fi

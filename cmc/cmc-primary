@@ -185,7 +185,7 @@ function group_destroyed()
   fi
 
 # prints its own error messages
-  release_multicast subarray
+  release_multicast ${subarray}
 }
 
 ### api functions ### resources #########################
