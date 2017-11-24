@@ -373,11 +373,12 @@ function compute_resources()
       fi
     done
 
-    index=0
 
     if [ -n "${host_vector[*]}" ]  ; then
       kcpmsg "need to map placeholders ${host_vector[*]} to actual resources"
       actual=""
+
+      index=0
 
       for key in "${!var_result[@]}" ; do
         if [ "${index}" -lt "${#host_vector[@]}" ] ; then
@@ -428,13 +429,15 @@ function compute_resources()
         fi
       done
 
+      if [ "${index}" -lt "${#host_vector[@]}" ] ; then
+        kcpmsg "resource pool could not supply ${#host_vector[@]} dynamic resources for ${engine}"
+        set_failure
+      fi
+
+    else
+      kcpmsg "nothing dynamic to assign for ${engine}"
     fi
   done
-
-  if [ "${index}" -lt "${#host_vector[@]}" ] ; then
-    kcpmsg "resource pool could not supply ${#host_vector[@]} dynamic resources"
-    set_failure
-  fi
 
 
   if ! pop_failure ; then
