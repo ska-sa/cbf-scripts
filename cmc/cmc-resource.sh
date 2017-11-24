@@ -60,8 +60,6 @@ function compute_multicast()
   q=${MULTICAST_PREFIX#*.*.}
   mutifix=${MULTICAST_PREFIX%$q}
 
-  kcpmsg "selecting multicast address ranges from ${mutifix}0.0/16"
-
   address_vector=()
   for word in $(ike -o -k output_destinations_base ${template}) ; do
     if [ "${word#MULTICAST}" != "${word}" ] ; then
@@ -71,8 +69,10 @@ function compute_multicast()
 
   if [ -z "${address_vector[*]}" ] ; then
     kcpmsg -l warn "found no MULTICAST fields thus not allocating addresses dynamically"
-    return 1
+    return 0
   fi
+
+  kcpmsg "selecting multicast address ranges from ${mutifix}0.0/16"
 
   kcpmsg "need to find addresses for ${address_vector[*]}"
 
@@ -375,57 +375,60 @@ function compute_resources()
 
     index=0
 
-    kcpmsg "need to map placeholders ${host_vector[*]} to actual resources"
-    actual=""
+    if [ -n "${host_vector[*]}" ]  ; then
+      kcpmsg "need to map placeholders ${host_vector[*]} to actual resources"
+      actual=""
 
-    for key in "${!var_result[@]}" ; do
-      if [ "${index}" -lt "${#host_vector[@]}" ] ; then
+      for key in "${!var_result[@]}" ; do
+        if [ "${index}" -lt "${#host_vector[@]}" ] ; then
 
-        name="${host_vector[${index}]}"
-        if [ -z "${actual}" ] ; then
-          for art in ${resource_types[*]} ; do
-            if [ "${name#${art^^}}" != "${name}" ] ; then
-              actual=${art}
-            fi
-          done
-        fi
+          name="${host_vector[${index}]}"
+          if [ -z "${actual}" ] ; then
+            for art in ${resource_types[*]} ; do
+              if [ "${name#${art^^}}" != "${name}" ] ; then
+                actual=${art}
+              fi
+            done
+          fi
 
-        if [ -n "${actual}" ] ; then
+          if [ -n "${actual}" ] ; then
 # TODO: solution pool will be a set, not single-valued once the heuristics are smarter
-          location="${solution_pool[${actual}:${engine}]}"
+            location="${solution_pool[${actual}:${engine}]}"
 # WARNING - will also have to check if any element on switch hasn't also been allocated elsewhere behind our back - might end up implying a global lock
 
-          if [ "${key##*:}" = "switch" ] ; then
-            if [ "${location}" = "${var_result[${key}]}" ] ; then
-              prefix="${key%:*}"
-              holder="${var_result[${prefix}:holder]}"
-              status="${var_result[${prefix}:status]}"
+            if [ "${key##*:}" = "switch" ] ; then
+              if [ "${location}" = "${var_result[${key}]}" ] ; then
+                prefix="${key%:*}"
+                holder="${var_result[${prefix}:holder]}"
+                status="${var_result[${prefix}:status]}"
 
-              if [ "${status}" = up ] ; then
-                if [ -z "${holder}" ] ; then
-                  tmp="${key#resources:}"
-                  target="${tmp%%:*}"
-                  kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
+                if [ "${status}" = up ] ; then
+                  if [ -z "${holder}" ] ; then
+                    tmp="${key#resources:}"
+                    target="${tmp%%:*}"
+                    kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
 
-                  send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
-                  retrieve_reply var-set
+                    send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
+                    retrieve_reply var-set
 
-                  export ${name}=${target}
-                  index=$[index+1]
-                  actual=""
+                    export ${name}=${target}
+                    index=$[index+1]
+                    actual=""
+                  fi
+                else
+                  kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
                 fi
-              else
-                kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
               fi
             fi
+          else
+            kcpmsg "no way of establishing resource type of ${name}"
+            set_failure
+            index=$[index+1]
           fi
-        else
-          kcpmsg "no way of establishing resource type of ${name}"
-          set_failure
-          index=$[index+1]
         fi
-      fi
-    done
+      done
+
+    fi
   done
 
   if [ "${index}" -lt "${#host_vector[@]}" ] ; then
