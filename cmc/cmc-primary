@@ -78,8 +78,8 @@ function recheck_configs()
 
 function group_destroyed()
 {
-  local subarray resource board prefix now count list
-  local -a roaches skarabs
+  local subarray resource board prefix now count list name
+  local -a roaches skarabs vector
 
   shift
 
@@ -122,7 +122,14 @@ function group_destroyed()
     kcppar -q -i -n -s "${list// /,}" -x progdev
   fi
 
-# TODO: could we have a bulk skarab deprogram option ?
+# bulk skarab deprogram - the only deprogam since individual is way too slow
+  if [ -n "${skarabs}" ] ; then
+    for board in ${skarabs} ; do
+      vector+=("kcprun -q -t 2500 -j reboot_skarab.py ${board} 10")
+    done
+    kcpmsg "attempting to reboot ${#skarabs[*]} skarabs"
+    kcpcon "${vector[@]}"
+  fi
 
   count=0
 
@@ -146,7 +153,7 @@ function group_destroyed()
         elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
           board=${prefix#resources:}
 # WARNING: reboot of skarab takes too long, clear timeout so that the next resource check sees if given skarab is reachable
-          kcprun -q -t 350 -j reboot_skarab.py ${board} 10
+#         kcprun -q -t 350 -j reboot_skarab.py ${board} 10
         fi
 
         send_request   var-delete  "${prefix}:when"
