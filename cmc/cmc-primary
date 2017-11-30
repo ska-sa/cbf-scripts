@@ -124,7 +124,7 @@ function group_destroyed()
 
 # bulk skarab deprogram - the only deprogam since individual is way too slow
   if [ -n "${skarabs}" ] ; then
-    for board in ${skarabs} ; do
+    for board in ${skarabs[*]} ; do
       vector+=("kcprun -q -t 2500 -j reboot_skarab.py ${board} 10")
     done
     kcpmsg "attempting to reboot ${#skarabs[*]} skarabs"
