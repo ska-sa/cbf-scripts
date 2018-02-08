@@ -8,7 +8,7 @@ if [ "$#" -lt 1 ] ; then
   exit 0
 fi
 
-case "$1" in  
+case "$1" in
   (add|old)
     if [ "${4:0:5}" = "roach" ] ; then
       if ! ps ax | grep -iq "[kK]cplog.*${4}" ; then
@@ -18,7 +18,7 @@ case "$1" in
   ;;
   (*)
     logger "unsupported request $*"
-  ;; 
+  ;;
 esac
 
 exit 0

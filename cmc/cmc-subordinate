@@ -399,7 +399,7 @@ function instrument_activate()
     epoch="${var_result[synchronisation-epoch:value]}"
 
     if [ "${epoch%%.*}" -gt 0 ] ; then
-# TODO: will this command get re-named too ? 
+# TODO: will this command get re-named too ?
       if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then
         kcpmsg "preliminary sync epoch set to ${epoch}"
       else

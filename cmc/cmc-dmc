@@ -130,7 +130,7 @@ while true ; do
       state="to-cmc"
       ;;
     (to-cmc)
-      reply_transition switch tell-cmc ask-sampling 
+      reply_transition switch tell-cmc ask-sampling
       ;;
     (tell-cmc)
       kcpmsg "attempting to set sync epoch to ${value}"

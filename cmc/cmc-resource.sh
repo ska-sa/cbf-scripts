@@ -452,7 +452,7 @@ function check_resources()
 {
   local -l board
   local -i budget limit grace
-  local now mode art status when fresh key tmp board holder network
+  local now mode art status when fresh key tmp board holder network earlier
 
   for art in ${resource_types[*]} ; do
     resource_free[${art}]=0
@@ -483,7 +483,7 @@ function check_resources()
 
   push_failure
 
-  for art in roach skarab ; do
+  for art in ${resource_types[*]} ; do
 
     for board in $(grep ${art} ${leases} | cut -f4 -d ' ' ) ; do
 
@@ -532,8 +532,7 @@ function check_resources()
     fi
   fi
 
-# WARNING: do we still use this global variable ?
-  for art in roach skarab ; do
+  for art in ${resource_types[*]} ; do
     resource_free[${art}]=0
   done
 
@@ -547,7 +546,7 @@ function check_resources()
         board="${tmp%%:*}"
 
         art="${var_result[resources:${board}:type]}"
-#        status="${var_result[resources:${board}:status]}"
+        earlier="${var_result[resources:${board}:status]}"
         mode="${var_result[resources:${board}:mode]}"
         holder="${var_result[resources:${board}:holder]}"
 
@@ -575,14 +574,18 @@ function check_resources()
               fi
             elif [ "${art}" = "skarab" ] ; then
 
-              if ping -c 1 -w ${grace} "${board}" >& /dev/null ; then
-                if [ -z "${holder}" ] ; then
-                  resource_free[${art}]=${resource_free[${art}]+1}
-                fi
-                status=up
+              if [ -n "${holder}" ] ;  then
+                status="${earlier}"
               else
-                kcpmsg -l warn "ping failed on ${board} after timeout ${grace}"
-                status=standby
+                if kcprun -x -q -t 1000 -j ${skarab_status:-reboot_skarab.py} "${board}" ; then
+                  if [ -z "${holder}" ] ; then
+                    resource_free[${art}]=${resource_free[${art}]+1}
+                  fi
+                  status=up
+                else
+                  kcpmsg -l warn "ping failed on ${board} after timeout ${grace}"
+                  status=standby
+                fi
               fi
             else
               status=standby
