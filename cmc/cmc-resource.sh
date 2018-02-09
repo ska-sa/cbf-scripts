@@ -561,6 +561,7 @@ function check_resources()
           fi
 
           if [ -n "${resources_excluded[${board}]}" ] ; then
+            kcpmsg "not testing ${board} as it is part of the exclusion list}"
             status=standby
           else
             if [ "${art}" = "roach" ] ; then
@@ -575,12 +576,14 @@ function check_resources()
             elif [ "${art}" = "skarab" ] ; then
 
               if [ -n "${holder}" ] ;  then
+                kcpmsg "not testing ${board} as it is held by ${holder}"
                 status="${earlier}"
               else
                 if kcprun -x -q -t 1000 -j "${skarab_status}" "${board}" ; then
                   if [ -z "${holder}" ] ; then
                     resource_free[${art}]=${resource_free[${art}]+1}
                   fi
+                  kcpmsg "skarab ${board} appears up"
                   status=up
                 else
                   kcpmsg "${skarab_status} failed on ${board} after timeout ${grace} so keeping it in standby"
@@ -588,6 +591,7 @@ function check_resources()
                 fi
               fi
             else
+              kcpmsg -l warn "board ${board} of unknown type ${art}"
               status=standby
             fi
           fi
