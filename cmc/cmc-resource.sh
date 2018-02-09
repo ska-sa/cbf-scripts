@@ -577,13 +577,13 @@ function check_resources()
               if [ -n "${holder}" ] ;  then
                 status="${earlier}"
               else
-                if kcprun -x -q -t 1000 -j ${skarab_status:-reboot_skarab.py} "${board}" ; then
+                if kcprun -x -q -t 1000 -j "${skarab_status}" "${board}" ; then
                   if [ -z "${holder}" ] ; then
                     resource_free[${art}]=${resource_free[${art}]+1}
                   fi
                   status=up
                 else
-                  kcpmsg -l warn "ping failed on ${board} after timeout ${grace}"
+                  kcpmsg "${skarab_status} failed on ${board} after timeout ${grace} so keeping it in standby"
                   status=standby
                 fi
               fi
