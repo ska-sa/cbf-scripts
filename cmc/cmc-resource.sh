@@ -561,7 +561,7 @@ function check_resources()
           fi
 
           if [ -n "${resources_excluded[${board}]}" ] ; then
-            kcpmsg "not testing ${board} as it is part of the exclusion list"
+            kcpmsg "not testing ${board} as it is on the exclusion list"
             status=standby
           else
             if [ "${art}" = "roach" ] ; then
@@ -612,6 +612,8 @@ function check_resources()
 
           send_request   var-set     "resources" ${now} string ":${board}:when"
           retrieve_reply var-set
+        else
+          kcpmsg "not checking ${board} as it is managed manually"
         fi
       fi
     fi
