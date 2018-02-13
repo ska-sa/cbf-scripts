@@ -453,7 +453,7 @@ function check_resources()
   local -l board
   local -i budget limit grace
   local now mode art status when fresh key tmp board holder network earlier
-  local -a board_vector
+  local -A board_vector
 
   for art in ${resource_types[*]} ; do
     resource_free[${art}]=0
@@ -583,7 +583,7 @@ function check_resources()
                 kcpmsg "not testing ${board} as it is held by ${holder}"
               else
                 kcpmsg "adding ${board} to set to be checked"
-                board_vector+=(${board})
+                board_vector[${board}]="${earlier}"
               fi
             else
               kcpmsg -l warn "board ${board} of unknown type ${art}"
@@ -622,8 +622,12 @@ function check_resources()
 
   if [ "${#board_vector[@]}" -gt 0 ] ; then
     status=up
-    for board in $(${skarab_check} ${board_vector[@]}) ; do
+    for board in $(${skarab_check} ${!board_vector[@]}) ; do
+      board_vector[${board}]=up
+    done
+    for board in ${!board_vector[@]} ; do
       if [ -n "${var_result[resources:${board}:status]}" ] ; then
+        status="${board_vector[${board}]}"
         if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
           send_request   var-delete  "resources:${board}:status"
           retrieve_reply var-delete

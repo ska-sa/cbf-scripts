@@ -148,8 +148,7 @@ function group_destroyed()
 
         elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
           board=${prefix#resources:}
-# WARNING: reboot of skarab takes too long, clear timeout so that the next resource check sees if given skarab is reachable
-#         kcprun -q -t 350 -j reboot_skarab.py ${board} 10
+# WARNING: reboot of skarab takes too long, so just clear timeout so that the next resource check sees if given skarab is reachable
         fi
 
         send_request   var-delete  "${prefix}:when"
