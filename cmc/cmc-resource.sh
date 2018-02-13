@@ -451,7 +451,7 @@ function compute_resources()
 function check_resources()
 {
   local -l board
-  local -i budget limit grace
+  local -i budget limit grace delta
   local now mode art status when fresh key tmp board holder network earlier
   local -A skarabs
 
@@ -467,7 +467,7 @@ function check_resources()
 
   fresh=0
 
-  kcpmsg "checking set of available resources"
+#  kcpmsg "checking set of available resources"
 
 # Fetch our existing set
 
@@ -537,9 +537,11 @@ function check_resources()
     resource_free[${art}]=0
   done
 
-  push_failure
+  delta=0
 
   skarabs=()
+
+  push_failure
 
   for key in "${!var_result[@]}" ; do
     if [ "${key##*:}" = "when" ] ; then
@@ -599,6 +601,7 @@ function check_resources()
               retrieve_reply var-set
 
 #              kcpmsg "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
+              delta=$[delta+1]
             fi
 
             send_request   var-delete  "resources:${board}:when"
@@ -642,6 +645,8 @@ function check_resources()
           send_request   var-set      resources "${now}"    string ":${board}:when"
           retrieve_reply var-set
 
+          delta=$[delta+1]
+
 #          kcpmsg "changed skarab ${board} from ${var_result[resources:${board}:status]} to ${status}"
 #        else
 #          kcpmsg "status skarab ${board} unchanged in ${status}"
@@ -657,6 +662,7 @@ function check_resources()
     return 1
   fi
 
-  kcpmsg "completed checking resources"
+  kcpmsg "${delta} resource marking changes"
+
   return 0
 }
