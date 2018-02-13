@@ -79,7 +79,7 @@ function recheck_configs()
 function group_destroyed()
 {
   local subarray resource board prefix now count list name
-  local -a roaches skarabs vector
+  local -a roaches skarabs
 
   shift
 
@@ -124,11 +124,7 @@ function group_destroyed()
 
 # bulk skarab deprogram - the only deprogam since individual is way too slow
   if [ -n "${skarabs}" ] ; then
-    for board in ${skarabs[*]} ; do
-      vector+=("kcprun -q -t 2500 -j ${skarab_check:-reboot_skarab.py} ${board}")
-    done
-    kcpmsg "attempting to reboot ${#skarabs[*]} skarabs"
-    kcpcon "${vector[@]}"
+    kcprun -o debug -q -t 2500 -j ${skarab_check} "${skarabs[@]}"
   fi
 
   count=0
