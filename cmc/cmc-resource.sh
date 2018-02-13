@@ -564,7 +564,7 @@ function check_resources()
           fi
 
           if [ -n "${resources_excluded[${board}]}" ] ; then
-            kcpmsg "not testing ${board} as it is on the exclusion list"
+#            kcpmsg "not testing ${board} as it is on the exclusion list"
             status=standby
           else
             if [ "${art}" = "roach" ] ; then
@@ -580,7 +580,7 @@ function check_resources()
               if [ -n "${holder}" ] ;  then
                 kcpmsg "not testing ${board} as it is held by ${holder}"
               else
-                kcpmsg "adding ${board} to set to be checked"
+#                kcpmsg "adding ${board} to set to be checked"
                 skarabs[${board}]=standby
               fi
               status=""
@@ -598,7 +598,7 @@ function check_resources()
               send_request   var-set      resources "${status}" string ":${board}:status"
               retrieve_reply var-set
 
-              kcpmsg "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
+#              kcpmsg "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
             fi
 
             send_request   var-delete  "resources:${board}:when"
@@ -642,9 +642,9 @@ function check_resources()
           send_request   var-set      resources "${now}"    string ":${board}:when"
           retrieve_reply var-set
 
-          kcpmsg "changed skarab ${board} from ${var_result[resources:${board}:status]} to ${status}"
-        else
-          kcpmsg "status skarab ${board} unchanged in ${status}"
+#          kcpmsg "changed skarab ${board} from ${var_result[resources:${board}:status]} to ${status}"
+#        else
+#          kcpmsg "status skarab ${board} unchanged in ${status}"
         fi
       else
         kcpmsg -l error "${skarab_check} provided flaky value ${board}"
