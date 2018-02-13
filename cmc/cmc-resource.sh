@@ -453,7 +453,7 @@ function check_resources()
   local -l board
   local -i budget limit grace
   local now mode art status when fresh key tmp board holder network earlier
-  local -A board_vector
+  local -A skarabs
 
   for art in ${resource_types[*]} ; do
     resource_free[${art}]=0
@@ -539,7 +539,7 @@ function check_resources()
 
   push_failure
 
-  board_vector=()
+  skarabs=()
 
   for key in "${!var_result[@]}" ; do
     if [ "${key##*:}" = "when" ] ; then
@@ -577,35 +577,36 @@ function check_resources()
                 status=standby
               fi
             elif [ "${art}" = "skarab" ] ; then
-              status="${earlier}"
-
               if [ -n "${holder}" ] ;  then
                 kcpmsg "not testing ${board} as it is held by ${holder}"
               else
                 kcpmsg "adding ${board} to set to be checked"
-                board_vector[${board}]="${earlier}"
+                skarabs[${board}]=standby
               fi
+              status=""
             else
               kcpmsg -l warn "board ${board} of unknown type ${art}"
               status=standby
             fi
           fi
 
-          if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
-            send_request   var-delete  "resources:${board}:status"
+          if [ -n "${status}" ] ; then
+            if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
+              send_request   var-delete  "resources:${board}:status"
+              retrieve_reply var-delete
+
+              send_request   var-set      resources "${status}" string ":${board}:status"
+              retrieve_reply var-set
+
+              kcpmsg "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
+            fi
+
+            send_request   var-delete  "resources:${board}:when"
             retrieve_reply var-delete
 
-            send_request   var-set      resources "${status}" string ":${board}:status"
+            send_request   var-set      resources "${now}" string ":${board}:when"
             retrieve_reply var-set
-
-            kcpmsg "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
           fi
-
-          send_request   var-delete  "resources:${board}:when"
-          retrieve_reply var-delete
-
-          send_request   var-set      resources "${now}" string ":${board}:when"
-          retrieve_reply var-set
         else
           kcpmsg "not checking ${board} as it is managed manually"
         fi
@@ -620,14 +621,14 @@ function check_resources()
 
   push_failure
 
-  if [ "${#board_vector[@]}" -gt 0 ] ; then
+  if [ "${#skarabs[@]}" -gt 0 ] ; then
     status=up
-    for board in $(${skarab_check} ${!board_vector[@]}) ; do
-      board_vector[${board}]=up
+    for board in $(${skarab_check} ${!skarabs[@]}) ; do
+      skarabs[${board}]=up
     done
-    for board in ${!board_vector[@]} ; do
+    for board in ${!skarabs[@]} ; do
       if [ -n "${var_result[resources:${board}:status]}" ] ; then
-        status="${board_vector[${board}]}"
+        status="${skarabs[${board}]}"
         if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
           send_request   var-delete  "resources:${board}:status"
           retrieve_reply var-delete
