@@ -632,6 +632,7 @@ function check_resources()
         if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
           send_request   var-delete  "resources:${board}:status"
           retrieve_reply var-delete
+
           send_request   var-set      resources "${status}" string ":${board}:status"
           retrieve_reply var-set
 
@@ -641,7 +642,9 @@ function check_resources()
           send_request   var-set      resources "${now}"    string ":${board}:when"
           retrieve_reply var-set
 
-          kcpmsg "updated status of ${board} from ${var_result[resources:${board}:status]} to ${status}"
+          kcpmsg "changed skarab ${board} from ${var_result[resources:${board}:status]} to ${status}"
+        else
+          kcpmsg "status skarab ${board} unchanged in ${status}"
         fi
       else
         kcpmsg -l error "${skarab_check} provided flaky value ${board}"
