@@ -198,8 +198,9 @@ function compute_resources()
   local -A location_pool
   local -A solution_pool
   local -a host_vector
+  local -l group
 
-  local prior key location instrument art engine failed best count take total word template target group holder prefix index actual status match
+  local prior key location instrument art engine failed best count take total word template target holder prefix index actual status match
 
   push_failure
 
