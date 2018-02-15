@@ -10,14 +10,15 @@ declare -A resources_excluded
 
 function reload_resource_exclusions()
 {
-  local key board
+  local key
+  local -l board
 
   for key in "${!resources_excluded[@]}" ; do
     unset resources_excluded[${key}]
   done
 
   for board in "${standby_resources[@]}" ; do
-    resources_excluded[${board,,}]="${board,,}"
+    resources_excluded[${board}]="${board}"
   done
 }
 
@@ -452,7 +453,7 @@ function check_resources()
 {
   local -l board
   local -i budget limit grace delta
-  local now mode art status when fresh key tmp board holder network earlier
+  local now mode art status when fresh key tmp holder network earlier
   local -A skarabs
 
   for art in ${resource_types[*]} ; do
