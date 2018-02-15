@@ -52,14 +52,6 @@ function compute_multicast()
 
   template=${CORR_TEMPLATE}/${instrument}
 
-  if [ -z "${MULTICAST_PREFIX}" ] ; then
-    kcpmsg -l error "no multicast prefix defined"
-    return 1
-  fi
-
-  q=${MULTICAST_PREFIX#*.*.}
-  mutifix=${MULTICAST_PREFIX%$q}
-
   address_vector=()
   for word in $(ike -o -k output_destinations_base ${template}) ; do
     if [ "${word#MULTICAST}" != "${word}" ] ; then
@@ -68,9 +60,17 @@ function compute_multicast()
   done
 
   if [ -z "${address_vector[*]}" ] ; then
-    kcpmsg -l warn "found no MULTICAST fields thus not allocating addresses dynamically"
+    kcpmsg "found no MULTICAST fields thus not allocating addresses dynamically"
     return 0
   fi
+
+  if [ -z "${MULTICAST_PREFIX}" ] ; then
+    kcpmsg -l error "no multicast prefix defined"
+    return 1
+  fi
+
+  q=${MULTICAST_PREFIX#*.*.}
+  mutifix=${MULTICAST_PREFIX%$q}
 
   kcpmsg "selecting multicast address ranges from ${mutifix}0.0/16"
 

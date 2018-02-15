@@ -149,7 +149,11 @@ function group_destroyed()
         elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
           board=${prefix#resources:}
 # WARNING: reboot of skarab takes too long, so just clear timeout so that the next resource check sees if given skarab is reachable
+        else
+          kcpmsg -l error "unexpected held board type ${var_result[${prefix}:type]} at ${prefix:type}"
         fi
+
+        kcpmsg "about to release ${prefix}"
 
         send_request   var-delete  "${prefix}:when"
         retrieve_reply var-delete
