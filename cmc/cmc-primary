@@ -623,6 +623,10 @@ function subordinate_create()
   send_request   listener-create "${key}" "${port}" "0.0.0.0" "${group}"
   retrieve_reply listener-create
 
+# inhibit nagle, otherwise sensor updates take longer
+  send_request   listener-config "${key}" fast
+  retrieve_reply listener-config
+
   if [ "${port}" -le "0" ] ; then
     send_request listener-list "${key}"
     retrieve_inform listener-list "${key}"
