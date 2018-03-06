@@ -348,7 +348,7 @@ function compute_resources()
   fetch_var "resources"
 
   if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve resource variables for a second time"
+    kcpmsg -l warn "unable to refresh resource variables"
     return 1
   fi
 
