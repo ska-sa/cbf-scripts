@@ -198,7 +198,7 @@ function compute_resources()
   local -A location_pool
   local -A solution_pool
   local -a host_vector
-  local -l group
+  local group
 
   local prior key location instrument art engine failed best count take total word template target holder prefix index actual status match
 
@@ -370,7 +370,7 @@ function compute_resources()
       done
       if [ -z "${match}" ] ; then
         kcpmsg "reserving static resource ${name}"
-        send_request   var-set  resources "${SUBARRAY}" string ":${name}:holder"
+        send_request   var-set  resources "${SUBARRAY}" string ":${name,,}:holder"
         retrieve_reply var-set
       fi
     done
