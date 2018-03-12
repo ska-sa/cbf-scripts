@@ -472,13 +472,13 @@ function subordinate_list()
 
         kcpmsg -l debug "considering ${group} with listener ${host}:${port}"
 
-
         if [ "${host}" = "0.0.0.0" ] ; then
           unset host
         fi
 
         fetch_var "${group}*inputs*"
         i=0
+        inputs=""
         while [ "$i" -lt "${#var_result[*]}" ] ; do
           inputs="${inputs} ${var_result[${group}*inputs*#${i}]}"
           i=$[i+1]
