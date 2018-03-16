@@ -280,7 +280,7 @@ function instrument_activate()
 {
   local instrument art resource t n nextport label status
   local -A wants
-  local epoch extras
+  local epoch extras legit i
 
   shift
 
@@ -296,6 +296,20 @@ function instrument_activate()
   if [ -n "${INSTRUMENT}" ] ; then
     kcpmsg -l error "unable to launch another instrument ${instrument} as only one instrument per subordinate is supported"
     echo "!instrument-activate fail already-exists"
+    adjust_sensors
+    return 1
+  fi
+
+  legit=""
+  for i in ${instruments_deployed[@]} ; do
+    if [ "${i}" = "${instrument}" ] ; then
+      legit="${i}"
+    fi
+  done
+
+  if [ -z "${legit}" ] ; then
+    kcpmsg -l error "instrument ${instrument} is not currently deployed"
+    echo "!instrument-activate fail read-logs"
     adjust_sensors
     return 1
   fi
