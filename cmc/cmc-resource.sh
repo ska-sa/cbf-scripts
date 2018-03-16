@@ -371,7 +371,9 @@ function compute_resources()
       if [ -z "${match}" ] ; then
         kcpmsg "reserving static resource ${name}"
         send_request   var-set  resources "${SUBARRAY}" string ":${name,,}:holder"
-        retrieve_reply var-set
+        if ! retrieve_reply var-set ; then
+          kcpmsg -l error "unable to reserve static resource ${name}"
+        fi
       fi
     done
 
