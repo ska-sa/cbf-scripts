@@ -78,19 +78,35 @@ function recheck_configs()
 
 function group_destroyed()
 {
-  local subarray resource board prefix now count list name
+  local subarray resource board prefix now count list name group
   local -a roaches skarabs
 
   shift
 
-  subarray="$1"
+  group="${1}"
 
-  if [ -z "${subarray}" ] ; then
+  if [ -z "${group}" ] ; then
     kcpmsg -l warn "unable to identify subarray to be released"
     return 1
   fi
 
+  subarray="${group%%.control}"
+
+  if [ "${subarray}" = "${group}" ] ; then
+    kcpmsg "no action for release of ${group} needed"
+    return 0
+  fi
+
   kcpmsg "invoking group destruction callback for ${subarray}"
+
+  push_failure
+
+  send_request   group-halt "${subarray}.monitor"
+  retrieve_reply group-halt
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to destroy monitor group for subarray ${subarray}"
+  fi
 
   push_failure
 
@@ -415,16 +431,16 @@ function resource_mark()
 
 function subordinate_list()
 {
-  local -A ports hosts groups
-  local -a v
-  local group port host key
-  local count t i inputs
+  local -A ports hosts
+  local -a control monitor
+  local group port host subarray listener
+  local count t i inputs match show
 
   shift
 
   push_failure
 
-  send_request    listener-list "$*"
+  send_request    listener-list
   retrieve_inform listener-list
 
   if ! pop_failure ; then
@@ -432,72 +448,84 @@ function subordinate_list()
     return 1
   fi
 
-# WARNING: we assume one listener per group here
+# WARNING: multiple listeners may be problematic
 
-  kcpmsg -l debug "my keys are ${!inform_result[@]}"
-  for key in "${!inform_result[@]}" ; do
-    v=(${inform_result[${key}]})
-    if [ -z "${v[2]}" ] ; then
-      group="${key}"
-    else
-      group=${v[2]}
+  kcpmsg -l debug "my listeners are ${!inform_result[@]}"
+  for listener in "${!inform_result[@]}" ; do
+
+    subarray="${listener%%.control}"
+    show=""
+
+    if [ "${subarray}" != "${listener}" ]  ; then
+      if [ -z "$*" ] ; then
+        show=yes
+      else
+        for match in "$@" ; do
+          if [ "${match}" = "${subarray}" ] ; then
+            show=yes
+          fi
+        done
+      fi
     fi
 
-    ports[${key}]=${v[0]}
-    hosts[${key}]=${v[1]}
-    groups[${key}]=${group}
+    if [ -n "${show}" ] ; then
+
+      control=(${inform_result[${subarray}.control]})
+      monitor=(${inform_result[${subarray}.monitor]})
+
+      if [ -n "${control[2]}" ] ; then
+        kcpmsg -l warn "nonstandard listener ${listener} on group ${control[2]}"
+      fi
+
+      if [ "${control[0]}" -le 0 -o  "${monitor[0]}" -le 0 ] ; then
+        kcpmsg -l warn "malformed ports for control and monitor interfaces of ${control[0]} and ${monitor[0]} respectively"
+      fi
+
+      if [ "${control[1]}" != "${monitor[1]}" ] ; then
+        kcpmsg -l warn "conflicting addresses for control and monitor interfaces at ${control[1]} and ${monitor[1]} respectively"
+      fi
+
+      ports[${subarray}]="${control[0]},${monitor[0]}"
+      hosts[${subarray}]="${control[1]}"
+    fi
+
   done
 
   push_failure
 
   count=0
-  for key in "${!groups[@]}" ; do
+  for subarray in "${!ports[@]}" ; do
 
-    group="${groups[${key}]}"
+    group="${subarray}.control"
 
-    fetch_var  "${group}*subordinate*"
+    port=${ports[${subarray}]}
+    host=${hosts[${subarray}]}
+
+    kcpmsg -l debug "considering ${subarray} with listener ${host}:${port}"
+
+    if [ "${host}" = "0.0.0.0" ] ; then
+      unset host
+    fi
+
+    fetch_var "${group}*inputs*"
+    i=0
+    inputs=""
+    while [ "$i" -lt "${#var_result[*]}" ] ; do
+      inputs="${inputs} ${var_result[${group}*inputs*#${i}]}"
+      i=$[i+1]
+    done
 
     if clear_failure ; then
-
-      subarray="${var_result[${group}*subordinate*]}"
-
-      if [ -n "${subarray}" ] ; then
-
-        if [ "${key}" != "${subarray}" ] ; then
-          kcpmsg -l warn "possible consistency issue where listener label ${key} does not match subarray name ${subarray}"
-        fi
-
-        port=${ports[${group}]}
-        host=${hosts[${group}]}
-
-        kcpmsg -l debug "considering ${group} with listener ${host}:${port}"
-
-        if [ "${host}" = "0.0.0.0" ] ; then
-          unset host
-        fi
-
-        fetch_var "${group}*inputs*"
-        i=0
-        inputs=""
-        while [ "$i" -lt "${#var_result[*]}" ] ; do
-          inputs="${inputs} ${var_result[${group}*inputs*#${i}]}"
-          i=$[i+1]
-        done
-
-        if clear_failure ; then
-          echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${inputs}"
-          count=$[count+1]
-        fi
-
-      fi
-
+      echo "#subordinate-list "${subarray}" ${host}${host:+:}${port} ${inputs}"
+      count=$[count+1]
     fi
+
   done
 
   pop_failure
 
   if [ "${count}" -lt "$#"  ] ; then
-    kcpmsg -l debug "was given $# parameters, could only list ${count} subarrays"
+    kcpmsg "was given $# parameters, could only list ${count} subarrays"
     echo "!subordinate-list fail unknown-array"
     return 1
   fi
@@ -508,39 +536,41 @@ function subordinate_list()
 
 function subordinate_create()
 {
-  local port key prefix group file
+  local control_port monitor_port prefix group file subarray
   local i t
 
   shift
 
 # at the moment there is only one instrument per group
-  key=$1
-  group=${key}
+  subarray=${1}
 
   if ! recheck_configs ; then
     echo "!subordinate-create fail read-logs"
     return 1
   fi
 
-  if [ "${group}" = primary ] ; then
-    kcpmsg -l warn "name ${group} reserved for internal use"
+  if [ "${subarray}" = primary ] ; then
+    kcpmsg -l warn "name ${subarray} reserved for internal use"
     echo "!subordinate-create fail already-exists"
     return 1
   fi
 
   push_failure
 
-  send_request   group-list "${group}"
+  send_request   group-list "${subarray}.control"
+  retrieve_reply group-list
+
+  send_request   group-list "${subarray}.monitor"
   retrieve_reply group-list
 
   if pop_failure ; then
-    kcpmsg -l warn "array ${group} already in use"
+    kcpmsg -l warn "array ${subarray} already in use"
     echo "!subordinate-create fail already-exists"
     return 1
   fi
 
   if [ -n "${CORR_DIR}" ] ; then
-    for file in ${CORR_DIR}/${key}-* ; do
+    for file in ${CORR_DIR}/${subarray}-* ; do
       if [ -f ${file} ] ; then
         if rm ${file} ; then
           kcpmsg -l debug "removing old config ${file}"
@@ -555,32 +585,28 @@ function subordinate_create()
 
   push_failure
 
-  send_request   group-create "${group}"
+  send_request   group-create "${subarray}.control"
+  retrieve_reply group-create
+
+  send_request   group-create "${subarray}.monitor"
   retrieve_reply group-create
 
   if ! pop_failure ; then
-    kcpmsg -l warn "unable to create group ${group} for array"
+    kcpmsg -l warn "unable to create groups for array ${subarray}"
     echo "!subordinate-create fail read-logs"
     return 1
   fi
 
   push_failure
 
-# used to label a subarray group, so that halt can't be used to kill primary
-  send_request   var-declare "${group}*subordinate*" string
-  retrieve_reply var-declare
-
-  send_request   var-set "${group}*subordinate*" "$key" string
-  retrieve_reply var-set
-
-  send_request   var-declare "${group}*inputs*" array
+  send_request   var-declare "${subarray}.control*inputs*" array
   retrieve_reply var-declare
 
   shift
   i=0
 
   while [ "$#" -ge 1 ] ; do
-    send_request   var-set "${group}*inputs*" "$1" string "#$i"
+    send_request   var-set "${subarray}.control*inputs*" "$1" string "#$i"
     retrieve_reply var-set
 
     shift
@@ -589,112 +615,143 @@ function subordinate_create()
 
   if ! clear_failure ; then
 
-    send_request   group-halt "${group}"
+    send_request   group-halt "${subarray}.control"
     retrieve_reply group-halt
+
+# will be done in callback - rather use a single path than two
+#    send_request   group-halt "${group}.monitor"
+#    retrieve_reply group-halt
 
     pop_failure
 
-    kcpmsg -l warn "unable to record inputs for group ${group}"
+    kcpmsg -l warn "unable to record inputs for group ${subarray}"
     echo "!subordinate-create fail read-logs"
     return 1
   fi
 
-  if [ "${key}" = "rts" ] ; then
-    port=${rts_port:-7404}
-    kcpmsg "using hardcoded port ${port} for rts array"
+  if [ "${subarray}" = "rts" ] ; then
+# WARNING: this code is probably too recent for rts, unclear if it has a concept of a monitor port
+    control_port=${rts_port:-7403}
+    monitor_port=0
+    kcpmsg "using hardcoded port ${contol_port} for rts array"
   else
-    t="${key//[^0-9]/}"
+    t="${subarray//[^0-9]/}"
     if [ "$t" -gt 0 ] ; then
-      port=$[base_port+t]
-      if [ "$port" -gt "${base_port}" ] ; then
-        kcpmsg "selecting name derived port ${port}"
+      control_port=$[base_port+t]
+
+      if [ -z "${more_port}" ] ; then
+        monitor_port=0
       else
-        kcpmsg -l warn "malformed port ${port} thus falling back to automatic selection"
-        port=0
+        monitor_port=$[more_port+t]
+      fi
+
+      if [ "${control_port}" -gt "${base_port}" ] ; then
+        kcpmsg "selecting name derived port ${control_port}"
+      else
+        kcpmsg -l warn "malformed port ${control_port} thus falling back to automatic selection"
+        control_port=0
       fi
     else
       kcpmsg "will select a free port for array other than rts"
-      port=0
+      control_port=0
     fi
   fi
 
   push_failure
 
-  send_request   listener-create "${key}" "${port}" "0.0.0.0" "${group}"
+  send_request   listener-create "${subarray}.control" "${control_port}" "0.0.0.0" "${subarray}.control"
   retrieve_reply listener-create
 
 # inhibit nagle, otherwise sensor updates take longer
-  send_request   listener-config "${key}" fast
+  send_request   listener-config "${subarray}.control" fast
   retrieve_reply listener-config
 
-  if [ "${port}" -le "0" ] ; then
-    send_request listener-list "${key}"
-    retrieve_inform listener-list "${key}"
-    port=${inform_result[${key}]%% *}
-    if [ "${port}" -le "0" ] ; then
-      kcpmsg -l error "unable to determine port for ${key} - got ${result}"
+  send_request   listener-create "${subarray}.monitor" "${monitor_port}" "0.0.0.0" "${subarray}.monitor"
+  retrieve_reply listener-create
+
+  send_request   listener-config "${subarray}.monitor" fast
+  retrieve_reply listener-config
+
+  if [ "${control_port}" -le 0 -o "${monitor_port}" -le 0 ] ; then
+    send_request listener-list
+    retrieve_inform listener-list
+
+    control_port=${inform_result[${subarray}.control]%% *}
+    if [ "${control_port}" -le "0" ] ; then
+      kcpmsg -l error "unable to determine port for ${subarray}.control - got ${control_port}"
       set_failure
     fi
+
+    monitor_port=${inform_result[${subarray}.monitor]%% *}
+    if [ "${monitor_port}" -le "0" ] ; then
+      kcpmsg -l error "unable to determine port for ${subarray}.monitor - got ${monitor_port}"
+      set_failure
+    fi
+
   fi
 
-  if ! clear_failure ; then
-    send_request   group-halt "${key}"
+  if ! pop_failure ; then
+    send_request   group-halt "${subarray}.control"
     retrieve_reply group-halt
 
-    pop_failure
+# will be done in callback - rather use a single path than two
+#    send_request   group-halt "${group}.monitor"
+#    retrieve_reply group-halt
 
-    kcpmsg -l warn "unable to start listener for group ${group}"
+    kcpmsg -l warn "unable to start listeners for array ${subarray}"
     echo "!subordinate-create fail network"
     return 1
   fi
 
-  send_request   client-exec subordinate ${key} cmc-subordinate ${key}
+  push_failure
+
+  send_request   client-exec subordinate ${subarray}.control cmc-subordinate ${subarray}
   retrieve_reply client-exec
 
-  if ! clear_failure ; then
-    send_request   group-halt "${key}"
+  if ! pop_failure ; then
+    send_request   group-halt "${subarray}.control"
     retrieve_reply group-halt
 
-    pop_failure
+# will be done in callback - rather use a single path than two
+#    send_request   group-halt "${group}.monitor"
+#    retrieve_reply group-halt
 
-    kcpmsg -l warn "unable to start control task for group ${group}"
+    kcpmsg -l warn "unable to start control task for array ${subarray}"
     echo "!subordinate-create fail task-start"
     return 1
   fi
 
-  pop_failure
-
 # there is a chance this isn't needed with a proper mainloop
   sleep 0.1
 
-  echo "!subordinate-create ok ${port}"
+  echo "!subordinate-create ok ${control_port},${monitor_port}"
+
   return 0
 }
 
 function subordinate_halt()
 {
-  local group key
+  local group subarray
 
   shift
 
-  key="$1"
+  subarray="$1"
 
-  if [ -z "${key}" ] ; then
+  if [ -z "${subarray}" ] ; then
     kcpmsg -l error "need a subarray to destroy"
     echo "!subordinate-halt fail usage"
     return 1
   fi
 
-  group="${key}"
+  group="${subarray}.control"
 
   push_failure
 
-  fetch_var "${group}*subordinate*"
+  send_request    group-list "${group}"
+  retrieve_reply  group-list
 
   if ! pop_failure ; then
-    kcpmsg -l error "could not locate variable subordinate in group ${group}"
-
-    kcpmsg -l error "subarray ${key} not found and so not halted"
+    kcpmsg -l error "could not locate ${group} for ${subarray}"
 
     echo "!subordinate-halt fail unknown-item"
     return 1
@@ -702,8 +759,12 @@ function subordinate_halt()
 
   push_failure
 
-  send_request    group-halt "$key"
+  send_request    group-halt "${group}"
   retrieve_reply  group-halt
+
+# will be done in callback - rather use a single path than two
+#  send_request    group-halt "${group}.monitor"
+#  retrieve_reply  group-halt
 
   if ! pop_failure ; then
     echo "!subordinate-halt fail read-logs"

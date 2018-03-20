@@ -358,7 +358,7 @@ function instrument_activate()
 
   push_failure
 
-  send_request   client-exec ${SUBARRAY}-${INSTRUMENT} ${SUBARRAY} kcprun -s ${SUBARRAY} -o auto corr2_servlet.py -p ${PORT}
+  send_request   client-exec "${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}.control" kcprun -s ${SUBARRAY} -o auto corr2_servlet.py -p ${PORT}
   retrieve_reply client-exec
 
   send_request   client-config client ${SUBARRAY}-${INSTRUMENT}
@@ -368,7 +368,7 @@ function instrument_activate()
 
   label=instrument
 
-  send_request   client-connect localhost:${PORT} "${SUBARRAY}" "${label}"
+  send_request   client-connect localhost:${PORT} "${SUBARRAY}.control" "${label}"
   retrieve_reply client-connect
 
   send_request   client-config client "${label}"
@@ -485,7 +485,7 @@ function instrument_activate()
 
     push_failure
 
-    send_request   client-exec "monitor-${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}" kcprun -s ${SUBARRAY} -e debug -o debug -n "CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}" corr2_sensor_servlet.py -p "${extraport}"
+    send_request   client-exec "monitor-${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}.monitor" kcprun -s ${SUBARRAY} -e debug -o debug -n "CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}" corr2_sensor_servlet.py -p "${extraport}"
     retrieve_reply client-exec
 
     send_request   client-config client "monitor-${SUBARRAY}-${INSTRUMENT}"
@@ -495,7 +495,7 @@ function instrument_activate()
 
     label=monitor
 
-    send_request   client-connect "localhost:${extraport}" "${SUBARRAY}" "${label}"
+    send_request   client-connect "localhost:${extraport}" "${SUBARRAY}.monitor" "${label}"
     retrieve_reply client-connect
 
     send_request   relay "${label}" relay "${label}" watchdog
