@@ -179,7 +179,7 @@ function launch_sensors()
   now=$(date +%s)
   timeout=$[now+5]
 
-  kcpmsg "checking until ${timeout} for monitor to be ready"
+  kcpmsg "checking until ${timeout} for sensor monitor of ${INSTRUMENT} to be ready"
   
   while ! kcpcmd -s localhost:${port} watchdog ; do
 
@@ -210,12 +210,12 @@ function launch_sensors()
   fi
 
   if ! activate_servlet_sensors monitor ; then
-    kcpmsg -l warn "unable to subscribe to sensors"
+    kcpmsg -l warn "unable to subscribe to sensors for instrument ${INSTRUMENT}"
     adjust_sensors
     return 1
   fi
 
-  kcpmsg "launched sensor support interface"
+  kcpmsg "launched sensor loop for instrument ${INSTRUMENT}"
 
   adjust_sensors nominal
 }
@@ -240,4 +240,3 @@ launch_sensors
 #################################################
 
 main_loop
-
