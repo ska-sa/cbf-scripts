@@ -177,7 +177,7 @@ function launch_sensors()
   retrieve_reply client-config
 
   now=$(date +%s)
-  timeout=$[now+20]
+  timeout=$[now+60]
 
   kcpmsg "checking until ${timeout} for sensor monitor of ${INSTRUMENT} to be ready"
   
@@ -186,7 +186,7 @@ function launch_sensors()
     now=$(date +%s)
 
     if [ "${now}" -ge "${timeout}" ] ; then
-      kcpmsg "sensor servlet not responsive so giving up"
+      kcpmsg -l warn  "sensor servlet not responsive so giving up"
       adjust_sensors
       return 1
     fi
