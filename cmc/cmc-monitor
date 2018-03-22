@@ -235,6 +235,7 @@ inhibit_logging
 register_commands support
 
 make_misc_sensors
+launch_sensors
 
 #################################################
 
