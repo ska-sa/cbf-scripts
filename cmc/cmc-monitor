@@ -177,7 +177,7 @@ function launch_sensors()
   retrieve_reply client-config
 
   now=$(date +%s)
-  timeout=$[now+5]
+  timeout=$[now+20]
 
   kcpmsg "checking until ${timeout} for sensor monitor of ${INSTRUMENT} to be ready"
   
