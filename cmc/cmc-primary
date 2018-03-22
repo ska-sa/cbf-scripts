@@ -725,7 +725,7 @@ function subordinate_create()
 # there is a chance this isn't needed with a proper mainloop
   sleep 0.1
 
-  kcpmsg "created subordinate interface for ${subarray} with control port ${control_port} and monitr port ${monitor_port}"
+  kcpmsg "created subordinate interface for ${subarray} with control port ${control_port} and monitor port ${monitor_port}"
 
   echo "!subordinate-create ok ${control_port},${monitor_port}"
 
