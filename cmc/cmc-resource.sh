@@ -81,7 +81,7 @@ function compute_multicast()
 
       if [ "${suffix}" != "${fixed}" ] ; then
 
-        index=${suffix.*}
+        index=${suffix%.*}
 
         if [ -n "${index}" ] ; then
           send_request   var-set  multicast "${SUBARRAY}" string "#${index}"
