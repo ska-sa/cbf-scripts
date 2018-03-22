@@ -40,9 +40,9 @@ function init_multicast()
 
 function compute_multicast()
 {
-  local template instrument word mutifix q
+  local template instrument word mutifix q fixed suffix
   local -i ceiling index got need already
-  local -a address_vector
+  local -a address_vector fixed_vector
 
   instrument="$1"
 
@@ -57,6 +57,8 @@ function compute_multicast()
   for word in $(ike -o -k output_destinations_base ${template}) ; do
     if [ "${word#MULTICAST}" != "${word}" ] ; then
       address_vector+=(${word%:*})
+    else
+      fixed_vector+=(${word%:*})
     fi
   done
 
@@ -72,6 +74,39 @@ function compute_multicast()
 
   q=${MULTICAST_PREFIX#*.*.}
   mutifix=${MULTICAST_PREFIX%$q}
+
+  push_failure
+
+  if [ -n "${fixed_vector[*]}" ] ; then
+    kcpmsg "checking set of static multicast assignments"
+
+    for fixed in "${fixed_vector[@]}" ; do
+      suffix="${fixed#${mutifix}}"
+
+      if [ "${suffix}" != "${fixed}" ] ; then
+
+        index=${suffix.*}
+
+        if [ -n "${index}" ] ; then
+          send_request   var-set  multicast "${SUBARRAY}" string "#${index}"
+          retrieve_reply var-set
+        else
+          kcpmsg "unable to manage malformed multicast address ${fixed}"
+        fi
+
+      else
+        kcpmsg "static address ${fixed} outside managed ${MULTICAST}/16 range so assumed to be unique"
+      fi
+
+    done
+  else
+    kcpmsg "no static output addresses found"
+  fi
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to reserve static output address set ${fixed_vector[*]} for array ${SUBARRAY}"
+    return 1
+  fi
 
   kcpmsg "selecting multicast address ranges from ${mutifix}0.0/16"
 
@@ -106,10 +141,10 @@ function compute_multicast()
 
       if pop_failure ; then
         export ${address_vector[${got}]}="${mutifix}${index}.0"
-        kcpmsg "reserved range ${mutifix}${index}.0 for ${address_vector[${got}]}"
+        kcpmsg "reserved range ${mutifix}${index}.0/24 for ${address_vector[${got}]}"
         got=$[got+1]
       else
-        kcpmsg -l warn "unable to acquire range ${mutifix}${index}.0"
+        kcpmsg -l warn "unable to acquire range ${mutifix}${index}.0/24"
       fi
     fi
 
