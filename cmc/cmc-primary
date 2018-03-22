@@ -654,6 +654,7 @@ function subordinate_create()
     else
       kcpmsg "will select a free port for array other than rts"
       control_port=0
+      monitor_port=0
     fi
   fi
 
