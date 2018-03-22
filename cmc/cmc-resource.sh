@@ -54,6 +54,7 @@ function compute_multicast()
   template=${CORR_TEMPLATE}/${instrument}
 
   address_vector=()
+  fixed_vector=()
   for word in $(ike -o -k output_destinations_base ${template}) ; do
     if [ "${word#MULTICAST}" != "${word}" ] ; then
       address_vector+=(${word%:*})
@@ -61,11 +62,6 @@ function compute_multicast()
       fixed_vector+=(${word%:*})
     fi
   done
-
-  if [ -z "${address_vector[*]}" ] ; then
-    kcpmsg "found no MULTICAST fields thus not allocating addresses dynamically"
-    return 0
-  fi
 
   if [ -z "${MULTICAST_PREFIX}" ] ; then
     kcpmsg -l error "no multicast prefix defined"
@@ -106,6 +102,11 @@ function compute_multicast()
   if ! pop_failure ; then
     kcpmsg -l error "unable to reserve static output address set ${fixed_vector[*]} for array ${SUBARRAY}"
     return 1
+  fi
+
+  if [ -z "${address_vector[*]}" ] ; then
+    kcpmsg "found no MULTICAST fields thus not allocating addresses dynamically"
+    return 0
   fi
 
   kcpmsg "selecting multicast address ranges from ${mutifix}0.0/16"
