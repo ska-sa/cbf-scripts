@@ -475,53 +475,19 @@ function instrument_activate()
     return 1
   fi
 
-  label=corr
+  push_failure
 
-  status=nominal
-  if [ "${state/no-sensors/}" = "${state}" ] ; then
-    extraport=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
+  send_request   client-exec "support" "${SUBARRAY}.monitor" cmc-monitor ${SUBARRAY} ${INSTRUMENT}
+  retrieve_reply client-exec
 
-    kcpmsg "selecting ${extraport} for sensor routines"
-
-    push_failure
-
-    send_request   client-exec "monitor-${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}.monitor" kcprun -s ${SUBARRAY} -e debug -o debug -n "CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}" corr2_sensor_servlet.py -p "${extraport}"
-    retrieve_reply client-exec
-
-    send_request   client-config client "monitor-${SUBARRAY}-${INSTRUMENT}"
-    retrieve_reply client-config
-
-    sleep 2
-
-    label=monitor
-
-    send_request   client-connect "localhost:${extraport}" "${SUBARRAY}.monitor" "${label}"
-    retrieve_reply client-connect
-
-    send_request   relay "${label}" relay "${label}" watchdog
-    retrieve_reply relay
-
-    send_request   client-config client   "${label}"
-    retrieve_reply client-config
-
-    send_request   client-config fixed    "${label}"
-    retrieve_reply client-config
-
-    if pop_failure ; then
-      if ! activate_servlet_sensors "${label}" ; then
-        kcpmsg -l warn "unable to subscribe to sensors of ${label}"
-        status=warn
-      fi
-    else
-      kcpmsg -l warn "sensors loop initialisation failed for instrument ${INSTRUMENT} but going on anyway"
-      status=warn
-    fi
-
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to initialise sensor support for instrument ${INSTRUMENT}"
+    status=warn
   else
-    kcpmsg -l warn "sensor servlet inhibited by configuration"
+    status=nominal
   fi
 
-  kcpmsg "instrument activated"
+  kcpmsg "instrument ${instrument} activated"
 
   echo "!instrument-activate ok"
   adjust_sensors "${status}" "${instrument}"
