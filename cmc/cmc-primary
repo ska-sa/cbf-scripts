@@ -140,7 +140,7 @@ function group_destroyed()
 
 # bulk skarab deprogram - the only deprogam since individual is way too slow
   if [ -n "${skarabs}" ] ; then
-    kcprun -o debug -q -t 2500 -j ${skarab_check} "${skarabs[@]}"
+    kcprun -o debug -q -t 3500 -j ${skarab_check} "${skarabs[@]}"
   fi
 
   count=0
