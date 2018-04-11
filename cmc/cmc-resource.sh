@@ -606,8 +606,15 @@ function check_resources()
           fi
 
           if [ -n "${resources_excluded[${board}]}" ] ; then
-#            kcpmsg "not testing ${board} as it is on the exclusion list"
+            kcpmsg "marking ${board} manually manually managed as it is on the exclusion list"
             status=standby
+
+            send_request   var-delete  "resources:${board}:mode"
+            retrieve_reply var-delete
+
+            send_request   var-set      resources user string ":${board}:mode"
+            retrieve_reply var-set
+
           else
             if [ "${art}" = "roach" ] ; then
               if kcpcmd -kir -f -t ${grace} -s "${board}" watchdog >& /dev/null ; then
