@@ -62,6 +62,9 @@ function iteration()
                 push_failure
 
                 if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
+
+                  kcpmsg "changing status of ${board} to ${status}"
+
                   send_request   var-delete  "resources:${board}:status"
                   retrieve_reply var-delete
 
