@@ -16,7 +16,7 @@ inhibit_logging
 
 function iteration()
 {
-  local stall slow total worse better resource now when prefix board status answer
+  local stall total worse better resource now when prefix board status answer next period
 
   stall="$1"
 
@@ -32,7 +32,9 @@ function iteration()
   total=0
   worse=0
   better=0
-  slow=0
+
+  now=$(date +%s)
+  next=$[now+3600]
 
   for resource in "${!var_result[@]}" ; do
     if [ "${resource##*:}" = type ] ; then
@@ -41,18 +43,19 @@ function iteration()
         prefix=${resource%:*}
         board=${prefix#resources:}
         if [ "${var_result[${prefix}:mode]}" = auto ] ; then
-          now=$(date +%s)
-          when="${var_result[${prefix}:when]}"
-
-          if [ "${when:-0}" -le "${now}" ] ; then
-            if [ -z "${var_result[${prefix}:holder]}" ] ; then
+          if [ -z "${var_result[${prefix}:holder]}" ] ; then
+            now=$(date +%s)
+            when="${var_result[${prefix}:when]}"
+            if [ "${when:-0}" -le "${now}" ] ; then
 
               answer=$(${skarab_check} ${board})
 
               if [ "${answer// /}" = "${board}" ] ; then
                 status="up"
+                period=${checkperiod}
               else
                 status="standby"
+                period=1
               fi
 
               push_failure
@@ -77,16 +80,15 @@ function iteration()
               send_request   var-delete  "resources:${board}:when"
               retrieve_reply var-delete
 
-              send_request   var-set      resources "$[now+checkperiod]" string ":${board}:when"
+              send_request   var-set      resources "$[now+period]" string ":${board}:when"
               retrieve_reply var-set
 
               if ! pop_failure ; then
                 kcpmsg -l error "problem monitoring the status of board ${board}"
               fi
-
-              if [ -n "${stall}" ] ; then
-                sleep "${stall}"
-                slow=$[slow+1]
+            else
+              if [ "${when}" -lt "${next}" ] ; then
+                next=${when:-0}
               fi
             fi
           fi
@@ -96,19 +98,18 @@ function iteration()
     fi
   done
 
-  if [ "${slow}" -eq 0 ] ; then
-    if [ -n "${stall}" ] ; then
-      sleep "${stall}"
-    else
-      sleep 1
-    fi
-  fi
-
   if [ "${worse}" -gt 0 ] ; then
     kcpmsg -l warn "${worse} skarabs marked standby"
   fi
   if [ "${better}" -gt 0 ] ; then
     kcpmsg -l warn "${better} skarabs marked up of ${total}"
+  fi
+
+  now=$(date +%s)
+  if [ "${next}" -gt "${now}" ] ; then
+    sleep $[${next}-${now}]
+  else
+    sleep ${stall}
   fi
 
   return 0
