@@ -16,7 +16,7 @@ inhibit_logging
 
 function iteration()
 {
-  local stall total worse better resource now when prefix board status answer
+  local stall slow total worse better resource now when prefix board status answer
 
   stall="$1"
 
@@ -32,6 +32,7 @@ function iteration()
   total=0
   worse=0
   better=0
+  slow=0
 
   for resource in "${!var_result[@]}" ; do
     if [ "${resource##*:}" = type ] ; then
@@ -46,65 +47,62 @@ function iteration()
           if [ "${when:-0}" -le "${now}" ] ; then
             if [ -z "${var_result[${prefix}:holder]}" ] ; then
 
+              answer=$(${skarab_check} ${board})
+
+              if [ "${answer// /}" = "${board}" ] ; then
+                status="up"
+              else
+                status="standby"
+              fi
+
               push_failure
 
-              send_request   var-set  resources "${KATCP_LABEL}" string ":${board}:holder"
-              retrieve_reply var-set
+              if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
 
-              if pop_failure ; then
+                kcpmsg "changing status of ${board} to ${status}"
 
-                answer=$(${skarab_check} ${board})
-
-                if [ "${answer// /}" = "${board}" ] ; then
-                  status="up"
-                else
-                  status="standby"
-                fi
-
-                push_failure
-
-                if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
-
-                  kcpmsg "changing status of ${board} to ${status}"
-
-                  send_request   var-delete  "resources:${board}:status"
-                  retrieve_reply var-delete
-
-                  send_request   var-set      resources "${status}" string ":${board}:status"
-                  retrieve_reply var-set
-
-                  if [ "${status}" = standby ] ; then
-                    worse=$[worse+1]
-                  else
-                    better=$[better+1]
-                  fi
-                fi
-
-                send_request   var-delete  "resources:${board}:when"
+                send_request   var-delete  "resources:${board}:status"
                 retrieve_reply var-delete
 
-                send_request   var-set      resources "$[now+checkperiod]" string ":${board}:when"
+                send_request   var-set      resources "${status}" string ":${board}:status"
                 retrieve_reply var-set
 
-                send_request   var-delete  "resources:${board}:holder"
-                retrieve_reply var-delete
-
-                if ! pop_failure ; then
-                  kcpmsg -l error "problem monitoring the status of board ${board}"
+                if [ "${status}" = standby ] ; then
+                  worse=$[worse+1]
+                else
+                  better=$[better+1]
                 fi
-              else
-                kcpmsg "unable to lock ${board} to check status"
+              fi
+
+              send_request   var-delete  "resources:${board}:when"
+              retrieve_reply var-delete
+
+              send_request   var-set      resources "$[now+checkperiod]" string ":${board}:when"
+              retrieve_reply var-set
+
+              if ! pop_failure ; then
+                kcpmsg -l error "problem monitoring the status of board ${board}"
+              fi
+
+              if [ -n "${stall}" ] ; then
+                sleep "${stall}"
+                slow=$[slow+1]
               fi
             fi
           fi
         fi
       fi
 
-      if [ -n "${stall}" ] ; then
-        sleep "${stall}"
-      fi
     fi
   done
+
+  if [ "${slow}" -eq 0 ] ; then
+    if [ -n "${stall}" ] ; then
+      sleep "${stall}"
+    else
+      sleep 1
+    fi
+  fi
 
   if [ "${worse}" -gt 0 ] ; then
     kcpmsg -l warn "${worse} skarabs marked standby"
