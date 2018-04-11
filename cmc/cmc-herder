@@ -16,7 +16,7 @@ inhibit_logging
 
 function iteration()
 {
-  local stall total worse better resource now when prefix board status
+  local stall total worse better resource now when prefix board status answer
 
   stall="$1"
 
@@ -53,7 +53,9 @@ function iteration()
 
               if pop_failure ; then
 
-                if [ "$(${skarab_check} ${board})" = "${board}" ] ; then
+                answer=$(${skarab_check} ${board})
+
+                if [ "${answer// /}" = "${board}" ] ; then
                   status="up"
                 else
                   status="standby"
