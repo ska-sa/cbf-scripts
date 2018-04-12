@@ -17,8 +17,14 @@ inhibit_logging
 function iteration()
 {
   local stall total worse better resource now when prefix board status answer next period
+  local -A vector
 
   stall="$1"
+
+  if ! acquire_lock boards herder 30 ; then
+    kcpmsg -l warn "unable to acquire exclusive access to resource pool"
+    return 1
+  fi
 
   push_failure
 
@@ -44,48 +50,9 @@ function iteration()
         board=${prefix#resources:}
         if [ "${var_result[${prefix}:mode]}" = auto ] ; then
           if [ -z "${var_result[${prefix}:holder]}" ] ; then
-            now=$(date +%s)
             when="${var_result[${prefix}:when]}"
             if [ "${when:-0}" -le "${now}" ] ; then
-
-              answer=$(${skarab_check} ${board})
-
-              if [ "${answer// /}" = "${board}" ] ; then
-                status="up"
-                period=${checkperiod}
-              else
-                status="standby"
-                period=1
-              fi
-
-              push_failure
-
-              if [ "${status}" != "${var_result[resources:${board}:status]}" ] ; then
-
-                kcpmsg "changing status of ${board} to ${status}"
-
-                send_request   var-delete  "resources:${board}:status"
-                retrieve_reply var-delete
-
-                send_request   var-set      resources "${status}" string ":${board}:status"
-                retrieve_reply var-set
-
-                if [ "${status}" = standby ] ; then
-                  worse=$[worse+1]
-                else
-                  better=$[better+1]
-                fi
-              fi
-
-              send_request   var-delete  "resources:${board}:when"
-              retrieve_reply var-delete
-
-              send_request   var-set      resources "$[now+period]" string ":${board}:when"
-              retrieve_reply var-set
-
-              if ! pop_failure ; then
-                kcpmsg -l error "problem monitoring the status of board ${board}"
-              fi
+              vector[${board}]=standby
             else
               if [ "${when}" -lt "${next}" ] ; then
                 next=${when:-0}
@@ -94,9 +61,53 @@ function iteration()
           fi
         fi
       fi
+    fi
+  done
+
+  now=$(date +%s)
+
+  answer=$(${skarab_check} ${!vector[@]})
+
+  for board in ${answer} ; do
+    vector[${board}]=up
+  done
+
+  push_failure
+
+  for board in ${!vector[@]} ; do
+    status="${vector[board]}"
+
+    if [ "${var_result[resources:${board}:status]}" != "${status}" ] ; then
+      kcpmsg "changing ${board} marking to ${status}"
+
+      if [ "${status}" == up ] ; then
+        period=${checkperiod}
+        better=$[better+1]
+      else
+        period="${stall}"
+        worse=$[worse+1]
+      fi
+
+      send_request   var-delete  "resources:${board}:status"
+      retrieve_reply var-delete
+
+      send_request   var-set      resources "${status}" string ":${board}:status"
+      retrieve_reply var-set
+
+      send_request   var-delete  "resources:${board}:when"
+      retrieve_reply var-delete
+
+      send_request   var-set      resources "$[now+checkperiod]" string ":${board}:when"
+      retrieve_reply var-set
 
     fi
   done
+
+  release_lock boards herder
+
+  if ! pop_failure ; then
+    kcpmsg -l error "problem adjusting the status of ${!vector[@]}"
+  fi
 
   if [ "${worse}" -gt 0 ] ; then
     kcpmsg -l warn "${worse} skarabs marked standby"

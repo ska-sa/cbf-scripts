@@ -349,7 +349,7 @@ function acquire_lock()
     sleep 1
   done
 
-  kcpmsg -l warn "unable to acquire ${resource} for ${owner} after ${attempts} tries"
+  kcpmsg "unable to acquire ${resource} for ${owner} after ${attempts} tries"
 
   return 1
 }
