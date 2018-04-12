@@ -66,7 +66,7 @@ function iteration()
 
   now=$(date +%s)
 
-  if [ -n "${!vector[@]}" ] ; then
+  if [ "${#vector[*]}" -gt 0 ] ; then
     answer=$(${skarab_check} ${!vector[@]})
   fi
 
