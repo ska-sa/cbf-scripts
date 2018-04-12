@@ -40,7 +40,7 @@ function iteration()
   better=0
 
   now=$(date +%s)
-  next=$[now+3600]
+  next=$[${now}+${stall}]
 
   for resource in "${!var_result[@]}" ; do
     if [ "${resource##*:}" = type ] ; then
@@ -103,11 +103,11 @@ function iteration()
     fi
   done
 
-  release_lock boards herder
-
   if ! pop_failure ; then
     kcpmsg -l error "problem adjusting the status of ${!vector[@]}"
   fi
+
+  release_lock boards herder
 
   if [ "${worse}" -gt 0 ] ; then
     kcpmsg -l warn "${worse} skarabs marked standby"
@@ -120,12 +120,12 @@ function iteration()
   if [ "${next}" -gt "${now}" ] ; then
     sleep $[${next}-${now}]
   else
-    sleep ${stall}
+    sleep 1
   fi
 
   return 0
 }
 
 while true ; do
-  iteration 2
+  iteration 10
 done
