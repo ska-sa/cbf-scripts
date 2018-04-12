@@ -181,7 +181,7 @@ function launch_sensors()
 
   kcpmsg "checking until ${timeout} for sensor monitor of ${INSTRUMENT} to be ready"
   
-  while ! kcpcmd -kirs localhost:${port} watchdog ; do
+  while ! kcpcmd -irs localhost:${port} watchdog 2> /dev/null ; do
 
     now=$(date +%s)
 
