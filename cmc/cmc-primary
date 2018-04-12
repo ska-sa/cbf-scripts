@@ -296,7 +296,7 @@ function resource_mark()
       fi
 
       if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
-        if ! kcpcmd -k -r -i -s "${board}" watchdog >& /dev/null ; then
+        if ! kcpcmd -kirs "${board}" watchdog >& /dev/null ; then
           if [ "${state/missing-roaches/}" = "${state}" ] ; then
             kcpmsg -l error "roach resource ${board} unresponsive"
             echo "!resource-mark fail network"
