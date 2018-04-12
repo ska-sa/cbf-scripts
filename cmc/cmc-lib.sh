@@ -303,6 +303,108 @@ function fetch_var()
   done
 }
 
+## locking infrastructure #########################
+
+function init_locks()
+{
+  send_request   var-declare  "locks*"  map,readonly
+  retrieve_reply var-declare
+}
+
+function acquire_lock()
+{
+  local resource owner attempts sofar
+
+  resource=$1
+  if [ -z "${resource}" ] ; then
+    kcpmsg -l error "require a resource to lock"
+    return 1
+  fi
+
+  owner=$2
+  if [ -z "${owner}" ] ; then
+    owner=pid/$$
+  fi
+
+  attempts=$3
+  if [ -z "${attempts}" ] ; then
+    attempts=1
+  fi
+
+  sofar=0
+
+  while [ "${sofar}" -lt "${attempts}" ] ; do
+    push_failure
+
+    send_request   var-set  locks "${owner}" string ":${resource}"
+    retrieve_reply var-set
+
+    if pop_failure ; then
+      kcpmsg -l debug "lock ${resource} acquired by ${owner}"
+
+      return 0
+    fi
+
+    sofar=$[sofar+1]
+    sleep 1
+  done
+
+  kcpmsg -l warn "unable to acquire ${resource} for ${owner} after ${attempts} tries"
+
+  return 1
+}
+
+function release_lock()
+{
+  local resource owner value
+
+  resource=$1
+  if [ -z "${resource}" ] ; then
+    kcpmsg -l error "require a resource to unlock"
+    return 1
+  fi
+
+  owner=$2
+  if [ -z "${owner}" ] ; then
+    owner=pid/$$
+  fi
+
+  push_failure
+
+  fetch_var "locks"
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to retrieve lock state"
+    return 1
+  fi
+
+  value="${var_result[locks:${resource}]}"
+
+  if [ -z "${value}" ] ; then
+    kcpmsg -l fatal "resource ${resource} does not appear to be locked"
+    return 1
+  fi
+
+  if [ "${value}" != "${owner}" ] ; then
+    kcpmsg -l fatal "resource ${resource} held by ${value} not ${owner}"
+    return 1
+  fi
+
+  push_failure
+
+  send_request   var-delete  "locks:${resource}"
+  retrieve_reply var-delete
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to release lock ${resource} held by ${owner}"
+    return 1
+  fi
+
+  kcpmsg -l debug "lock ${resource} released by ${owner}"
+
+  return 0
+}
+
 ## command loop ###################################
 
 function enable_misc_informs()
