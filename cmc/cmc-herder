@@ -71,7 +71,11 @@ function iteration()
   fi
 
   for board in ${answer} ; do
-    vector[${board}]=up
+    if [ "${vector[${board}]}" = standby ] ; then
+      vector[${board}]=up
+    else
+      kcpmsg -l warn "${skarab_check} generated bogus value ${board}"
+    fi
   done
 
   push_failure
