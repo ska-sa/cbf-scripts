@@ -325,14 +325,27 @@ function instrument_activate()
   fi
 # NOW we should have INPUT? in environment
 
+  if ! acquire_lock boards ${SUBARRAY} 30 ; then
+    kcpmsg -l warn "unable to acquire exclusive access to resource pool"
+    echo "!instrument-activate fail read-logs"
+    adjust_sensors
+    return 1
+  fi
+# HERE boards locked, needs to be released on any path
+
 # REQUIRES that SUBARRAY is set
   if ! compute_resources "${instrument}" ; then
     kcpmsg -l error "unable to allocate resources needed by ${instrument}"
+    release_lock boards ${SUBARRAY}
+
     echo "!instrument-activate fail read-logs"
     adjust_sensors
     return 1
   fi
 # NOW we should have SKARAB? and ROACH? in environment
+
+  release_lock boards ${SUBARRAY}
+# HERE boards unlocked
 
   if ! compute_multicast "${instrument}" ; then
     kcpmsg -l error "unable to allocate address ranges needed by ${instrument}"

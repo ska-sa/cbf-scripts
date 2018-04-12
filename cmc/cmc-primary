@@ -925,6 +925,7 @@ register_commands primary
 
 reload_resource_exclusions
 
+init_locks
 init_multicast
 init_resources
 
