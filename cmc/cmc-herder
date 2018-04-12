@@ -75,7 +75,7 @@ function iteration()
   push_failure
 
   for board in ${!vector[@]} ; do
-    status="${vector[board]}"
+    status="${vector[${board}]}"
 
     if [ "${var_result[resources:${board}:status]}" != "${status}" ] ; then
       kcpmsg "changing ${board} marking to ${status}"
