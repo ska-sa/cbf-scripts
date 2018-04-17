@@ -116,10 +116,10 @@ function iteration()
   release_lock boards herder
 
   if [ "${worse}" -gt 0 ] ; then
-    kcpmsg -l warn "${worse} skarabs marked standby"
+    kcpmsg -l warn "moved ${worse} skarabs to standby pool"
   fi
   if [ "${better}" -gt 0 ] ; then
-    kcpmsg -l warn "${better} skarabs marked up of ${total}"
+    kcpmsg "${better} more skarabs added to up pool"
   fi
 
   now=$(date +%s)
