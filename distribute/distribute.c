@@ -35,6 +35,11 @@ unsigned int *add_to_vector(unsigned int *vector, char *value, unsigned int size
     return NULL;
   }
 
+  if(v <= 0){
+    fprintf(stderr, "ignoring entries with zero count\n");
+    return vector;
+  }
+
   tmp = realloc(vector, sizeof(unsigned int) * (size + 1));
   if(tmp == NULL){
     return NULL;
