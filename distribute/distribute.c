@@ -5,6 +5,11 @@
 #include <errno.h>
 #include <sysexits.h>
 
+struct bin_struct{
+  unsigned int size;
+  int index;
+} bin_struct;
+
 void usage(char *app)
 {
   printf("distribute items of different types into several bins\n");
@@ -21,6 +26,21 @@ void usage(char *app)
  * 1 8
  * 2 8
  */
+
+/* from http://anyexample.com/programming/c/qsort__sorting_array_of_strings__integers_and_structs.xml */
+int int_cmp(const void *a, const void *b) 
+{ 
+    const unsigned int *ia = (const unsigned int *)a; // casting pointer types 
+    const unsigned int *ib = (const unsigned int *)b;
+    return *ia  - *ib; 
+} 
+
+int struct_cmp(const void *a, const void *b) 
+{ 
+    const struct bin_struct *ia = (const struct bin_struct *)a;
+    const struct bin_struct *ib = (const struct bin_struct *)b;
+    return (*ia).size  - (*ib).size; 
+} 
 
 unsigned int *add_to_vector(unsigned int *vector, char *value, unsigned int size)
 {
@@ -56,6 +76,7 @@ unsigned int *add_to_vector(unsigned int *vector, char *value, unsigned int size
 int main(int argc, char **argv)
 {
   int i, j, c;
+  int found;
   int verbose;
   char *app;
   int flag;
@@ -76,11 +97,12 @@ int main(int argc, char **argv)
   flag = (-1);
 
   i = j = 1;
+  printf("the total number of arguments are: %d  \n",argc);
   while (i < argc) {
+    printf("the start of the %d th argument is: %c \n", i, argv[i][0]);
     if (argv[i][0] == '-') {
       c = argv[i][j];
       switch (c) {
-
         case 'h' :
           usage(app);
           return 1;
@@ -117,7 +139,6 @@ int main(int argc, char **argv)
           i++;
           break;
         case 's' :
-
           j++;
           if (argv[i][j] == '\0') {
             j = 0;
@@ -192,6 +213,77 @@ int main(int argc, char **argv)
   }
 
   /* TODO: now do the allocation */
+  struct bin_struct all_bins[bin_count]; 
+  unsigned int allocated[bin_count];
+
+  for (i = 0; i < bin_count; i++) {
+    allocated[i] = 0;
+    all_bins[i].size = bins[i];
+    all_bins[i].index = i;
+  }
+
+  qsort(items, item_count, sizeof(unsigned int), int_cmp);
+  qsort(bins, bin_count, sizeof(bin_struct), struct_cmp);
+
+  if(verbose){
+    fprintf(stderr, "items:\n");
+    for(i = 0; i < item_count; i++){
+      fprintf(stderr, "[%u] = %u\n", i, items[i]);
+    }
+    fprintf(stderr, "bins:\n");
+    for(i = 0; i < bin_count; i++){
+      fprintf(stderr, "[%u] = %u\n", i, all_bins[i].size);
+    }
+  }
+
+  for (i = item_count-1; i >= 0; i--) {
+    found = 0;
+    /* First check if there is a perfect fit */
+    for (j = bin_count-1; j >= 0; j--) {
+      if (items[i] == all_bins[j].size) {
+        allocated[all_bins[j].index] = items[i];
+        all_bins[j].size = 0; /*once items i have been allocated to bin j, bin j has no more spaces left*/
+        found = 1;
+        break;
+      }
+    }
+
+    /* If not the check for a place it can fit*/
+    if(!found){
+      for (j = bin_count-1; j >= 0; j--) {     
+        if (items[i] < all_bins[j].size) {
+          allocated[all_bins[j].index] = items[i];
+          all_bins[j].size = 0; /*once items i have been allocated to bin j, bin j has no more spaces left*/
+          found = 1;
+          break;
+        }
+      }
+    }
+
+    if(!found) {
+      printf("One or more of the items could not be allocated \n");
+      break;
+    }
+  }
+  
+  fprintf(stderr, "allocated:\n");
+  for(i = 0; i < bin_count; i++){
+    fprintf(stderr, "[%u] = %u\n", i, allocated[i]);
+  }
 
   return EX_OK;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
