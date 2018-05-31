@@ -227,7 +227,7 @@ function resource_list()
 
   shift
 
-  check_resources
+# check_resources
 
   push_failure
 
