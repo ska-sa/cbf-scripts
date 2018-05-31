@@ -143,7 +143,79 @@ int strategy_single(struct distribute_state *ds)
   unsigned int i, pos;
   unsigned int total;
 
+  clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_items_count);
+
   total = 0;
+
+  for(i = 0; i < ds->d_item_count; i++){
+    total += ds->d_item_vector[i];
+  }
+
+  if(ds->d_verbose){
+    fprintf(stderr, "have %u items in total\n", total);
+  }
+
+  i = ds->d_bin_count;
+  while((i > 0) && ((*(ds->d_bin_shadow[i - 1]) >= total))){
+    i--;
+  }
+
+  if(i == ds->d_bin_count){
+    if(ds->d_verbose){
+      fprintf(stderr, "largest bin has %u slots which is smaller than item total %u\n", *(ds->d_bin_shadow[i - 1]), total);
+    }
+    return 1;
+  }
+
+  pos = ds->d_bin_shadow[i] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
+  if(ds->d_verbose){
+    fprintf(stderr, "found bin at %u (order %u) which can hold all %u items\n", pos, i, total);
+  }
+
+  for(i = 0; i < ds->d_item_count; i++){
+    ds->d_allocation[(pos * ds->d_item_count) + i] = ds->d_item_vector[i];
+  }
+
+  return 0;
+}
+
+int strategy_binned(struct distribute_state *ds)
+{
+  unsigned int i, j, pos;
+  unsigned int use, update, resort, have, resume;
+
+  clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_items_count);
+
+  i = ds->d_item_count - 1;
+  j = ds->d_bin_count - 1;
+
+  use = 0;
+  resort = 0;
+
+  for(;;){
+    update = 0;
+    if(*(ds->d_bin_shadow[j]) < *(ds->d_item_shadow[i])){
+      if(use <= 0){
+        have = *(ds->d_bin_shadow[j]);
+      } else {
+        have = *(ds->d_item_shadow[i]);
+      }
+      update = 1;
+    } else {
+      if(j <= 0){
+        use = 0;
+        update = 1;
+        have = *(ds->d_item_shadow[i]);
+      } else {
+        use = j;
+      }
+    }
+
+    if(update){
+      pos = ds->d_bin_shadow[use] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
+
+    }
+  }
 
   for(i = 0; i < ds->d_item_count; i++){
     total += ds->d_item_vector[i];

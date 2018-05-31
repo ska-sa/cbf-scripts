@@ -134,6 +134,10 @@ function iteration()
 
 sleep 10
 
+kcpmsg "herder starting"
+
 while true ; do
   iteration 10
 done
+
+kcpmsg "herder exited"
