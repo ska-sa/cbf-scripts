@@ -143,7 +143,7 @@ int strategy_single(struct distribute_state *ds)
   unsigned int i, pos;
   unsigned int total;
 
-  clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_items_count);
+  clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
 
   total = 0;
 
@@ -181,17 +181,36 @@ int strategy_single(struct distribute_state *ds)
 
 int strategy_binned(struct distribute_state *ds)
 {
-  unsigned int i, j, pos;
-  unsigned int use, update, resort, have, resume;
+  unsigned int i, j, pos, loc;
 
-  clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_items_count);
+  clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
 
-  i = ds->d_item_count - 1;
-  j = ds->d_bin_count - 1;
+  i = 0;
+  j = 0;
 
-  use = 0;
-  resort = 0;
+  while(i < ds->d_item_count){
+    if(*(ds->d_bin_shadow[j]) >= *(ds->d_item_shadow[i])){
+      pos = ds->d_bin_shadow[j] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
+      loc = ds->d_item_shadow[i] - &(ds->d_item_vector[0]);
+      ds->d_allocation[(pos * ds->d_item_count) + loc] = *(ds->d_item_shadow[i]);
+      i++;
+    }
 
+    j++;
+    if(j >= ds->d_bin_count){
+      if(i < ds->d_item_count){
+        if(ds->d_verbose){
+          fprintf(stderr, "no further bins available but still have %d items types to allocate\n", ds->d_item_count - i);
+        }
+        return 1;
+      }
+    }
+  }
+
+  return 0;
+}
+
+#if 0
   for(;;){
     update = 0;
     if(*(ds->d_bin_shadow[j]) < *(ds->d_item_shadow[i])){
@@ -247,7 +266,49 @@ int strategy_binned(struct distribute_state *ds)
   }
 
   return 0;
+#endif
+
+#define STRATEGIES 2
+
+struct strategy_option{
+  char *s_name;
+  int (*s_call)(struct distribute_state *);
+  char *s_description;
+};
+
+struct strategy_option strategy_table[STRATEGIES + 1] = {
+  { "single", &strategy_single, "attempt to fit all items into the smallest bin" },
+  { "binned", &strategy_binned, "attempt to distribute different types into separate bins" },
+  { NULL, NULL, NULL }
+};
+
+int find_strategy(char *name)
+{
+  int i;
+
+  for(i = 0; strategy_table[i].s_name && strcmp(strategy_table[i].s_name, name); i++);
+
+  if(strategy_table[i].s_name == NULL){
+    return -1;
+  }
+
+  return i;
 }
+
+int run_strategy(struct distribute_state *ds, unsigned int strategy)
+{
+  if(strategy >= STRATEGIES){
+    fprintf(stderr, "invalid strategy number %u\n", strategy);
+    return -1;
+  }
+
+  if(ds->d_verbose > 1){
+    fprintf(stderr, "running strategy number %u\n", strategy);
+  }
+
+  return (*(strategy_table[strategy].s_call))(ds);
+}
+
 
 /**********************************************************************/
 
@@ -395,7 +456,12 @@ void usage(char *app)
     printf(" %s", output_table[i].o_name);
   }
   printf("\n");
-  printf("-s strategy\n");
+  printf("-s name     name of allocation strategy\n");
+  printf("\n");
+  printf("Available strategies:\n");
+  for(i = 0; strategy_table[i].s_name; i++){
+    printf(" %s - %s\n", strategy_table[i].s_name, strategy_table[i].s_description);
+  }
 }
 
 #define TAKE_ITEM 0
@@ -403,12 +469,13 @@ void usage(char *app)
 
 int main(int argc, char **argv)
 {
-  int i, j, c;
+  int i, j, c, s;
   char *app;
   int flag;
   char *output;
-
+  int strategies[STRATEGIES];
   struct distribute_state state, *ds;
+  int count;
 
   unsigned int *tmp;
 
@@ -432,6 +499,8 @@ int main(int argc, char **argv)
 
   flag = (-1);
   output = NULL;
+
+  count = 0;
 
   i = j = 1;
 
@@ -500,7 +569,19 @@ int main(int argc, char **argv)
               output = argv[i] + j;
               break;
             case 's' :
-              printf("using strategy %s\n", argv[i] + j);
+
+              s = find_strategy(argv[i] + j);
+              if(s < 0){
+                fprintf(stderr, "%s: unknown strategy %s\n", app, argv[i] + j);
+                return EX_USAGE;
+              }
+
+              if(count >= STRATEGIES){
+                fprintf(stderr, "%s: too many strategies specified, consider eliminating repeated ones\n", app);
+                return EX_USAGE;
+              }
+
+              strategies[count++] = s;
               break;
             case 't' :
               ds->d_item_name = argv[i] + j;
@@ -520,7 +601,7 @@ int main(int argc, char **argv)
           i++;
           break;
         default:
-          fprintf(stderr, "unknown option -%c", c);
+          fprintf(stderr, "unknown option -%c\n", c);
           return EX_USAGE;
       }
     } else {
@@ -558,6 +639,14 @@ int main(int argc, char **argv)
     return EX_USAGE;
   }
 
+  if(count <= 0){
+    if(ds->d_verbose){
+      fprintf(stderr, "no stategy specified so using default strategy %s\n", strategy_table[0].s_name);
+    }
+    strategies[0] = 0;
+    count = 1;
+  }
+
   ds->d_bin_shadow = make_sorted_shadow(ds->d_bin_vector, ds->d_bin_count);
   ds->d_item_shadow = make_sorted_shadow(ds->d_item_vector, ds->d_item_count);
 
@@ -574,74 +663,16 @@ int main(int argc, char **argv)
     dump_state(ds, stderr);
   }
 
-  strategy_single(ds);
+  for(i = 0; (i < count) && run_strategy(ds, strategies[i]); i++);
+
+  if(i >= count){
+    if(ds->d_verbose){
+      fprintf(stderr, "no solution found using %d %s\n", count, (count == 1) ? "strategy" : "strategies");
+    }
+    return 1;
+  }
 
   display(ds, output, 0);
-
-#if 0
-  display_items(ds, 0);
-  display_as_matrix_items(ds, 0);
-
-  display_as_shell_array_string(ds, 0);
-  /* TODO: now do the allocation */
-  struct bin_struct all_bins[bin_count];
-  unsigned int allocated[bin_count];
-
-  for (i = 0; i < bin_count; i++) {
-    allocated[i] = 0;
-    all_bins[i].size = bins[i];
-    all_bins[i].index = i;
-  }
-
-  qsort(items, item_count, sizeof(unsigned int), int_cmp);
-  qsort(bins, bin_count, sizeof(bin_struct), struct_cmp);
-
-  if(verbose){
-    fprintf(stderr, "items:\n");
-    for(i = 0; i < item_count; i++){
-      fprintf(stderr, "[%u] = %u\n", i, items[i]);
-    }
-    fprintf(stderr, "bins:\n");
-    for(i = 0; i < bin_count; i++){
-      fprintf(stderr, "[%u] = %u\n", i, all_bins[i].size);
-    }
-  }
-
-  for (i = item_count-1; i >= 0; i--) {
-    found = 0;
-    /* First check if there is a perfect fit */
-    for (j = bin_count-1; j >= 0; j--) {
-      if (items[i] == all_bins[j].size) {
-        allocated[all_bins[j].index] = items[i];
-        all_bins[j].size = 0; /*once items i have been allocated to bin j, bin j has no more spaces left*/
-        found = 1;
-        break;
-      }
-    }
-
-    /* If not the check for a place it can fit*/
-    if(!found){
-      for (j = bin_count-1; j >= 0; j--) {
-        if (items[i] < all_bins[j].size) {
-          allocated[all_bins[j].index] = items[i];
-          all_bins[j].size = 0; /*once items i have been allocated to bin j, bin j has no more spaces left*/
-          found = 1;
-          break;
-        }
-      }
-    }
-
-    if(!found) {
-      printf("One or more of the items could not be allocated \n");
-      break;
-    }
-  }
-
-  fprintf(stderr, "allocated:\n");
-  for(i = 0; i < bin_count; i++){
-    fprintf(stderr, "[%u] = %u\n", i, allocated[i]);
-  }
-#endif
 
   return EX_OK;
 }
