@@ -162,7 +162,7 @@ int strategy_single(struct distribute_state *ds)
 
   if(i == ds->d_bin_count){
     if(ds->d_verbose){
-      fprintf(stderr, "largest bin has %u slots which is smaller than item total %u\n", *(ds->d_bin_shadow[i - 1]), total);
+      fprintf(stderr, "single failed: largest bin has %u slots which is smaller than item total %u\n", *(ds->d_bin_shadow[i - 1]), total);
     }
     return 1;
   }
@@ -200,7 +200,7 @@ int strategy_binned(struct distribute_state *ds)
     if(j >= ds->d_bin_count){
       if(i < ds->d_item_count){
         if(ds->d_verbose){
-          fprintf(stderr, "no further bins available but still have %d items types to allocate\n", ds->d_item_count - i);
+          fprintf(stderr, "binned failed: no further bins available but still have %d items types to allocate\n", ds->d_item_count - i);
         }
         return 1;
       }
@@ -210,65 +210,51 @@ int strategy_binned(struct distribute_state *ds)
   return 0;
 }
 
-#if 0
-  for(;;){
-    update = 0;
-    if(*(ds->d_bin_shadow[j]) < *(ds->d_item_shadow[i])){
-      if(use <= 0){
-        have = *(ds->d_bin_shadow[j]);
-      } else {
-        have = *(ds->d_item_shadow[i]);
+int strategy_disjoint(struct distribute_state *ds)
+{
+  unsigned int i, j, pos, loc, actual;
+
+  i = 0;
+  j = 0;
+
+  actual = *(ds->d_item_shadow[i]);
+
+  while(i < ds->d_item_count){
+
+    pos = ds->d_bin_shadow[j] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
+    loc = ds->d_item_shadow[i] - &(ds->d_item_vector[0]);
+
+    if(*(ds->d_bin_shadow[j]) >= *(ds->d_item_shadow[i])){
+      ds->d_allocation[(pos * ds->d_item_count) + loc] = *(ds->d_item_shadow[i]);
+      i++;
+    }
+
+    if(*(ds->d_bin_shadow[j]) >= actual){
+      ds->d_allocation[(pos * ds->d_item_count) + loc] = actual;
+      i++;
+      if(i < ds->d_item_count){
+        actual = *(ds->d_item_shadow[i]);
       }
-      update = 1;
     } else {
-      if(j <= 0){
-        use = 0;
-        update = 1;
-        have = *(ds->d_item_shadow[i]);
-      } else {
-        use = j;
+      ds->d_allocation[(pos * ds->d_item_count) + loc] = *(ds->d_bin_shadow[j]);
+      actual -= *(ds->d_bin_shadow[j]);
+    }
+
+    j++;
+    if(j >= ds->d_bin_count){
+      if(i < ds->d_item_count){
+        if(ds->d_verbose){
+          fprintf(stderr, "disjoint failed: no further bins available but still have %d items types to allocate\n", ds->d_item_count - i);
+        }
+        return 1;
       }
     }
-
-    if(update){
-      pos = ds->d_bin_shadow[use] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
-
-    }
-  }
-
-  for(i = 0; i < ds->d_item_count; i++){
-    total += ds->d_item_vector[i];
-  }
-
-  if(ds->d_verbose){
-    fprintf(stderr, "have %u items in total\n", total);
-  }
-
-  i = ds->d_bin_count;
-  while((i > 0) && ((*(ds->d_bin_shadow[i - 1]) >= total))){
-    i--;
-  }
-
-  if(i == ds->d_bin_count){
-    if(ds->d_verbose){
-      fprintf(stderr, "largest bin has %u slots which is smaller than item total %u\n", *(ds->d_bin_shadow[i - 1]), total);
-    }
-    return 1;
-  }
-
-  pos = ds->d_bin_shadow[i] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
-  if(ds->d_verbose){
-    fprintf(stderr, "found bin at %u (order %u) which can hold all %u items\n", pos, i, total);
-  }
-
-  for(i = 0; i < ds->d_item_count; i++){
-    ds->d_allocation[(pos * ds->d_item_count) + i] = ds->d_item_vector[i];
   }
 
   return 0;
-#endif
+}
 
-#define STRATEGIES 2
+#define STRATEGIES 3
 
 struct strategy_option{
   char *s_name;
@@ -277,8 +263,9 @@ struct strategy_option{
 };
 
 struct strategy_option strategy_table[STRATEGIES + 1] = {
-  { "single", &strategy_single, "attempt to fit all items into the smallest bin" },
-  { "binned", &strategy_binned, "attempt to distribute different types into separate bins" },
+  { "single",   &strategy_single,   "attempt to fit all items into the smallest bin" },
+  { "binned",   &strategy_binned,   "attempt to distribute each different types into its own bin" },
+  { "disjoint", &strategy_disjoint, "attempt to distribute so that no bin contains more than one type" },
   { NULL, NULL, NULL }
 };
 
