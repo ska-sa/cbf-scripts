@@ -351,7 +351,7 @@ function compute_resources()
 
     for index in "${!distribution[@]}" ; do
       switches=""
-      for bin in ${distribution[${index}]}} ; do
+      for bin in ${distribution[${index}]}//\"/} ; do
         switches+="${switches:+ }${switch_map[${bin}]}"
       done
       solution_pool[${engine_map[${index}]}]="${switches}"
