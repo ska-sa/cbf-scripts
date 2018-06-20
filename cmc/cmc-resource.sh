@@ -289,13 +289,14 @@ function compute_resources()
 
   for name in "${!location_free[@]}" ; do
     if [ -n "${location_busy[${name}]}" ] ; then
-      kcpmsg "switch ${name} (${lookup_forward[${name}]}) used by ${location_busy[${name}]} thus discarding ${location_free[${name}]} resources"
+      kcpmsg "switch ${name} used by ${location_busy[${name}]} thus discarding ${location_free[${name}]} resources"
     else
-      kcpmsg "empty switch ${name} (${lookup_forward[${name}]}) has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
+      kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
     fi
   done
 
-  for name in "${lookup_forward[@]}" ; do
+  for index in $!{switch_map[@]} ; do
+    name=${switch_map[${index}]}
     if [ -n "${location_busy[${name}]}" ] ; then
       bins="${bins} 0"
     else
