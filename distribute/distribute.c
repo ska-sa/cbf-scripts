@@ -630,9 +630,38 @@ int main(int argc, char **argv)
     }
   }
 
-  if((ds->d_item_count <= 0) || (ds->d_bin_count <= 0)){
+  if(ds->d_item_count <= 0){
+    if(ds->d_bin_count >= 0){
+      if(ds->d_verbose){
+        fprintf(stderr, "no items to distribute over %d bins\n", ds->d_bin_count);
+      }
+      return 0;
+    }
+
     fprintf(stderr, "nothing to distribute\n");
     return EX_USAGE;
+
+  } else {
+    if(ds->d_bin_count <= 0){
+      for(i = 0 ; i < ds->d_item_count; i++){
+        if(ds->d_item_vector[i] > 0){
+          if(ds->d_verbose){
+            fprintf(stderr, "no bins given but have %d item types\n", ds->d_item_count);
+          }
+          return 1;
+        }
+      }
+
+      if(ds->d_verbose){
+        fprintf(stderr, "no bins but also all %d item types empty\n", ds->d_item_count);
+      }
+
+      return 0;
+
+    }
+  }
+
+  if((ds->d_item_count <= 0) || (ds->d_bin_count <= 0)){
   }
 
   if(count <= 0){
