@@ -234,9 +234,12 @@ function compute_resources()
   local -A location_pool
   local -A solution_pool
   local -a host_vector
+  local -a switch_map
+  local -a distribution
+  local -a engine_map
   local group
 
-  local prior key location instrument art engine failed best count take total word template target holder prefix index actual status match
+  local prior key location locations instrument art engine failed count total word template target holder prefix index actual status match items bins bin switches
 
   push_failure
 
@@ -261,11 +264,12 @@ function compute_resources()
 
       if [ "${status}" = "up" ] ; then
         if [ -n "${holder}" ] ; then
-          location_busy[${location}]="${holder}"
+          location_busy[${location}]="${holder} ${location_busy[${location}]}"
         else
           if [ -z "${location_free[${location}]}" ] ; then
             prior=0
             location_pool[${location}]="${board}"
+            switch_map+=("${location}")
           else
             prior="location_free[${location}]"
             location_pool[${location}]="${location_pool[${location}]} ${board}"
@@ -276,17 +280,26 @@ function compute_resources()
     fi
   done
 
-# now location_free[$switch] should contain a number
-#     location_pool[$switch] should contain a set of *free* boards
-# and location_busy[$switch] be nonzero if somebody else already using a part of it
+# now location_free[$switch] should contain the number of free boards
+#     location_pool[$switch] should contain a set of *free* boards as space deliminted strings
+# and location_busy[$switch] be nonempty if somebody else already using a part of it
+# and switch_map[$number] contains the switch name
 
   local name
 
   for name in "${!location_free[@]}" ; do
     if [ -n "${location_busy[${name}]}" ] ; then
-      kcpmsg "shared switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
+      kcpmsg "switch ${name} (${lookup_forward[${name}]}) used by ${location_busy[${name}]} thus discarding ${location_free[${name}]} resources"
     else
-      kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
+      kcpmsg "empty switch ${name} (${lookup_forward[${name}]}) has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
+    fi
+  done
+
+  for name in "${lookup_forward[@]}" ; do
+    if [ -n "${location_busy[${name}]}" ] ; then
+      bins="${bins} 0"
+    else
+      bins="${bins} ${location_free[${name}]}"
     fi
   done
 
@@ -312,55 +325,54 @@ function compute_resources()
 
     kcpmsg "checking if it is feasible to instantiate ${instrument}"
 
+    unset engine_map
+    local -a engine_map
+
+    items=""
+
     for art in ${resource_types[*]} ; do
       for engine in ${engine_types[*]} ; do
-        if [ "${var_result[instruments:${instrument}:resources:${art}:${engine}]}" -gt 0 ] ; then
-          count=0
-          for location in "${!location_free[@]}" ; do
-            if [ -z "${location_busy[${location}]}" ] ; then
-              if [ "${location_free[${location}]}" -ge "${var_result[instruments:${instrument}:resources:${art}:${engine}]}" ] ; then
-                kcpmsg "switch ${location} has ${location_free[${location}]} ${engine} ${art} resources available which meets the requirement of ${var_result[instruments:${instrument}:resources:${art}:${engine}]}"
-                if [ "${count}" -le 0 ] ; then
-                  count="${location_free[${location}]}"
-                  best="${location}"
-                elif [ "${count}" -gt "${location_free[${location}]}" ] ; then
-                  count="${location_free[${location}]}"
-                  best="${location}"
-                fi
-              fi
-            fi
-          done
-
-          if [ "${count}" -gt 0 ] ; then
-            kcpmsg "selected switch ${best} which has ${count} available slots for ${engine} ${art} use"
-            solution_pool[${art}:${engine}]=${best}
-            location_free[${best}]=$[location_free[${best}]-${count}]
-            kcpmsg -l debug "reduced free count on switch ${best} by ${count} to ${location_free[${best}]}"
-          else
-            kcpmsg -l warn "unable to satisfy the need for ${var_result[instruments:${instrument}:resources:${art}:${engine}]} ${art} boards need by ${instrument} ${engine}"
-            failed=1
-          fi
-
-        else
-          kcpmsg "instrument ${instrument} does not require any dynamic ${art} resources for ${engine}"
-        fi
+        items="${items} ${var_result[instruments:${instrument}:resources:${art}:${engine}]}"
+        engine_map+=("${art}:${engine}")
       done
     done
+
+    kcpmsg "bins ${bins} (${switch_map[*]}) and items ${items} (${engine_map[*]})"
+
+    distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
+
+    if [ "$?" -ne 0 ] ; then
+      kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
+      failed=2
+    fi
+
+    solution_pool()
+
+    for index in "${!distribution[@]}" ; do
+      switches=""
+      for bin in ${distribution[${index}]}} ; do
+        switches+="${switches:+ }${switch_map[${bin}]}"
+      done
+      solution_pool[${engine_map[${index}]}]="${switches}"
+    done
+
+    if [ -n "${!solution_pool[*]}" ] ; then
+      kcpmsg "solution keys are ${!solution_pool[@]}"
+      for name in "${!solution_pool[@]}" ; do
+        art=${name%:*}
+        engine=${name#*:}
+        kcpmsg "proposing switches ${solution_pool[${name}]} to hold ${engine} ${art} resources"
+      done
+    else
+      kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
+      failed=3
+    fi
 
     shift
   done
 
   if [ -n "${failed}" ]; then
-    return 2
-  fi
-
-  if [ -n "${!solution_pool[*]}" ] ; then
-    kcpmsg "solution keys are ${!solution_pool[@]}"
-    for name in "${!solution_pool[@]}" ; do
-      art=${name%:*}
-      engine=${name#*:}
-      kcpmsg "proposing switch ${solution_pool[${name}]} to hold ${engine} ${art} resources"
-    done
+    return ${failed}
   fi
 
   if [ -z "${SUBARRAY}" ] ; then
@@ -433,12 +445,14 @@ function compute_resources()
           fi
 
           if [ -n "${actual}" ] ; then
-# TODO: solution pool will be a set, not single-valued once the heuristics are smarter
-            location="${solution_pool[${actual}:${engine}]}"
+
+            locations="${solution_pool[${actual}:${engine}]}"
 # WARNING - will also have to check if any element on switch hasn't also been allocated elsewhere behind our back - might end up implying a global lock
 
             if [ "${key##*:}" = "switch" ] ; then
-              if [ "${location}" = "${var_result[${key}]}" ] ; then
+              location="${var_result[${key}]}"
+              if [ "${locations/${location}/}" != "${locations}" ] ; then
+
                 prefix="${key%:*}"
                 holder="${var_result[${prefix}:holder]}"
                 status="${var_result[${prefix}:status]}"
