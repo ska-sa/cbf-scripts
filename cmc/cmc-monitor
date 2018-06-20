@@ -71,17 +71,17 @@ function adjust_sensors()
   fi
 
 #   push_failure
-# 
+#
 # # TODO: update device-status too
-# 
+#
 #   send_request   var-set instrument-state "${status}" string :status
 #   retrieve_reply var-set
-# 
+#
 #   if [ -n "${value}" ] ; then
 #     send_request   var-set instrument-state "${value}" string :value
 #     retrieve_reply var-set
 #   fi
-# 
+#
 #   if ! pop_failure  ; then
 #     kcpmsg -l error "unable to update instrument-sensor"
 #     return 1
@@ -180,7 +180,7 @@ function launch_sensors()
   timeout=$[now+120]
 
   kcpmsg "checking until ${timeout} for sensor monitor of ${INSTRUMENT} to be ready"
-  
+
   while ! kcpcmd -irs localhost:${port} watchdog 2> /dev/null ; do
 
     now=$(date +%s)
