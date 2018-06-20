@@ -224,19 +224,27 @@ int strategy_disjoint(struct distribute_state *ds)
     pos = ds->d_bin_shadow[j] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
     loc = ds->d_item_shadow[i] - &(ds->d_item_vector[0]);
 
+#if 0
     if(*(ds->d_bin_shadow[j]) >= *(ds->d_item_shadow[i])){
       ds->d_allocation[(pos * ds->d_item_count) + loc] = *(ds->d_item_shadow[i]);
       i++;
     }
+#endif
 
     if(*(ds->d_bin_shadow[j]) >= actual){
       ds->d_allocation[(pos * ds->d_item_count) + loc] = actual;
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "check[%d]: can allocate all %d remaining to bin %d\n", j, actual, pos);
+      }
       i++;
       if(i < ds->d_item_count){
         actual = *(ds->d_item_shadow[i]);
       }
     } else {
       ds->d_allocation[(pos * ds->d_item_count) + loc] = *(ds->d_bin_shadow[j]);
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "check[%d]: can allocate %d of %d to bin %d\n", j, *(ds->d_bin_shadow[j]), actual, pos);
+      }
       actual -= *(ds->d_bin_shadow[j]);
     }
 
@@ -528,7 +536,7 @@ int main(int argc, char **argv)
           break;
         case 'v' :
           ds->d_verbose++;
-          i++;
+          j++;
           break;
         case 'a' :
         case 'f' :
@@ -632,6 +640,10 @@ int main(int argc, char **argv)
     }
     strategies[0] = 0;
     count = 1;
+  }
+
+  if(ds->d_verbose > 3){
+    fprintf(stderr, "verbosity level %d\n", ds->d_verbose);
   }
 
   ds->d_bin_shadow = make_sorted_shadow(ds->d_bin_vector, ds->d_bin_count);
