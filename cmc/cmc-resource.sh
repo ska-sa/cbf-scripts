@@ -357,8 +357,6 @@ function compute_resources()
         switches+="${switches:+ }${switch_map[${bin}]}"
       done
 
-      kcpmsg "for index ${index} have switch candidates ${switches}"
-
       if [ -n "${switches}" ] ; then
         solution_pool[${engine_map[${index}]}]="${switches}"
       fi
@@ -369,7 +367,7 @@ function compute_resources()
       for name in "${!solution_pool[@]}" ; do
         art=${name%:*}
         engine=${name#*:}
-        kcpmsg "proposing switches ${solution_pool[${name}]} to hold ${engine} ${art} resources"
+        kcpmsg "proposing switch(es) ${solution_pool[${name}]} to hold ${engine} ${art} resources"
       done
     else
       kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
