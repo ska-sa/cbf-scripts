@@ -312,14 +312,12 @@ void display_as_shell_array(struct distribute_state *ds, unsigned int format)
   unsigned int i, j, shown;
 
   if(ds->d_assigned_name){
-    printf("%s=", ds->d_assigned_name);
+    printf("%s=(", ds->d_assigned_name);
   }
-
-  printf("(");
 
   for(i = 0; i < ds->d_item_count; i++){
     if(i > 0){
-      printf(",");
+      printf(" ");
     }
     printf("\"");
     shown = 0;
@@ -340,7 +338,10 @@ void display_as_shell_array(struct distribute_state *ds, unsigned int format)
     printf("\"");
   }
 
-  printf(")\n");
+  if(ds->d_assigned_name){
+    printf(")");
+  }
+  printf("\n");
 }
 
 void display_as_matrix(struct distribute_state *ds, unsigned int format)
