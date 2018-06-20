@@ -347,7 +347,9 @@ function compute_resources()
       failed=2
     fi
 
-    solution_pool()
+    solution_pool=()
+
+    kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[${index}]//\"/}"
 
     for index in "${!distribution[@]}" ; do
       switches=""
