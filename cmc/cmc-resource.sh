@@ -474,6 +474,9 @@ function compute_resources()
                     send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
                     retrieve_reply var-set
 
+# BIG HAIRY WARNING: we are pushing things into var_result, which isn't really ours
+                    var_result[${prefix}:holder]="${SUBARRAY}"
+
                     export ${name}=${target}
                     index=$[index+1]
                     actual=""
