@@ -349,7 +349,7 @@ function compute_resources()
 
     solution_pool=()
 
-    kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[${index}]//\"/}"
+    kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
 
     for index in "${!distribution[@]}" ; do
       switches=""
@@ -359,7 +359,9 @@ function compute_resources()
 
       kcpmsg "for index ${index} have switch candidates ${switches}"
 
-      solution_pool[${engine_map[${index}]}]="${switches}"
+      if [ -n "${switches}" ] ; then
+        solution_pool[${engine_map[${index}]}]="${switches}"
+      fi
     done
 
     if [ -n "${!solution_pool[*]}" ] ; then
