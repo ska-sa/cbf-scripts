@@ -457,8 +457,7 @@ function compute_resources()
 
             if [ "${key##*:}" = "switch" ] ; then
               location="${var_result[${key}]}"
-              if [ "${locations/${location}/}" != "${locations}" ] ; then
-
+              if is_member "${location}" ${locations} ; then
                 prefix="${key%:*}"
                 holder="${var_result[${prefix}:holder]}"
                 status="${var_result[${prefix}:status]}"

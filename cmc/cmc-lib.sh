@@ -303,6 +303,29 @@ function fetch_var()
   done
 }
 
+## simple membership test #########################
+
+function is_member()
+{
+  if [ -z "$1" ] ; then
+    return 1
+  fi
+
+  target="$1"
+
+  shift
+
+  while [ -n $1 ] ; do
+    if [ "$1" = "${target}" ] ; then
+      return 0
+    fi
+    shift
+  done
+
+  return 1
+}
+
+
 ## locking infrastructure #########################
 
 function init_locks()
