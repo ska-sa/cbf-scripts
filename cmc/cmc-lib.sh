@@ -315,7 +315,7 @@ function is_member()
 
   shift
 
-  while [ -n $1 ] ; do
+  while [ -n "$1" ] ; do
     if [ "$1" = "${target}" ] ; then
       return 0
     fi
