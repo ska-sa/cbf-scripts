@@ -340,7 +340,7 @@ function compute_resources()
 
     kcpmsg "bins ${bins} (${switch_map[*]}) and items ${items} (${engine_map[*]})"
 
-    distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
+    eval distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
 
     if [ "$?" -ne 0 ] ; then
       kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
@@ -493,7 +493,7 @@ function compute_resources()
       done
 
       if [ "${index}" -lt "${#host_vector[@]}" ] ; then
-        kcpmsg "resource pool could not supply ${#host_vector[@]} dynamic resources for ${engine}"
+        kcpmsg "resource pool could not supply ${#host_vector[@]} dynamic resources for ${engine} (could do ${index})"
         set_failure
       fi
 
