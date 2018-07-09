@@ -347,34 +347,42 @@ function compute_resources()
       failed=2
     fi
 
-    solution_pool=()
+    if [ "${#distribution[*]}" -gt 0 ] ; then
 
-    kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
+      solution_pool=()
 
-    for index in "${!distribution[@]}" ; do
-      switches=""
-      for bin in ${distribution[${index}]//\"/} ; do
-        switches+="${switches:+ }${switch_map[${bin}]}"
+      kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
+
+      for index in "${!distribution[@]}" ; do
+        switches=""
+        for bin in ${distribution[${index}]//\"/} ; do
+          switches+="${switches:+ }${switch_map[${bin}]}"
+        done
+
+        if [ -n "${switches}" ] ; then
+          solution_pool[${engine_map[${index}]}]="${switches}"
+        fi
       done
 
-      if [ -n "${switches}" ] ; then
-        solution_pool[${engine_map[${index}]}]="${switches}"
+      if [ -n "${!solution_pool[*]}" ] ; then
+        kcpmsg "solution keys are ${!solution_pool[@]}"
+        for name in "${!solution_pool[@]}" ; do
+          art=${name%:*}
+          engine=${name#*:}
+          kcpmsg "proposing switch(es) ${solution_pool[${name}]} to hold ${engine} ${art} resources"
+        done
+      else
+        kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
+        failed=3
       fi
-    done
 
-    if [ -n "${!solution_pool[*]}" ] ; then
-      kcpmsg "solution keys are ${!solution_pool[@]}"
-      for name in "${!solution_pool[@]}" ; do
-        art=${name%:*}
-        engine=${name#*:}
-        kcpmsg "proposing switch(es) ${solution_pool[${name}]} to hold ${engine} ${art} resources"
-      done
     else
-      kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
-      failed=3
+      kcpmsg -l warn "no solution found for the resource needs of ${instrument}"
+      failed=2
     fi
 
     shift
+
   done
 
   if [ -n "${failed}" ]; then
