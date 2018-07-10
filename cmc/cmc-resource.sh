@@ -528,7 +528,7 @@ function add_resource()
 {
   local board art actual network
 
-  board="$1"
+  board="${1,,}"
 
   if [ -n "${board}" ] ; then
     kcpmsg -l error "no resource to add"
