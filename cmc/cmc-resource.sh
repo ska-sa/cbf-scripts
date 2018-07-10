@@ -524,6 +524,88 @@ function compute_resources()
   return 0
 }
 
+function add_resource()
+{
+  local board art actual network
+
+  board="$1"
+
+  if [ -n "${board}" ] ; then
+    kcpmsg -l error "no resource to add"
+    return 1
+  fi
+
+  push_failure
+
+  fetch_var "resources"
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to retrieve resource variables"
+    return 1
+  fi
+
+  if [ -n "${var_result[resources:${board}:mode]}" ] ; then
+    kcpmsg -l warn "resource ${board} already enrolled"
+    return 1
+  fi
+
+  actual=""
+
+  for art in ${resource_types[*]} ; do
+
+    if [ "${board/${art}/}" != "${board}" ] ; then
+      actual="${art}"
+    fi
+  done
+
+  if [ -z "${actual}" ] ; then
+    kcpmsg -l error "unable to map ${board} to one of ${resource_types[*]}"
+    return 1
+  fi
+
+  art="${actual}"
+
+# NOTE: special case: the 3rd octet of a scarab encodes its switch
+  if [ "${art}" = "skarab" ] ; then
+    network=$(getent hosts ${board} | cut -f3 -d '.' | head -1 )
+    if [ -z "${network}" ] ; then
+      kcpmsg -l error "unable to determine IP of skarab ${board}"
+      return 1
+    fi
+  fi
+
+  push_failure
+
+  send_request   var-declare resources map      ":${board}"
+  retrieve_reply var-declare
+
+  send_request   var-set     resources "${art}" string ":${board}:type"
+  retrieve_reply var-set
+
+  send_request   var-set     resources auto     string ":${board}:mode"
+  retrieve_reply var-set
+
+  send_request   var-set     resources 0        string ":${board}:when"
+  retrieve_reply var-set
+
+  send_request   var-set     resources standby  string ":${board}:status"
+  retrieve_reply var-set
+
+  if [ -n "${network}" ] ; then
+    send_request   var-set     resources "${network}" string ":${board}:switch"
+    retrieve_reply var-set
+  fi
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to enroll ${board}"
+    return 1
+  fi
+
+  kcpmsg "manually added resource ${board} of type ${art}"
+
+  return 0
+}
+
 function check_resources()
 {
   local -l board

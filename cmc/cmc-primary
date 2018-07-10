@@ -6,7 +6,7 @@ export KATCP_LABEL=cmc-primary
 
 # valid command names and their minimum parameter count
 
-declare -A -r command_set=([resource-list]=1 [resource-mark]=3 [resource-reload]=1 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1 [instrument-probe]=2 [cmc-halt]=1)
+declare -A -r command_set=([resource-list]=1 [resource-mark]=3 [resource-reload]=1 [resource-add]=2 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1 [instrument-probe]=2 [cmc-halt]=1)
 declare -A -r command_help=([resource-list]="show processing resources (?resource-list [resource])" [resource-mark]="set availability of a processing resource (?resource-mark resource marking)" [subordinate-halt]="halt a subarray (?subordinate-halt [subarray])" [subordinate-list]="show subarrays (?subordinate-list)" [subordinate-create]="define and launch a subarray (?subordinate-create subarray [inputs]*)" [instrument-list]="show available instruments (?instrument-list)" [instrument-probe]="test if a group of instruments can currently be run (?instrument-probe [instruments]*)" [cmc-halt]="power down the cmc server (?cmc-halt)")
 
 declare -A -r inform_set=([group-destroyed]=1)
@@ -212,13 +212,45 @@ function group_destroyed()
 
 ### api functions ### resources #########################
 
+function resource_add()
+{
+  local code
+
+  code=fail
+
+  if ! acquire_lock boards primary 5 ; then
+    kcpmsg -l warn "unable to acquire exclusive access to resource pool"
+    echo "!resource-add ${code}"
+  fi
+
+  if add_resource "$1" ; then
+    code=ok
+  fi
+
+  release_lock
+
+  echo "!resource-add ${code}"
+
+}
+
 function resource_reload()
 {
-  if check_resources ; then
-    echo "!resource-reload ok"
-  else
-    echo "!resource-reload fail"
+  local code
+
+  code=fail
+
+  if ! acquire_lock boards primary 5 ; then
+    kcpmsg -l warn "unable to acquire exclusive access to resource pool"
+    echo "!resource-reload ${code}"
   fi
+
+  if check_resources ; then
+    code=ok
+  fi
+
+  release_lock
+
+  echo "!resource-reload ${code}"
 }
 
 function resource_list()
