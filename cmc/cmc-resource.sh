@@ -530,7 +530,7 @@ function add_resource()
 
   board="${1,,}"
 
-  if [ -n "${board}" ] ; then
+  if [ -z "${board}" ] ; then
     kcpmsg -l error "no resource to add"
     return 1
   fi
