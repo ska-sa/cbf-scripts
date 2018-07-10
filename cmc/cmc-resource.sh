@@ -264,7 +264,13 @@ function compute_resources()
 
       if [ "${status}" = "up" ] ; then
         if [ -n "${holder}" ] ; then
-          location_busy[${location}]="${holder} ${location_busy[${location}]}"
+          if [ -n "${location_busy[${location}]}" ] ; then
+            if ! is_member "${holder}" ${location_busy[${location}]} ; then
+              location_busy[${location}]="${holder} ${location_busy[${location}]}"
+            fi
+          else
+            location_busy[${location}]="${holder}"
+          fi
         else
           if [ -z "${location_free[${location}]}" ] ; then
             prior=0
