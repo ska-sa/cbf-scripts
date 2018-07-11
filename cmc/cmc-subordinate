@@ -3,10 +3,10 @@
 #################################################
 
 if [ -n "$1" ] ; then
-  export KATCP_LABEL="cmc-${1}"
+  export KATCP_LABEL="${1}.cmc"
   export SUBARRAY=${1}
 else
-  export KATCP_LABEL=cmc-subordinate
+  export KATCP_LABEL=cmc.subordinate
   export SUBARRAY=unknown
 fi
 
@@ -402,7 +402,7 @@ function instrument_activate()
   fi
 
 # TODO would be nice to use internal relay, but no timeout ...
-  if ! kcpcmd -i -k -f -t 600 -r -s localhost:${PORT} create ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ; then
+  if ! kcpcmd -i -k -f -t 600 -r -s localhost:${PORT} create ${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} ${SUBARRAY}.${INSTRUMENT}; then
     kcpmsg -l error "unable to load config for instrument ${INSTRUMENT} in subarray ${SUBARRAY}"
     echo "!instrument-activate fail read-logs"
     adjust_sensors

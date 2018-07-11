@@ -2,7 +2,7 @@
 
 declare -a command_vector
 
-export KATCP_LABEL=cmc-null
+export KATCP_LABEL=cmc.null
 
 function nullok()
 {

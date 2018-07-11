@@ -1,6 +1,8 @@
 #!/bin/bash
 
-export KATCP_LABEL=cmc-config
+if [ -z "${KATCP_LABEL}" ] ; then
+  export KATCP_LABEL=cmc.config
+fi
 
 if [ "$#" -lt 2 ] ; then
   kcpmsg -l error "insufficient parameters to launch instrument"

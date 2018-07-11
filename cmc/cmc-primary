@@ -2,7 +2,7 @@
 
 #################################################
 
-export KATCP_LABEL=cmc-primary
+export KATCP_LABEL=cmc.primary
 
 # valid command names and their minimum parameter count
 

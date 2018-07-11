@@ -2,11 +2,11 @@
 
 #################################################
 
-export KATCP_LABEL=cmc-subordinate
+export KATCP_LABEL=cmc.subordinate
 export SUBARRAY=unknown
 
 if [ -n "$1" ] ; then
-  export KATCP_LABEL="cmc-${1}"
+  export KATCP_LABEL="${1}.cmc"
   export SUBARRAY=${1}
   if [ -n "$2" ] ; then
     export INSTRUMENT="$2"
