@@ -41,7 +41,7 @@ function recheck_configs()
 
   if [ -f "${configuration}" ] ; then
 
-    current_time=$(stat -c %Y ${configuration})
+    current_time=$(stat -L -c %Y ${configuration})
 
     if [ -n "${current_time}" ] ; then
       if [ "${current_time}" -gt "${config_file_time}" ] ; then
@@ -62,7 +62,7 @@ function recheck_configs()
   fi
 
   if [ -d "${CORR_TEMPLATE}" ] ; then
-    current_time=$(stat -c %Y ${CORR_TEMPLATE})
+    current_time=$(stat -L -c %Y ${CORR_TEMPLATE})
     if [ "${current_time}" -gt "${template_dir_time}" ] ; then
       template_dir_time=${current_time}
       update=1
