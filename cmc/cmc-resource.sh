@@ -346,45 +346,50 @@ function compute_resources()
 
     kcpmsg "bins ${bins} (${switch_map[*]}) and items ${items} (${engine_map[*]})"
 
-    eval distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
+    if [ -n "${items}" ] ; then
 
-    if [ "$?" -ne 0 ] ; then
-      kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
-      failed=2
-    fi
+      eval distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
 
-    if [ "${#distribution[*]}" -gt 0 ] ; then
-
-      solution_pool=()
-
-      kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
-
-      for index in "${!distribution[@]}" ; do
-        switches=""
-        for bin in ${distribution[${index}]//\"/} ; do
-          switches+="${switches:+ }${switch_map[${bin}]}"
-        done
-
-        if [ -n "${switches}" ] ; then
-          solution_pool[${engine_map[${index}]}]="${switches}"
-        fi
-      done
-
-      if [ -n "${!solution_pool[*]}" ] ; then
-        kcpmsg "solution keys are ${!solution_pool[@]}"
-        for name in "${!solution_pool[@]}" ; do
-          art=${name%:*}
-          engine=${name#*:}
-          kcpmsg "proposing switch(es) ${solution_pool[${name}]} to hold ${engine} ${art} resources"
-        done
-      else
-        kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
-        failed=3
+      if [ "$?" -ne 0 ] ; then
+        kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
+        failed=2
       fi
 
+      if [ "${#distribution[*]}" -gt 0 ] ; then
+
+        solution_pool=()
+
+        kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
+
+        for index in "${!distribution[@]}" ; do
+          switches=""
+          for bin in ${distribution[${index}]//\"/} ; do
+            switches+="${switches:+ }${switch_map[${bin}]}"
+          done
+
+          if [ -n "${switches}" ] ; then
+            solution_pool[${engine_map[${index}]}]="${switches}"
+          fi
+        done
+
+        if [ -n "${!solution_pool[*]}" ] ; then
+          kcpmsg "solution keys are ${!solution_pool[@]}"
+          for name in "${!solution_pool[@]}" ; do
+            art=${name%:*}
+            engine=${name#*:}
+            kcpmsg "proposing switch(es) ${solution_pool[${name}]} to hold ${engine} ${art} resources"
+          done
+        else
+          kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
+          failed=3
+        fi
+
+      else
+        kcpmsg -l warn "no solution found for the resource needs of ${instrument}"
+        failed=2
+      fi
     else
-      kcpmsg -l warn "no solution found for the resource needs of ${instrument}"
-      failed=2
+      kcpmsg "no dynamic resources needed by instrument ${instrument}"
     fi
 
     shift
