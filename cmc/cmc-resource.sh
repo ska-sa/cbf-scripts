@@ -346,7 +346,7 @@ function compute_resources()
 
     kcpmsg "bins ${bins} (${switch_map[*]}) and items ${items} (${engine_map[*]})"
 
-    if [ -n "${items}" ] ; then
+    if [ $(sum_args ${items}) -gt 0 ] ; then
 
       eval distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
 
@@ -362,13 +362,15 @@ function compute_resources()
         kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
 
         for index in "${!distribution[@]}" ; do
-          switches=""
-          for bin in ${distribution[${index}]//\"/} ; do
-            switches+="${switches:+ }${switch_map[${bin}]}"
-          done
+          if [ -n "${index}" ]; then
+            switches=""
+            for bin in ${distribution[${index}]//\"/} ; do
+              switches+="${switches:+ }${switch_map[${bin}]}"
+            done
 
-          if [ -n "${switches}" ] ; then
-            solution_pool[${engine_map[${index}]}]="${switches}"
+            if [ -n "${switches}" ] ; then
+              solution_pool[${engine_map[${index}]}]="${switches}"
+            fi
           fi
         done
 

@@ -77,6 +77,9 @@ kcpcmd -i listener-create setup ${setup_port} 127.0.0.1
 export KATCP_SERVER=localhost:${setup_port}
 
 # top-level katcp interface
+kcpcmd -i group-create hardware
+kcpcmd -i listener-create hardware ${hardware_port} ${bind_interface:-0.0.0.0} hardware
+
 kcpcmd -i group-create primary
 kcpcmd -i listener-create primary ${primary_port} ${bind_interface:-0.0.0.0} primary
 export KATCP_SERVER=${bind_interface:-localhost}:${primary_port}

@@ -35,6 +35,22 @@ if [ ! -f "${leases}" ] ; then
   kcpmsg -l fatal "no lease file to be found"
 fi
 
+### simple summmer ######################################
+
+function sum_args()
+{
+  local -i total
+
+  total=0
+
+  while [ "$#" -gt 0 ] ; do
+    total=$[total+${1}]
+    shift
+  done
+
+  echo "${total}"
+}
+
 ### queue library #######################################
 
 declare -a queue_data
