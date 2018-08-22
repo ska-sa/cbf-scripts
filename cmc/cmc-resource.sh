@@ -233,11 +233,11 @@ function compute_resources()
   local -A location_busy
   local -A location_pool
   local -A solution_pool
-  local -a host_vector
   local -a switch_map
   local -a distribution
   local -a engine_map
   local group
+  local host_list
 
   local prior key location locations instrument art engine failed count total word template target holder prefix index actual status match items bins bin switches
 
@@ -432,14 +432,14 @@ function compute_resources()
   for word in $(ike -k hosts ${template}) ; do
     engine="${word%%.*}"
     group="${word#*=}"
-    host_vector=()
+    host_list=""
 
     for name in ${group//,/ } ; do
       match=""
       for art in ${resource_types[*]} ; do
         if [ "${name#${art^^}}" != "${name}" ] ; then
 # TODO: could try to notice collisions, uniq ?
-          host_vector+=(${name})
+          host_list="${host_list} ${name}"
           match=${art}
         fi
       done
@@ -453,67 +453,59 @@ function compute_resources()
     done
 
 
-    if [ -n "${host_vector[*]}" ]  ; then
-      kcpmsg "need to map placeholders ${host_vector[*]} to actual resources"
+    if [ -n "${host_list}" ]  ; then
+      kcpmsg "need to map placeholders $host_list to actual resources"
       actual=""
 
-      index=0
+      name="${host_list%% *}"
+      host_list="${host_list#* }"
 
-      for key in "${!var_result[@]}" ; do
-        if [ "${index}" -lt "${#host_vector[@]}" ] ; then
+      for art in ${resource_types[*]} ; do
+        for location in ${solution_pool[${art}:${engine}]} ; do
 
-          name="${host_vector[${index}]}"
-          if [ -z "${actual}" ] ; then
-            for art in ${resource_types[*]} ; do
-              if [ "${name#${art^^}}" != "${name}" ] ; then
-                actual=${art}
-              fi
-            done
-          fi
-
-          if [ -n "${actual}" ] ; then
-
-            locations="${solution_pool[${actual}:${engine}]}"
-# WARNING - will also have to check if any element on switch hasn't also been allocated elsewhere behind our back - might end up implying a global lock
-
+          for key in "${!var_result[@]}" ; do
             if [ "${key##*:}" = "switch" ] ; then
-              location="${var_result[${key}]}"
-              if is_member "${location}" ${locations} ; then
-                prefix="${key%:*}"
-                holder="${var_result[${prefix}:holder]}"
-                status="${var_result[${prefix}:status]}"
+              if [ "${location}" = "${var_result[${key}]}" ] ; then
+                if [ -n "${name}" ] ; then
+                  prefix="${key%:*}"
+                  holder="${var_result[${prefix}:holder]}"
+                  status="${var_result[${prefix}:status]}"
+                  if [ "${status}" = up ] ; then
+                    if [ -z "${holder}" ] ; then
 
-                if [ "${status}" = up ] ; then
-                  if [ -z "${holder}" ] ; then
-                    tmp="${key#resources:}"
-                    target="${tmp%%:*}"
-                    kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
+                      tmp="${key#resources:}"
+                      target="${tmp%%:*}"
 
-                    send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
-                    retrieve_reply var-set
+                      if [ "${target#${art^^}}" != "${target}" ] ; then
+
+                        kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
+
+                        send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
+                        retrieve_reply var-set
 
 # BIG HAIRY WARNING: we are pushing things into var_result, which isn't really ours
-                    var_result[${prefix}:holder]="${SUBARRAY}"
+                        var_result[${prefix}:holder]="${SUBARRAY}"
 
-                    export ${name}=${target}
-                    index=$[index+1]
-                    actual=""
+                        export ${name}=${target}
+                      else
+# skip this one as it isn't our type
+                        host_list="${host_list} ${name}"
+                      fi
+                      name="${host_list%% *}"
+                      host_list="${host_list#* }"
+                    fi
+                  else
+                    kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
                   fi
-                else
-                  kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
                 fi
               fi
             fi
-          else
-            kcpmsg "no way of establishing resource type of ${name}"
-            set_failure
-            index=$[index+1]
-          fi
-        fi
+          done
+        done
       done
 
-      if [ "${index}" -lt "${#host_vector[@]}" ] ; then
-        kcpmsg "resource pool could not supply ${#host_vector[@]} dynamic resources for ${engine} (could do ${index})"
+      if [ -n "${host_list}" ] ; then
+        kcpmsg "unable to make substiutions for dynamic resources ${host_list}"
         set_failure
       fi
 
