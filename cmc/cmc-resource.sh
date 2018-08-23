@@ -463,7 +463,7 @@ function compute_resources()
       for art in ${resource_types[*]} ; do
         for location in ${solution_pool[${art}:${engine}]} ; do
 
-          kcpmsg "performing substitutions for board type ${art} and engine ${engine}"
+          kcpmsg "performing substitutions for board type ${art} and engine ${engine} at switch ${location}"
 
           for key in "${!var_result[@]}" ; do
             if [ "${key##*:}" = "switch" ] ; then
