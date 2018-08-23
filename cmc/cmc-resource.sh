@@ -494,7 +494,11 @@ function compute_resources()
                         host_list="${host_list} ${name}"
                       fi
                       name="${host_list%% *}"
-                      host_list="${host_list#* }"
+                      if [ "${host_list#* }" = "${host_list}" ] ; then
+                        host_list=""
+                      else
+                        host_list="${host_list#* }"
+                      fi
                     fi
                   else
                     kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
