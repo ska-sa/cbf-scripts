@@ -439,7 +439,7 @@ function compute_resources()
       for art in ${resource_types[*]} ; do
         if [ "${name#${art^^}}" != "${name}" ] ; then
 # TODO: could try to notice collisions, uniq ?
-          host_list="${host_list} ${name}"
+          host_list="${host_list}${host_list:+ }${name}"
           match=${art}
         fi
       done
