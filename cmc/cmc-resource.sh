@@ -478,7 +478,7 @@ function compute_resources()
                       tmp="${key#resources:}"
                       target="${tmp%%:*}"
 
-                      if [ "${target#${art^^}}" != "${target}" ] ; then
+                      if [ "${target#${art}}" != "${target}" ] ; then
 
                         kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
 
