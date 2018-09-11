@@ -327,7 +327,7 @@ function resource_mark()
     (up)
       if [ -n "${resources_excluded[${board}]}" ] ; then
         kcpmsg -l warn "resource ${board} was excluded via configuration in ${configuration} thus not honouring this request"
-        echo "!resource-mark fail"
+        echo "!resource-mark fail denied"
         return 1
       fi
 
