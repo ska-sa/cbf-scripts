@@ -219,6 +219,11 @@ int strategy_disjoint(struct distribute_state *ds)
 
   actual = *(ds->d_item_shadow[i]);
 
+  while((actual <= 0) && (i < ds->d_item_count)){
+    i++;
+    actual = *(ds->d_item_shadow[i]);
+  }
+
   while(i < ds->d_item_count){
 
     pos = ds->d_bin_shadow[j] - &(ds->d_bin_vector[0]); /* WARNING: excessive pointer arithmetic */
