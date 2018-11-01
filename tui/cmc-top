@@ -1,0 +1,52 @@
+#!/bin/bash
+
+if [ -z "${HAVE_PARENT}" ] ; then
+  export HAVE_PARENT=$$
+
+  if [ -n "$1" ] ; then
+    export KATCP_SERVER="$1"
+  fi
+
+  if [ -z "${KATCP_SERVER}" ] ; then
+    export KATCP_SERVER=10.103.254.3:7147
+  fi
+
+  nc -q 2 -w 2 ${KATCP_SERVER/:/ } | $0 
+
+  exit 0
+fi
+
+echo "Connected to ${KATCP_SERVER} to collect logs"
+
+declare -a vector
+declare -A cmap
+
+declare -a input
+
+prelen=10
+
+cmap=([info]=$(tput sgr0) [warn]=$(tput setaf 3) [error]=$(tput setaf 1) [fatal]=$(tput setaf 5;tput rev))
+
+plain=$(tput sgr0)
+dim=$(tput dim)
+
+cols=$(tput cols)
+
+align=$[${cols}-${prelen}-1]
+
+while read -a input ; do
+  case "${input[0]}" in
+    '#log' )
+      level="${input[1]}"
+      module="${input[3]}                    "
+      message="${input[4]}"
+
+      tmp="${message//\_/ }"
+      text="${tmp:0:${align}}"
+
+      padded="${module:0:${prelen}}"
+                
+      printf "${dim}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
+    ;;
+  esac
+done
