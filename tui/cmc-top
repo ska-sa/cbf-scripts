@@ -3,6 +3,12 @@
 if [ -z "${HAVE_PARENT}" ] ; then
   export HAVE_PARENT=$$
 
+  if [ "$1" = "-h" ] ; then
+    echo "katcp log message decoder/colouriser"
+    echo "usage: $0 [host:port]"
+    exit 1
+  fi
+
   if [ -n "$1" ] ; then
     export KATCP_SERVER="$1"
   fi
@@ -23,7 +29,10 @@ declare -A cmap
 
 declare -a input
 
-prelen=10
+declare -i checktime
+
+prefixlen=11
+checkperiod=60
 
 cmap=([info]=$(tput sgr0) [warn]=$(tput setaf 3) [error]=$(tput setaf 1) [fatal]=$(tput setaf 5;tput rev))
 
@@ -31,21 +40,30 @@ plain=$(tput sgr0)
 dim=$(tput dim)
 
 cols=$(tput cols)
+align=$[${cols}-${prefixlen}-1]
 
-align=$[${cols}-${prelen}-1]
+checktime=$(date +%s)
+checktime=$[${checktime}+${checkperiod}]
 
 while read -a input ; do
   case "${input[0]}" in
     '#log' )
       level="${input[1]}"
+      when="${input[2]}"
       module="${input[3]}                    "
       message="${input[4]}"
+
+      if [ "${when%%.*}" -gt "${checktime}" ] ; then
+        cols=$(tput cols)
+        align=$[${cols}-${prefixlen}-1]
+        checktime=$[${checktime}+${checkperiod}]
+      fi
+
+      padded="${module:0:${prefixlen}}"
 
       tmp="${message//\_/ }"
       text="${tmp:0:${align}}"
 
-      padded="${module:0:${prelen}}"
-                
       printf "${dim}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
     ;;
   esac

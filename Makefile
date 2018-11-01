@@ -3,7 +3,7 @@ include Makefile.inc
 ###############################################################################
 
 APPS = 
-MISC = cmc misc ike snp distribute
+MISC = cmc misc ike snp distribute tui
 
 EVERYTHING = $(APPS) $(MISC)
 
