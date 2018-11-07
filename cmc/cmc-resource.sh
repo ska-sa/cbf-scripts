@@ -729,7 +729,7 @@ function check_resources()
           fi
 
           if [ -n "${resources_excluded[${board}]}" ] ; then
-            kcpmsg "marking ${board} manually manually managed as it is on the exclusion list"
+            kcpmsg "marking ${board} manually managed as it is on the exclusion list"
             status=standby
 
             send_request   var-delete  "resources:${board}:mode"

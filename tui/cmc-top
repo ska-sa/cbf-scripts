@@ -39,6 +39,8 @@ cmap=([info]=$(tput sgr0) [warn]=$(tput setaf 3) [error]=$(tput setaf 1) [fatal]
 plain=$(tput sgr0)
 dim=$(tput dim)
 
+clr=$(tput el)
+
 cols=$(tput cols)
 align=$[${cols}-${prefixlen}-1]
 
@@ -50,7 +52,8 @@ while read -a input ; do
     '#log' )
       level="${input[1]}"
       when="${input[2]}"
-      module="${input[3]}                    "
+      module="${input[3]}"
+      expanded="${module}                     "
       message="${input[4]}"
 
       if [ "${when%%.*}" -gt "${checktime}" ] ; then
@@ -59,12 +62,16 @@ while read -a input ; do
         checktime=$[${checktime}+${checkperiod}]
       fi
 
-      padded="${module:0:${prefixlen}}"
+      padded="${expanded:0:${prefixlen}}"
 
       tmp="${message//\_/ }"
       text="${tmp:0:${align}}"
 
-      printf "${dim}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
+      printf "\r${dim}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
+
+      if [ "${#module}" -gt ${prefixlen} ] ; then
+        printf "${module}${clr}"
+      fi
     ;;
   esac
 done
