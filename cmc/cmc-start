@@ -35,13 +35,12 @@ fi
 if [ "${state/tmp-log/}" != "${state}" ] ; then
   LOGFILE=/tmp/${NAME}.kcplog
   ERRFILE=/tmp/${NAME}.log
-  cd /tmp
 else
   LOGFILE=/var/log/${NAME}.kcplog
   ERRFILE=/var/log/${NAME}.log
-  cd /var/log
 fi
 
+cd /var/tmp
 ulimit -c unlimited
 
 export KATCP_SERVER=localhost:${old_port}
