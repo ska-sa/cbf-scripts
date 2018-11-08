@@ -40,6 +40,7 @@ else
   ERRFILE=/var/log/${NAME}.log
 fi
 
+export MALLOC_CHECK_=1
 cd /var/tmp
 ulimit -c unlimited
 
