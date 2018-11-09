@@ -912,6 +912,8 @@ function instrument_list()
 
 function instrument_probe()
 {
+  local result
+
   shift
 
   if ! recheck_configs ; then
@@ -921,12 +923,14 @@ function instrument_probe()
 
   compute_resources "$@"
 
-  if [ "$?" -eq 0 ] ; then
+  result="$?"
+
+  if [ "${result}" -eq 0 ] ; then
     echo "!instrument-probe ok sufficient"
     return
   fi
 
-  if [ "$?" -eq 2 ] ; then
+  if [ "${result}" -eq 2 ] ; then
     echo "!instrument-probe ok oversubscribed"
     return
   fi

@@ -399,6 +399,7 @@ function compute_resources()
   done
 
   if [ -n "${failed}" ]; then
+    kcpmsg "exiting with code ${failed}"
     return ${failed}
   fi
 
