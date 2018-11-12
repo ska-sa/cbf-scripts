@@ -8,7 +8,7 @@
 
 function reload_instruments()
 {
-  local size instrument template geometry art count top available product i required inputs outputs channels boutput binput art engine candidates word
+  local size instrument template geometry art count top available product i required inputs outputs channels bw boutput binput art engine candidates word
 
   if [ "${#instruments_deployed[@]}" -le 0 ] ; then
     kcpmsg -l fatal "no instruments deployed"
@@ -60,9 +60,11 @@ function reload_instruments()
       inputs=$(ike -o -k source_products ${template})
       outputs=$(ike -o -k output_products ${template})
       channels=$(ike -o -k n_chans ${template})
+      bw=$(ike -o -s FxCorrelator -k sample_rate_hz ${template})
 
-      boutput=0
-      binput=0
+      boutput=$[bw/2]
+      binput=$[bw/2]
+
 # TODO
 # boutput=$(ike -o -k output_ ${template})
 # binput=$(ike -o -k output_ ${template})
