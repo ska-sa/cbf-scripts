@@ -53,9 +53,9 @@ function recheck_configs()
           kcpmsg -l error "failed to reload configuration ${configuration}"
           return 1
         fi
-      fi
 
-      reload_resource_exclusions
+        reload_resource_exclusions
+      fi
     fi
   else
     kcpmsg -l error "no configuration available"
@@ -240,6 +240,11 @@ function resource_reload()
   local code
 
   shift
+
+  if ! recheck_configs ; then
+    echo "!resource-reload fail"
+    return 1
+  fi
 
   code=fail
 
