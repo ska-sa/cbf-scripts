@@ -13,8 +13,8 @@ fi
 #################################################
 
 # valid command names and their minimum parameter count
-declare -A -r command_set=([synchronisation-epoch]=1 [instrument-activate]=2 [instrument-list]=1)
-declare -A -r command_help=([synchronisation-epoch]="digitiser synchronisation time (?synchronisation-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)" [instrument-list]="show fielded instruments (?instrument-list)")
+declare -A -r command_set=([sync-epoch]=1 [instrument-activate]=2 [instrument-list]=1)
+declare -A -r command_help=([sync-epoch]="digitiser synchronisation time (?sync-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)" [instrument-list]="show fielded instruments (?instrument-list)")
 
 #################################################
 
@@ -239,7 +239,7 @@ function retrieve_inputs()
 #########################################################
 ### api functions ### sync epoch ########################
 
-function synchronisation_epoch()
+function sync_epoch()
 {
   local epoch
 
@@ -247,7 +247,7 @@ function synchronisation_epoch()
 
   if [ "$#" -lt 1 ] ; then
     kcpmsg -l warn "require an epoch to set where value is available in synchronisation-epoch sensor"
-    echo "!synchronisation-epoch fail"
+    echo "!sync-epoch fail"
     return 1
   fi
 
@@ -263,14 +263,14 @@ function synchronisation_epoch()
 
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to set epoch variable"
-    echo "!synchronisation-epoch fail"
+    echo "!sync-epoch fail"
     return 1
   fi
 
   kcpmsg -l info "will use epoch ${epoch}"
 
 
-  echo "!synchronisation-epoch ok"
+  echo "!sync-epoch ok"
 }
 
 #########################################################
@@ -427,7 +427,7 @@ function instrument_activate()
 
     if [ "${epoch%%.*}" -gt 0 ] ; then
 # TODO: will this command get re-named too ?
-      if kcpcmd -i -k -f -r -s localhost:${PORT} digitiser-synch-epoch "${epoch}" ; then
+      if kcpcmd -i -k -f -r -s localhost:${PORT} sync-epoch "${epoch}" ; then
         kcpmsg "preliminary sync epoch set to ${epoch}"
       else
         kcpmsg -l error "servlet unwilling to accept epoch ${epoch}"
