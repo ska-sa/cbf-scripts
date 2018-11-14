@@ -130,6 +130,13 @@ kcpcmd -i cmd-help         array-list         "show running subarray (?array-lis
 kcpcmd -i forward-symbolic array-assign        primary subordinate-create %1+
 kcpcmd -i cmd-help         array-assign       "define and launch a subarray (?array-assign subarray [inputs]*)"
 
+# forward compatebility
+kcpcmd -i forward-symbolic sync-epoch               subordinate synchronisation-epoch %1+
+kcpcmd -i cmd-help         sync-epoch              "set the start of the epoch (?sync-epoch epoch)"
+
+kcpcmd -i forward-symbolic digitiser-synch-epoch    subordinate synchronisation-epoch %1+
+kcpcmd -i cmd-help         digitiser-synch-epoch   "internal synchronisation interface (?digitiser-synch-epoch epoch)"
+
 if [ -n "${server_part}" ] ; then
   kcpcmd -i var-declare 'cbf-server*' map,version
   kcpcmd -i var-set cbf-server ${server_part} string :version
@@ -157,9 +164,6 @@ export KATCP_SERVER=localhost:${setup_port}
 # kfwd instrument-list       subordinate  "show fielded instruments (?instrument-list)"
 # kfwd instrument-probe      subordinate  "check resources for an instrument (?instrument-probe instrument)"
 # kfwd instrument-activate   subordinate  "launch the specified instrument (?instrument-activate instrument)"
-
-kcpcmd -i forward-symbolic digitiser-synch-epoch    subordinate synchronisation-epoch %1+
-kcpcmd -i cmd-help         digitiser-synch-epoch   "internal synchronisation interface (?digitiser-synch-epoch epoch)"
 
 # might have to glue all corr-* capture-list output together
 kfwd capture-list        corr "list data products"
