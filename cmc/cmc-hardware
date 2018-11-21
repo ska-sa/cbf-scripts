@@ -113,6 +113,8 @@ function launch_skarab()
     return 1
   fi
 
+  push_failure
+
   now=$(date +%s)
   timeout=$[now+120]
 
