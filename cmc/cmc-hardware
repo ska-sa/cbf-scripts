@@ -155,8 +155,11 @@ function start_monitor()
 
   shift
 
-  if [ -n "$1" ] ; then
+  skarab="$1"
+
+  if [ -z "$1" ] ; then
     kcpmsg "need a device to start monitoring"
+    echo "!start-monitor fail"
   fi
 
   if ! launch_skarab "${skarab}" ; then
