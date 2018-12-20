@@ -179,15 +179,12 @@ function group_destroyed()
         retrieve_reply var-set
 
         if [ -z "${now}" ] ; then
-# redundant test; it must have been ready which now implies a mode auto
-          if [ "${var_result[${prefix}:mode]}" = "auto" ] ; then
-            send_request   var-delete  "${prefix}:status"
-            retrieve_reply var-delete
+# if we have no mechanism to deprogram it here (skarab), then mark it standby
+          send_request   var-delete  "${prefix}:status"
+          retrieve_reply var-delete
 
-            send_request   var-set   resources standby string ":${board}:status"
-            retrieve_reply var-set
-          fi
-
+          send_request   var-set   resources standby string ":${board}:status"
+          retrieve_reply var-set
         fi
 
 # this deletes the holder
@@ -195,7 +192,6 @@ function group_destroyed()
         retrieve_reply var-delete
 
         count=$[count+1]
-
       fi
     fi
   done
@@ -359,6 +355,7 @@ function resource_mark()
       push_failure
 
       if [ "${var_result[resources:${board}:status]}" != "up" ] ; then
+# WARNING: this clause could be removed - the herder will mark it up if appropriate ?
         send_request   var-delete  "resources:${board}:status"
         retrieve_reply var-delete
 
@@ -396,12 +393,18 @@ function resource_mark()
         retrieve_reply var-set
       fi
 
-      if [ "${var_result[resources:${board}:mode]}" != "user" ] ; then
+      if [ "${var_result[resources:${board}:mode]}" = "auto" ] ; then
         send_request   var-delete  "resources:${board}:mode"
         retrieve_reply var-delete
 
-        send_request   var-set  "resources" user   string ":${board}:mode"
-        retrieve_reply var-set
+        if [ -z "${var_result[resources:${board}:holder]}" ] ; then
+          send_request   var-set  "resources" user   string ":${board}:mode"
+          retrieve_reply var-set
+        else
+          send_request   var-set  "resources" drop   string ":${board}:mode"
+          retrieve_reply var-set
+        fi
+
       fi
 
       if ! pop_failure ; then
@@ -786,6 +789,8 @@ function subordinate_halt()
     echo "!subordinate-halt fail usage"
     return 1
   fi
+
+  kcpmsg "issuing halt to subordinate $1"
 
   group="${subarray}.control"
 
