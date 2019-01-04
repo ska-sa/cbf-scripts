@@ -14,7 +14,7 @@ if [ -z "${HAVE_PARENT}" ] ; then
   fi
 
   if [ -z "${KATCP_SERVER}" ] ; then
-    export KATCP_SERVER=10.103.254.3:7147
+    export KATCP_SERVER=10.103.254.1:7147
   fi
 
   nc -q 2 ${KATCP_SERVER/:/ } | $0
@@ -29,15 +29,17 @@ declare -A cmap
 
 declare -a input
 
-declare -i checktime
+declare -i checktime last
 
-prefixlen=11
+prefixlen=16
 checkperiod=60
 
 cmap=([info]=$(tput sgr0) [warn]=$(tput setaf 3) [error]=$(tput setaf 1) [fatal]=$(tput setaf 5;tput rev))
 
 plain=$(tput sgr0)
 dim=$(tput dim)
+bold=$(tput bold)
+rev=$(tput rev)
 
 clr=$(tput el)
 
@@ -46,6 +48,8 @@ align=$[${cols}-${prefixlen}-1]
 
 checktime=$(date +%s)
 checktime=$[${checktime}+${checkperiod}]
+
+last=0
 
 while read -a input ; do
   case "${input[0]}" in
@@ -56,18 +60,32 @@ while read -a input ; do
       expanded="${module}                     "
       message="${input[4]}"
 
-      if [ "${when%%.*}" -gt "${checktime}" ] ; then
+      full="${when%%.*}"
+
+      if [ "${full}" -gt "${checktime}" ] ; then
         cols=$(tput cols)
         align=$[${cols}-${prefixlen}-1]
         checktime=$[${checktime}+${checkperiod}]
       fi
+
+      if [ "${full}" -gt "${last}" ] ; then
+        stamp=$(date -d @${full} "+%M:%S")
+        last="${full}"
+        intro="${bold}"
+      else
+        fraction="${when#*.}00000"
+        stamp="+${fraction:0:4}"
+        intro="${dim}"
+      fi
+
+      expanded="${stamp} ${expanded}"
 
       padded="${expanded:0:${prefixlen}}"
 
       tmp="${message//\_/ }"
       text="${tmp:0:${align}}"
 
-      printf "\r${dim}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
+      printf "\r${intro}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
 
       if [ "${#module}" -gt ${prefixlen} ] ; then
         printf "${module}${clr}"
