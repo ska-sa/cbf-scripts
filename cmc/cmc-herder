@@ -67,7 +67,7 @@ function iteration()
   now=$(date +%s)
 
   if [ "${#vector[*]}" -gt 0 ] ; then
-    kcplog "checking resources ${!vector[@]}"
+    kcpmsg "checking resources ${!vector[@]}"
     answer=$(${skarab_check} ${!vector[@]})
   fi
 
