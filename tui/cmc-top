@@ -83,7 +83,8 @@ while read -a input ; do
       padded="${expanded:0:${prefixlen}}"
 
       tmp="${message//\_/ }"
-      text="${tmp:0:${align}}"
+#      text="${tmp:0:${align}}"
+      text=${tmp}
 
       printf "\r${intro}${padded} ${plain}${cmap[${level}]}${text}${plain}\n"
 

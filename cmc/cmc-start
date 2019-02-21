@@ -93,6 +93,7 @@ kcplog ${LOGFLAGS} -d -o ${LOGFILE}
 kcpcmd -i client-exec primary primary ${NAME}-primary
 kcpcmd -i client-exec herder primary ${NAME}-herder
 kcpcmd -i client-exec corr primary ${NAME}-null
+kcpcmd -i client-exec support hardware ${NAME}-hardware
 kcpcmd -i client-config info-none corr
 kcpcmd -i client-config client corr
 

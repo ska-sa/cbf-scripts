@@ -461,6 +461,8 @@ function compute_resources()
       name="${host_list%% *}"
       host_list="${host_list#* }"
 
+# TODO: sort by IP... those map to the switch port 
+
       for art in ${resource_types[*]} ; do
         for location in ${solution_pool[${art}:${engine}]} ; do
 
