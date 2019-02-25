@@ -534,7 +534,7 @@ function compute_resources()
 
 function add_resource()
 {
-  local board art actual network
+  local board art actual network ip
 
   board="${1,,}"
 
@@ -575,7 +575,8 @@ function add_resource()
 
 # NOTE: special case: the 3rd octet of a scarab encodes its switch
   if [ "${art}" = "skarab" ] ; then
-    network=$(getent hosts ${board} | cut -f3 -d '.' | head -1 )
+    ip=$(getent hosts ${board} | head -1 | cut -f1 -d ' ')
+    network=$(echo ${ip} | cut -f3 -d .)
     if [ -z "${network}" ] ; then
       kcpmsg -l error "unable to determine IP of skarab ${board}"
       return 1
@@ -600,7 +601,12 @@ function add_resource()
   retrieve_reply var-set
 
   if [ -n "${network}" ] ; then
-    send_request   var-set     resources "${network}" string ":${board}:switch"
+    send_request   var-set   resources "${network}" string ":${board}:switch"
+    retrieve_reply var-set
+  fi
+
+  if [ -n "${ip}" ] ; then
+    send_request   var-set   resources "${ip}"  string ":${board}:ip"
     retrieve_reply var-set
   fi
 
