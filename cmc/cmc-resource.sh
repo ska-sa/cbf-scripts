@@ -268,9 +268,9 @@ function compute_resources()
             kcpmsg "inserting ${board} at priority ${number}"
             ip_key[${number}]="${board}"
           fi
-        else
-          kcpmsg -l error "no number computed for ${board} despite ip being ${ip}"
         fi
+      else
+        kcpmsg -l error "no number computed for ${board} despite ip being ${ip}"
       fi
     fi
   done
