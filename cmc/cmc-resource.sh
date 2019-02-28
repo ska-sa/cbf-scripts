@@ -262,6 +262,7 @@ function compute_resources()
 
       if [ "${status}" = "up" ] ; then
         if [ -n "${holder}" ] ; then
+          kcplog "inserting ${board} at priority ${number}"
           ip_key[${var_result[${number}]}]="${board}"
         fi
       fi
@@ -280,7 +281,6 @@ function compute_resources()
   fi
 
 # now the hardcoded heuristics/rules
-# BIG FAT WARNING: can't split same engine over multiple switches yet
 
   failed=""
   total=0
@@ -338,6 +338,8 @@ function compute_resources()
 
 # WARNING: this only sorts numerically by skaraBnumber, roaches are broken
   replace_set=($(ike -o -k hosts ${template} | tr ,  '\n'  | sort -tB -n -k2))
+
+  kcpmsg "unordered resources ${!ip_key[@]}"
 
   for name in "${!ip_key[@]} | tr ' ' '\n' | sort -n" ; do
     ordered_boards+=(${ip_key[${name}]})
