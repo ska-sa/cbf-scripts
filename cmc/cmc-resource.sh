@@ -265,7 +265,7 @@ function compute_resources()
       if [ "${status}" = "up" ] ; then
         if [ -z "${holder}" ] ; then
           kcpmsg "inserting ${board} at priority ${number}"
-          ip_key[${var_result[${number}]}]="${board}"
+          ip_key[${number}]="${board}"
         fi
       fi
     fi
