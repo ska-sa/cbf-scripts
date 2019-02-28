@@ -523,9 +523,15 @@ function check_resources()
 
 # NOTE: special case: the 3rd octet of a scarab encodes its switch
         if [ "${art}" = "skarab" ] ; then
-          network=$(grep -i "${board}" ${leases} | cut -f3 -d '.' | head -1 )
+
+          ip=$(getent hosts ${board} | head -1 | cut -f1 -d ' ')
+          network=$(echo ${ip} | cut -f3 -d .)
+
           if [ -n "${network}" ] ; then
-            send_request   var-set     resources "${network}" string ":${board}:switch"
+            send_request   var-set   resources "${network}" string ":${board}:switch"
+            retrieve_reply var-set
+
+            send_request   var-set   resources "${ip}"  string ":${board}:ip"
             retrieve_reply var-set
           fi
         fi
