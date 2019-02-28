@@ -347,7 +347,7 @@ function compute_resources()
 
   kcpmsg "unordered resources ${ip_key[@]}"
 
-  for name in "echo ${!ip_key[@]} | tr ' ' '\n' | sort -n" ; do
+  for name in $(echo ${!ip_key[@]} | tr ' ' '\n' | sort -n) ; do
     kcpmsg "adding ${ip_key[${name}]} given key ${name}"
     ordered_boards+=(${ip_key[${name}]})
   done
