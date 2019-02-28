@@ -252,6 +252,8 @@ function compute_resources()
       component_ip=(${ip//./ })
       number=$[${component_ip[2]}*256+${component_ip[3]}]
 
+      kcplog "candidate board ${board} with number ${number}"
+
 #      location="${var_result[${key}]}"
 
       tmp="${key#resources:}"
