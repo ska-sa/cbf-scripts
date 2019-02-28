@@ -229,17 +229,11 @@ function init_resources()
 
 function compute_resources()
 {
-  local -A location_free
-  local -A location_busy
-  local -A location_pool
-  local -A solution_pool
-  local -a switch_map
-  local -a distribution
-  local -a engine_map
-  local group
-  local host_list
+  local -A ip_key
+  local -a replace_set component_ip ordered_boards
+  local ip number
 
-  local prior key location locations instrument art engine failed count total word template target holder prefix index actual status match items bins bin switches
+  local key instrument art engine failed count total subtotal word template target holder index status
 
   push_failure
 
@@ -250,11 +244,15 @@ function compute_resources()
     return 1
   fi
 
-# this requires the existence of a switch subfield
+# this requires the existence of an ip subfield
 
   for key in "${!var_result[@]}" ; do
-    if [ "${key##*:}" = "switch" ] ; then
-      location="${var_result[${key}]}"
+    if [ "${key##*:}" = "ip" ] ; then
+      ip=${var_result[${key}]}
+      component_ip=(${ip//./ })
+      number=$[${component_ip[2]}*256+${component_ip[3]}]
+
+#      location="${var_result[${key}]}"
 
       tmp="${key#resources:}"
       board="${tmp%%:*}"
@@ -264,51 +262,13 @@ function compute_resources()
 
       if [ "${status}" = "up" ] ; then
         if [ -n "${holder}" ] ; then
-          if [ -n "${location_busy[${location}]}" ] ; then
-            if ! is_member "${holder}" ${location_busy[${location}]} ; then
-              location_busy[${location}]="${holder} ${location_busy[${location}]}"
-            fi
-          else
-            location_busy[${location}]="${holder}"
-          fi
-        else
-          if [ -z "${location_free[${location}]}" ] ; then
-            prior=0
-            location_pool[${location}]="${board}"
-            switch_map+=("${location}")
-          else
-            prior="location_free[${location}]"
-            location_pool[${location}]="${location_pool[${location}]} ${board}"
-          fi
-          location_free[${location}]=$[prior+1]
+          ip_key[${var_result[${number}]}]="${board}"
         fi
       fi
     fi
   done
 
-# now location_free[$switch] should contain the number of free boards
-#     location_pool[$switch] should contain a set of *free* boards as space deliminted strings
-# and location_busy[$switch] be nonempty if somebody else already using a part of it
-# and switch_map[$number] contains the switch name
-
-  local name
-
-  for name in "${!location_free[@]}" ; do
-    if [ -n "${location_busy[${name}]}" ] ; then
-      kcpmsg "switch ${name} used by ${location_busy[${name}]} thus discarding ${location_free[${name}]} resources"
-    else
-      kcpmsg "empty switch ${name} has ${location_free[${name}]} slots available namely ${location_pool[${name}]}"
-    fi
-  done
-
-  for index in ${!switch_map[@]} ; do
-    name=${switch_map[${index}]}
-    if [ -n "${location_busy[${name}]}" ] ; then
-      bins="${bins} 0"
-    else
-      bins="${bins} ${location_free[${name}]}"
-    fi
-  done
+# now ip_key[$ip] should contain the name of an unallocated skarab
 
   push_failure
 
@@ -324,75 +284,32 @@ function compute_resources()
 
   failed=""
   total=0
+  count=0
 
   while [ "$#" -ge 1 ] ; do
 
     instrument="$1"
-    total=$[total+1]
+
+    subtotal=0
 
     kcpmsg "checking if it is feasible to instantiate ${instrument}"
 
-    unset engine_map
-    local -a engine_map
-
-    items=""
-
     for art in ${resource_types[*]} ; do
       for engine in ${engine_types[*]} ; do
-        items="${items} ${var_result[instruments:${instrument}:resources:${art}:${engine}]}"
-        engine_map+=("${art}:${engine}")
+        subtotal=$[${subtotal}+${var_result[instruments:${instrument}:resources:${art}:${engine}]}]
       done
     done
 
-    kcpmsg "bins ${bins} (${switch_map[*]}) and items ${items} (${engine_map[*]})"
+    kcpmsg "instrument ${instrument} requires ${subtotal} resources"
 
-    if [ $(sum_args ${items}) -gt 0 ] ; then
+    total=$[${total}+${subtotal}]
 
-      eval distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
-
-      if [ "$?" -ne 0 ] ; then
-        kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
-        failed=2
-      fi
-
-      if [ "${#distribution[*]}" -gt 0 ] ; then
-
-        solution_pool=()
-
-        kcpmsg "distribution keys are ${!distribution[@]} and values ${distribution[@]}"
-
-        for index in "${!distribution[@]}" ; do
-          if [ -n "${index}" ]; then
-            switches=""
-            for bin in ${distribution[${index}]//\"/} ; do
-              switches+="${switches:+ }${switch_map[${bin}]}"
-            done
-
-            if [ -n "${switches}" ] ; then
-              solution_pool[${engine_map[${index}]}]="${switches}"
-            fi
-          fi
-        done
-
-        if [ -n "${!solution_pool[*]}" ] ; then
-          kcpmsg "solution keys are ${!solution_pool[@]}"
-          for name in "${!solution_pool[@]}" ; do
-            art=${name%:*}
-            engine=${name#*:}
-            kcpmsg "proposing switch(es) ${solution_pool[${name}]} to hold ${engine} ${art} resources"
-          done
-        else
-          kcpmsg -l error "nothing useful to extract from ${distribution[*]}"
-          failed=3
-        fi
-
-      else
-        kcpmsg -l warn "no solution found for the resource needs of ${instrument}"
-        failed=2
-      fi
-    else
-      kcpmsg "no dynamic resources needed by instrument ${instrument}"
+    if [ "${#ip_key[*]}" -gt ${total} ] ; then
+      kcpmsg -l warn "unable to satisfy resource needs of ${instrument} with ${#ip_key[*]} devices available and ${subtotal} of ${total} needed"
+      failed=2
     fi
+
+    count=$[count+1]
 
     shift
 
@@ -408,12 +325,10 @@ function compute_resources()
     return 0
   fi
 
-  if [ "${total}" -ne 1 ] ; then
+  if [ "${count}" -ne 1 ] ; then
     kcpmsg -l error "only able to allocate one instrument at a time"
     return 1
   fi
-
-# Now the actual allocation step using solution_pool as a guide
 
   template=${CORR_TEMPLATE}/${instrument}
 
@@ -421,108 +336,36 @@ function compute_resources()
 
   push_failure
 
-  fetch_var "resources"
+# WARNING: this only sorts numerically by skaraBnumber, roaches are broken
+  replace_set=($(ike -o -k hosts ${template} | tr ,  '\n'  | sort -tB -n -k2))
 
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to refresh resource variables"
-    return 1
-  fi
-
-  push_failure
-
-  for word in $(ike -k hosts ${template}) ; do
-    engine="${word%%.*}"
-    group="${word#*=}"
-    host_list=""
-
-    for name in ${group//,/ } ; do
-      match=""
-      for art in ${resource_types[*]} ; do
-        if [ "${name#${art^^}}" != "${name}" ] ; then
-# TODO: could try to notice collisions, uniq ?
-          host_list="${host_list}${host_list:+ }${name}"
-          match=${art}
-        fi
-      done
-      if [ -z "${match}" ] ; then
-        kcpmsg "reserving static resource ${name}"
-        send_request   var-set  resources "${SUBARRAY}" string ":${name,,}:holder"
-        if ! retrieve_reply var-set ; then
-          kcpmsg -l error "unable to reserve static resource ${name}"
-        fi
-      fi
-    done
-
-
-    if [ -n "${host_list}" ]  ; then
-      kcpmsg "need to map placeholders $host_list to actual resources"
-      actual=""
-
-      name="${host_list%% *}"
-      host_list="${host_list#* }"
-
-# TODO: sort by IP... those map to the switch port 
-
-      for art in ${resource_types[*]} ; do
-        for location in ${solution_pool[${art}:${engine}]} ; do
-
-          kcpmsg "performing substitutions for board type ${art} and engine ${engine} at switch ${location}"
-
-          for key in "${!var_result[@]}" ; do
-            if [ "${key##*:}" = "switch" ] ; then
-              if [ "${location}" = "${var_result[${key}]}" ] ; then
-                if [ -n "${name}" ] ; then
-                  prefix="${key%:*}"
-                  holder="${var_result[${prefix}:holder]}"
-                  status="${var_result[${prefix}:status]}"
-                  if [ "${status}" = up ] ; then
-                    if [ -z "${holder}" ] ; then
-
-                      tmp="${key#resources:}"
-                      target="${tmp%%:*}"
-
-                      if [ "${target#${art}}" != "${target}" ] ; then
-
-                        kcpmsg "substituting ${name} on switch ${var_result[${key}]} with ${target}"
-
-                        send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
-                        retrieve_reply var-set
-
-# BIG HAIRY WARNING: we are pushing things into var_result, which isn't really ours
-                        var_result[${prefix}:holder]="${SUBARRAY}"
-
-                        export ${name}=${target}
-                      else
-# skip this one as it isn't our type
-                        host_list="${host_list} ${name}"
-                      fi
-                      name="${host_list%% *}"
-                      if [ "${host_list#* }" = "${host_list}" ] ; then
-                        host_list=""
-                      else
-                        host_list="${host_list#* }"
-                      fi
-                    fi
-                  else
-                    kcpmsg "disqualifying ${prefix} for ${name} as its status is ${status}"
-                  fi
-                fi
-              fi
-            fi
-          done
-        done
-      done
-
-      if [ -n "${host_list}" ] ; then
-        kcpmsg "unable to make substiutions for dynamic resources ${host_list}"
-        set_failure
-      fi
-
-    else
-      kcpmsg "nothing dynamic to assign for ${engine}"
-    fi
+  for name in "${!ip_key[@]} | tr ' ' '\n' | sort -n" ; do
+    ordered_boards+=(${ip_key[${name}]})
   done
 
+  index=0
+  for name in ${replace_set[*]} ; do
+    if [ "${name#SKARAB}" != "${name}" ] ; then
+# TODO: could try to notice collisions, uniq ?
+
+      target=${ordered_boards[${index}]}
+      index=$[index+1]
+
+      kcpmsg "substituting ${name} with ${target}"
+      send_request   var-set  resources "${SUBARRAY}" string ":${target}:holder"
+      if ! retrieve_reply var-set ; then
+        kcpmsg -l error "unable to reserve dynamic resource ${target} for ${name}"
+      fi
+
+      export ${name}=${target}
+    else
+      kcpmsg "reserving static resource ${name}"
+      send_request   var-set  resources "${SUBARRAY}" string ":${name}:holder"
+      if ! retrieve_reply var-set ; then
+        kcpmsg -l error "unable to reserve static resource ${name}"
+      fi
+    fi
+  done
 
   if ! pop_failure ; then
     kcpmsg -l error "unable to assign needed resources to instrument ${instrument}"
