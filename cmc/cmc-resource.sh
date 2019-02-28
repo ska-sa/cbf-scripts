@@ -252,7 +252,7 @@ function compute_resources()
       component_ip=(${ip//./ })
       number=$[${component_ip[2]}*256+${component_ip[3]}]
 
-      kcplog "candidate board ${board} with number ${number}"
+      kcpmsg "candidate board ${board} with number ${number}"
 
 #      location="${var_result[${key}]}"
 
@@ -264,7 +264,7 @@ function compute_resources()
 
       if [ "${status}" = "up" ] ; then
         if [ -n "${holder}" ] ; then
-          kcplog "inserting ${board} at priority ${number}"
+          kcpmsg "inserting ${board} at priority ${number}"
           ip_key[${var_result[${number}]}]="${board}"
         fi
       fi
