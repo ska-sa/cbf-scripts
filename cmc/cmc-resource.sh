@@ -341,11 +341,14 @@ function compute_resources()
 # WARNING: this only sorts numerically by skaraBnumber, roaches are broken
   replace_set=($(ike -o -k hosts ${template} | tr ,  '\n'  | sort -tB -n -k2))
 
-  kcpmsg "unordered resources ${!ip_key[@]}"
+  kcpmsg "unordered resources ${ip_key[@]}"
 
   for name in "${!ip_key[@]} | tr ' ' '\n' | sort -n" ; do
     ordered_boards+=(${ip_key[${name}]})
   done
+
+  kcpmsg "ordered resources ${ordered_boards[@]}"
+
 
   index=0
   for name in ${replace_set[*]} ; do
