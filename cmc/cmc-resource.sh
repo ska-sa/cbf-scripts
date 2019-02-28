@@ -252,20 +252,24 @@ function compute_resources()
       component_ip=(${ip//./ })
       number=$[${component_ip[2]}*256+${component_ip[3]}]
 
-      kcpmsg "candidate board ${board} with number ${number}"
-
 #      location="${var_result[${key}]}"
 
       tmp="${key#resources:}"
       board="${tmp%%:*}"
 
+      kcpmsg "candidate board ${board} with number ${number}"
+
       holder="${var_result[resources:${board}:holder]}"
       status="${var_result[resources:${board}:status]}"
 
-      if [ "${status}" = "up" ] ; then
-        if [ -z "${holder}" ] ; then
-          kcpmsg "inserting ${board} at priority ${number}"
-          ip_key[${number}]="${board}"
+      if [ -n "${number}" ] ; then
+        if [ "${status}" = "up" ] ; then
+          if [ -z "${holder}" ] ; then
+            kcpmsg "inserting ${board} at priority ${number}"
+            ip_key[${number}]="${board}"
+          fi
+        else
+          kcpmsg -l error "no number computed for ${board} despite ip being ${ip}"
         fi
       fi
     fi
