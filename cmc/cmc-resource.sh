@@ -306,7 +306,7 @@ function compute_resources()
 
     total=$[${total}+${subtotal}]
 
-    if [ "${#ip_key[*]}" -gt ${total} ] ; then
+    if [ "${#ip_key[*]}" -lt ${total} ] ; then
       kcpmsg -l warn "unable to satisfy resource needs of ${instrument} with ${#ip_key[*]} devices available and ${subtotal} of ${total} needed"
       failed=2
     fi
