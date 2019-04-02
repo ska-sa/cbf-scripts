@@ -14,7 +14,7 @@ fi
 
 # valid command names and their minimum parameter count
 declare -A -r command_set=([sync-epoch]=1 [instrument-activate]=2 [instrument-list]=1)
-declare -A -r command_help=([sync-epoch]="digitiser synchronisation time (?sync-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)" [instrument-list]="show fielded instruments (?instrument-list)")
+declare -A -r command_help=([sync-epoch]="digitiser synchronisation time (?sync-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)" [instrument-list]="show fielded instruments (?instrument-list)" [input-labels]="assign names to subarray inputs (?input-labels [name]*)")
 
 #################################################
 
@@ -271,6 +271,48 @@ function sync_epoch()
 
 
   echo "!sync-epoch ok"
+}
+
+function input_labels()
+{
+  local geometry
+
+  shift
+
+  push_failure
+
+  fetch_var "inputs"
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to determine number of inputs"
+    return 1
+  fi
+
+  geometry="${#var_result[*]}"
+
+  if [ "${geometry}" -ne "$#" ] ; then
+    kcpmsg -l error "subarray has ${geometry} inputs but $# labels given"
+    return 1
+  fi
+
+  push_failure
+
+  send_request   var-declare "labels*" array
+  retrieve_reply var-declare
+
+  while [ -n "$1"  ]  ; do
+    send_request   var-set    labels  "$1" string "#-"
+    retrieve_reply var-set
+    shift
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to store input labels"
+    echo "!input-labels fail read-logs"
+    return 1
+  fi
+
+  echo "!input-labels ok"
 }
 
 #########################################################

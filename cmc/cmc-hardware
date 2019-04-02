@@ -69,18 +69,18 @@ function subscribe_sensors()
     return 1
   fi
 
-  push_failure
-
-# risky, we assume inform_result isn't clobbered
-  for key in "${!inform_result[@]}" ; do
-    send_request relay "${remote}" relay "${remote}" sensor-sampling "${key}" "auto"
-    retrieve_inform relay
-  done
-
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to subscribe to sensors of ${remote}"
-    return 1
-  fi
+#   push_failure
+#
+# # risky, we assume inform_result isn't clobbered
+#   for key in "${!inform_result[@]}" ; do
+#     send_request relay "${remote}" relay "${remote}" sensor-sampling "${key}" "auto"
+#     retrieve_inform relay
+#   done
+#
+#   if ! pop_failure ; then
+#     kcpmsg -l warn "unable to subscribe to sensors of ${remote}"
+#     return 1
+#   fi
 
   return 0
 }
@@ -143,11 +143,6 @@ function launch_skarab()
 
   if ! pop_failure ; then
     kcpmsg -l error "unable to start or configure monitor for skarab ${skarab}"
-    return 1
-  fi
-
-  if ! activate_servlet_sensors ${skarab} ; then
-    kcpmsg -l warn "unable to subscribe to sensors for instrument ${INSTRUMENT}"
     return 1
   fi
 
