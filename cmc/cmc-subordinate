@@ -300,6 +300,8 @@ function input_labels()
   send_request   var-declare "labels*" array
   retrieve_reply var-declare
 
+  kcpmsg "storing input labels $* for later use"
+
   while [ -n "$1"  ]  ; do
     send_request   var-set    labels  "$1" string "#-"
     retrieve_reply var-set
