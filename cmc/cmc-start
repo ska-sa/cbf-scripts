@@ -174,7 +174,7 @@ kfwd capture-stop        corr "stop data stream output (?capture-stop stream)"
 kfwd capture-meta        corr "reissue stream meta-data (?capture-meta stream)"
 
 kfwd vacc-sync           corr "resynchronise vector accumulators (?vacc-sync)"
-kfwd input-labels        corr "set names of all inputs (?label inputs [name]*)"
+#kfwd input-labels        corr "set names of all inputs (?input-labels inputs [name]*)"
 kfwd gain                corr "set gain factors (?gain input [values])"
 kfwd gain-all            corr "set gain factors (?gain-all [values])"
 kfwd delays              corr "set delay and fringe correction (?delays stream-name unix-time [coefficient-set]*)"

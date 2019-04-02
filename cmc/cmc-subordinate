@@ -13,7 +13,7 @@ fi
 #################################################
 
 # valid command names and their minimum parameter count
-declare -A -r command_set=([sync-epoch]=1 [instrument-activate]=2 [instrument-list]=1)
+declare -A -r command_set=([sync-epoch]=1 [instrument-activate]=2 [instrument-list]=1 [input-labels]=1)
 declare -A -r command_help=([sync-epoch]="digitiser synchronisation time (?sync-epoch time)" [instrument-activate]="launch the specified instrument (?instrument-activate instrument)" [instrument-list]="show fielded instruments (?instrument-list)" [input-labels]="assign names to subarray inputs (?input-labels [name]*)")
 
 #################################################
