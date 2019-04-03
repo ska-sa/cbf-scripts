@@ -30,6 +30,7 @@ fi
  for skarab    in "${!SKARAB@}"    ; do echo "#define ${skarab}    ${!skarab}"    ; done
  for input     in "${!INPUT@}"     ; do echo "#define ${input}     ${!input}"     ; done
  for multicast in "${!MULTICAST@}" ; do echo "#define ${multicast} ${!multicast}" ; done
+ for label     in "${!LABEL@}"     ; do echo "#define ${label} ${!label}"         ; done
 grep -v '^ *#' ${template} ) | cpp - > ${file}
 
 kcpmsg "generated config ${file##*/}"

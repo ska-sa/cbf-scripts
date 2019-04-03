@@ -275,7 +275,7 @@ function sync_epoch()
 
 function input_labels()
 {
-  local geometry
+  local geometry i
 
   shift
 
@@ -302,10 +302,15 @@ function input_labels()
 
   kcpmsg "storing input labels $* for later use"
 
+  i=0
   while [ -n "$1"  ]  ; do
+    export LABEL${i}="$1"
+
     send_request   var-set    labels  "$1" string "#-"
     retrieve_reply var-set
     shift
+
+    i=$[i+1]
   done
 
   if ! pop_failure ; then
