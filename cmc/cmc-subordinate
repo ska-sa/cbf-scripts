@@ -101,6 +101,21 @@ function make_misc_sensors()
   return 0
 }
 
+function make_label_variable()
+{
+  push_failure
+
+  send_request   var-declare "*labels*" array
+  retrieve_reply var-declare
+
+  if ! pop_failure  ; then
+    kcpmsg -l warn "unable to initialse label state"
+    return 1
+  fi
+
+  return 0
+}
+
 function adjust_sensors()
 {
   local status value
@@ -307,9 +322,6 @@ function input_labels()
   else
     kcpmsg "storing input labels $* for later use"
   fi
-
-  send_request   var-declare "*labels*" array
-  retrieve_reply var-declare
 
   i=0
   while [ -n "$1"  ]  ; do
@@ -631,6 +643,7 @@ register_commands subordinate
 
 make_sync_sensor
 make_misc_sensors
+make_label_variable
 
 #################################################
 
