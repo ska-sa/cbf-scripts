@@ -297,10 +297,19 @@ function input_labels()
 
   push_failure
 
+  if [ -n "${INSTRUMENT}" ] ; then
+    kcpmsg -l warn "instrument already up so also relaying labels to running instance"
+
+    send_request   relay corr relay corr input-labels "$@"
+    retrieve_reply relay
+
+    clear_failure
+  else
+    kcpmsg "storing input labels $* for later use"
+  fi
+
   send_request   var-declare "*labels*" array
   retrieve_reply var-declare
-
-  kcpmsg "storing input labels $* for later use"
 
   i=0
   while [ -n "$1"  ]  ; do
