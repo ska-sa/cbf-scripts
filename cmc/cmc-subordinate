@@ -297,7 +297,7 @@ function input_labels()
 
   push_failure
 
-  send_request   var-declare "labels*" array
+  send_request   var-declare "*labels*" array
   retrieve_reply var-declare
 
   kcpmsg "storing input labels $* for later use"
