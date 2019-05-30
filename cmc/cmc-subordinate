@@ -300,6 +300,7 @@ function input_labels()
 
   if ! pop_failure ; then
     kcpmsg -l error "unable to determine number of inputs"
+    echo "!input-labels ok read-logs"
     return 1
   fi
 
@@ -307,6 +308,7 @@ function input_labels()
 
   if [ "${geometry}" -ne "$#" ] ; then
     kcpmsg -l error "subarray has ${geometry} inputs but $# labels given"
+    echo "!input-labels ok read-logs"
     return 1
   fi
 
