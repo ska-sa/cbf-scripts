@@ -307,9 +307,13 @@ function input_labels()
   geometry="${#var_result[*]}"
 
   if [ "${geometry}" -ne "$#" ] ; then
-    kcpmsg -l error "subarray has ${geometry} inputs but $# labels given"
-    echo "!input-labels fail read-logs"
-    return 1
+    if [ "$#" -ge 1 ] ; then
+      kcpmsg -l error "subarray has ${geometry} inputs but $# labels given"
+      echo "!input-labels fail read-logs"
+      return 1
+    fi
+
+    echo "!input-labels ok"
   fi
 
   push_failure
