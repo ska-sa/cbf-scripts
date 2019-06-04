@@ -290,7 +290,7 @@ function sync_epoch()
 
 function input_labels()
 {
-  local geometry i
+  local geometry i t
 
   shift
 
@@ -313,7 +313,26 @@ function input_labels()
       return 1
     fi
 
-    echo "!input-labels ok"
+    push_failure
+
+    fetch_var "labels"
+
+    if ! pop_failure ; then
+      kcpmsg -l error "unable to retrieve set of labels"
+      echo "!input-labels fail read-logs"
+      return 1
+    fi
+
+    echo -n "!input-labels ok"
+    i=0
+    while [ "$i" -lt "${geometry}" ] ; do
+      t="labels#$i"
+      echo -n " ${var_result[$t]}"
+      i=$[i+1]
+    done
+    echo
+
+    return 0
   fi
 
   push_failure
