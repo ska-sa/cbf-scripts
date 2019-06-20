@@ -144,17 +144,17 @@ function activate_servlet_sensors()
     return 1
   fi
 
-  push_failure
-
-  for key in "${!inform_result[@]}" ; do
-    send_request relay "${remote}" relay "${remote}" sensor-value
-    retrieve_inform relay
-  done
-
-  if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve initial sensor values from ${remote}"
-    return 1
-  fi
+#   push_failure
+# 
+#   for key in "${!inform_result[@]}" ; do
+#     send_request relay "${remote}" relay "${remote}" sensor-value
+#     retrieve_inform relay
+#   done
+# 
+#   if ! pop_failure ; then
+#     kcpmsg -l warn "unable to retrieve initial sensor values from ${remote}"
+#     return 1
+#   fi
 
   return 0
 }

@@ -9,6 +9,7 @@ export KATCP_LABEL=cmc.hardware
 # valid command names and their minimum parameter count
 declare -A -r command_set=([start-monitor]=1)
 declare -A -r command_help=([start-monitor]="start monitor for a given skarab")
+declare -A -r inform_set=([relay]=1)
 
 #################################################
 
@@ -48,6 +49,23 @@ function make_misc_sensors()
 
 ### support functions: subscibe to servlet ##############
 
+function relay()
+{
+  shift
+
+  if [ "$#" -ne 5 ] ; then
+    kcpmsg -l info "odd sensor status update $*"
+    return
+  fi
+
+  if [ "$1" != 1 ] ; then
+    kcpmsg -l info "malformed sensor status update $*"
+    return
+  fi
+
+  echo "#sensor-status $*"
+}
+
 function subscribe_sensors()
 {
   local key remote
@@ -66,6 +84,18 @@ function subscribe_sensors()
 
   if ! pop_failure  ; then
     kcpmsg -l warn "unable to interrogate sensors of ${remote}"
+    return 1
+  fi
+
+  push_failure
+
+  for key in "${!inform_result[@]}" ; do
+    send_request relay "${remote}" relay "${remote}" sensor-value
+    retrieve_inform relay
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve initial sensor values from ${remote}"
     return 1
   fi
 
