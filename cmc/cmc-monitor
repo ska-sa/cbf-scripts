@@ -18,6 +18,7 @@ fi
 # valid command names and their minimum parameter count
 declare -A -r command_set=([monitor-info]=1)
 declare -A -r command_help=([monitor-info]="display monitor details")
+declare -A -r inform_set=([relay]=1)
 
 #################################################
 
@@ -92,6 +93,23 @@ function adjust_sensors()
 
 ### support functions: subscibe to servlet ##############
 
+function relay()
+{
+  shift
+
+  if [ "$#" -ne 5 ] ; then
+    kcpmsg -l info "odd sensor status update $*"
+    return
+  fi
+
+  if [ "$1" != 1 ] ; then
+    kcpmsg -l info "malformed sensor status update $*"
+    return
+  fi
+
+  echo "#sensor-status $*"
+}
+
 function activate_servlet_sensors()
 {
   local key remote
@@ -123,6 +141,18 @@ function activate_servlet_sensors()
 
   if ! pop_failure ; then
     kcpmsg -l warn "unable to subscribe to sensors of ${remote}"
+    return 1
+  fi
+
+  push_failure
+
+  for key in "${!inform_result[@]}" ; do
+    send_request relay "${remote}" relay "${remote}" sensor-value
+    retrieve_inform relay
+  done
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to retrieve initial sensor values from ${remote}"
     return 1
   fi
 
