@@ -128,6 +128,11 @@ function launch_skarab()
 
   port=$(seq ${corr_base} ${corr_end} | grep -E -v -w $(netstat -tan | tr -s ' ' | grep '^tcp '  | cut -f4 -d ' '  | cut -f2 -d: | sort -nu | tr '\n' '|')0 | head -1)
 
+  if [ "${port}" -le 1024 ] ; then
+    kcpmsg -l error "picked unreasonable port ${port} and may have run out of free ports"
+    return 1
+  fi
+
   kcpmsg "selecting ${port} for sensor routines of skarab ${skarab}"
 
   push_failure

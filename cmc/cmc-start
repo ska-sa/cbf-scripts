@@ -186,6 +186,7 @@ kfwd accumulation-length corr "set the integration interval (?accumulation lengt
 kfwd beam-weights        corr "set the beam weigths (?beam-weights beam [values]*)"
 kfwd beam-passband       corr "set the beam passband (?beam-passband beam bandwidth center frequency)"
 kfwd beam-quant-gains    corr "set the quantiser gain for a beam (?beam-quant-gain beam [gain])"
+#kfwd quantiser-singlechan-snapshot  corr "retrieve quantiser data for a single channel (?quantiser-singlechan-snapshot source channel)"
 
 kfwd adc-snapshot        corr "retrieve a snapshot of ADC data for a specific input (?adc-snapshot input-label [unix-time])"
 kfwd transient-buffer-trigger  corr "trigger the transient buffer for all inputs (?transient-buffer-trigger)"
