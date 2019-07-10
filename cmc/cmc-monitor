@@ -200,6 +200,8 @@ function launch_sensors()
 
   push_failure
 
+  kcpmsg "invoking servlet as CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT} corr2_sensor_servlet.py -n ${SUBARRAY}.${INSTRUMENT} -p ${port}"
+
   send_request   client-exec "monitor-${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}.monitor" kcprun -s ${SUBARRAY} -e error -o debug -n "CORR2INI=${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}" corr2_sensor_servlet.py -n "${SUBARRAY}.${INSTRUMENT}" -p "${port}"
   retrieve_reply client-exec
 
