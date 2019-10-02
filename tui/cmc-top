@@ -5,19 +5,20 @@ if [ -z "${HAVE_PARENT}" ] ; then
 
   if [ "$1" = "-h" ] ; then
     echo "katcp log message decoder/colouriser"
-    echo "usage: $0 [host:port]"
+    echo "usage: $0 [host:port] [ignored words]"
     exit 1
   fi
 
   if [ -n "$1" ] ; then
     export KATCP_SERVER="$1"
+    shift
   fi
 
   if [ -z "${KATCP_SERVER}" ] ; then
     export KATCP_SERVER=10.103.254.1:7147
   fi
 
-  nc -q 2 ${KATCP_SERVER/:/ } | $0
+  nc -q 2 ${KATCP_SERVER/:/ } | $0 $*
 
   exit 0
 fi
