@@ -632,8 +632,14 @@ function subordinate_create()
   send_request   group-create "${subarray}.control"
   retrieve_reply group-create
 
+  send_request   group-config permit-nul "${subarray}.control"
+  retrieve_reply group-config
+
   send_request   group-create "${subarray}.monitor"
   retrieve_reply group-create
+
+  send_request   group-config permit-nul "${subarray}.monitor"
+  retrieve_reply group-config
 
   if ! pop_failure ; then
     kcpmsg -l warn "unable to create groups for array ${subarray}"
