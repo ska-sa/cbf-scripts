@@ -466,7 +466,7 @@ function instrument_activate()
 
   push_failure
 
-  send_request   client-exec "${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}.control" kcprun -s ${SUBARRAY} -e error -o debug corr2_servlet.py -p ${PORT}
+  send_request   client-exec "${SUBARRAY}-${INSTRUMENT}" "${SUBARRAY}.control" kcprun -s ${SUBARRAY} -e error -o debug corr2_servlet.py -p ${PORT} --config "${CORR_DIR}/${SUBARRAY}-${INSTRUMENT}"
   retrieve_reply client-exec
 
   send_request   client-config client ${SUBARRAY}-${INSTRUMENT}
