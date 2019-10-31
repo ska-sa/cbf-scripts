@@ -446,6 +446,21 @@ function release_lock()
 
 ## command loop ###################################
 
+function permit_nul_sensors()
+{
+  push_failure
+
+  send_request   group-config permit-nul
+  retrieve_reply group-config
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to permit nul sensor definitions"
+    return 1
+  fi
+
+  return 0
+}
+
 function enable_misc_informs()
 {
   push_failure

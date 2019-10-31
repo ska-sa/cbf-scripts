@@ -248,6 +248,7 @@ function start_monitor()
 
 inhibit_logging
 enable_misc_informs
+permit_nul_sensors
 
 register_commands support
 
