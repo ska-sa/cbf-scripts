@@ -476,6 +476,21 @@ function enable_misc_informs()
   return 0
 }
 
+function self_config()
+{
+  push_failure
+
+  send_request   client-config "$1"
+  retrieve_reply client-config
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to configure option $1"
+    return 1
+  fi
+
+  return 0
+}
+
 function inhibit_logging()
 {
   push_failure

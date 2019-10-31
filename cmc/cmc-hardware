@@ -250,7 +250,8 @@ function start_monitor()
 #########################################################
 
 inhibit_logging
-enable_misc_informs
+self_config info-all
+self_config fixed
 permit_nul_sensors
 
 register_commands support
