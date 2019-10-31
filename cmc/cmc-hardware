@@ -126,7 +126,7 @@ function subscribe_sensors()
 #  done
 
   send_request sensor-sampling "${remote}.boot-image"
-  retrieve-reply sensor-sampling
+  retrieve_reply sensor-sampling
 
   if ! pop_failure ; then
     kcpmsg -l warn "unable to subscribe to ${remote}.boot-image"
