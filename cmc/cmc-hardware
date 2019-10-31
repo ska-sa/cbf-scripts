@@ -51,6 +51,7 @@ function make_misc_sensors()
 
 function client_disconnected()
 {
+  shift
   kcpmsg -l info "invoking disconnect handler for $*"
 
   if [ "${1##skarab}" = "${1}" ] ; then
@@ -65,6 +66,8 @@ function client_disconnected()
 function sensor_status()
 {
   local skarab
+
+  shift
   shift
 
   if [ "${1}" != 1 ] ; then
