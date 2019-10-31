@@ -9,7 +9,7 @@ export KATCP_LABEL=cmc.hardware
 # valid command names and their minimum parameter count
 declare -A -r command_set=([start-monitor]=1)
 declare -A -r command_help=([start-monitor]="start monitor for a given skarab")
-declare -A -r inform_set=([relay]=1 [client-disconnected]=1)
+declare -A -r inform_set=([relay]=1 [client-disconnected]=1 [sensor-status])
 
 #################################################
 
@@ -49,6 +49,37 @@ function make_misc_sensors()
 
 ### support functions: subscibe to servlet ##############
 
+function client_disconnected()
+{
+  if [ "${1##skarab}" = "${1}" ] ; then
+    return
+  fi
+
+  kcpmsg -l info "skarab $1 seems to have disconnected"
+
+  now=$(date +%s.%N)
+
+  echo "#sensor-status ${now%???} 1 ${1}.device-status unreachable degraded"
+}
+
+function sensor_status()
+{
+  local skarab
+  shift
+
+  if [ "${1}" != 1 ] ; then
+    kcpmsg -l info "sensor update seems invalid with $*"
+    return
+  fi
+
+  shift
+
+  if [ "${1%boot-image}" != "${1}" ] ; then
+    skarab = "${1%%.boot-image}"
+    kcpmsg -l info "skarab ${skarab} has changed image to ${3}"
+  fi
+}
+
 function relay()
 {
   shift
@@ -64,19 +95,6 @@ function relay()
   fi
 
   echo "#sensor-status $*"
-}
-
-function client_disconnected()
-{
-  if [ "${1##skarab}" = "${1}" ] ; then
-    return
-  fi
-
-  kcpmsg -l info "skarab $1" seems to have disconnected
-
-  now=$(date +%s.%N)
-
-  echo "#sensor-status ${now%???} 1 ${1}.device-status unreachable degraded"
 }
 
 function subscribe_sensors()
@@ -102,13 +120,16 @@ function subscribe_sensors()
 
   push_failure
 
-  for key in "${!inform_result[@]}" ; do
-    send_request relay "${remote}" relay "${remote}" sensor-value
-    retrieve_inform relay
-  done
+#  for key in "${!inform_result[@]}" ; do
+#    send_request relay "${remote}" relay "${remote}" sensor-value
+#    retrieve_inform relay
+#  done
+
+  send_request sensor-sampling "${remote}.boot-image"
+  retrieve-reply sensor-sampling
 
   if ! pop_failure ; then
-    kcpmsg -l warn "unable to retrieve initial sensor values from ${remote}"
+    kcpmsg -l warn "unable to subscribe to ${remote}.boot-image"
     return 1
   fi
 
