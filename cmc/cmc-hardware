@@ -51,11 +51,11 @@ function make_misc_sensors()
 
 function client_disconnected()
 {
+  kcpmsg -l info "invoking disconnect handler for $*"
+
   if [ "${1##skarab}" = "${1}" ] ; then
     return
   fi
-
-  kcpmsg -l info "skarab $1 seems to have disconnected"
 
   now=$(date +%s.%N)
 
