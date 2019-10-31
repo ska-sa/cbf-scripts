@@ -125,7 +125,7 @@ function subscribe_sensors()
 #    retrieve_inform relay
 #  done
 
-  send_request sensor-sampling "${remote}.boot-image"
+  send_request sensor-sampling "${remote}.boot-image" auto
   retrieve_reply sensor-sampling
 
   if ! pop_failure ; then
