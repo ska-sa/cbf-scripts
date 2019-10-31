@@ -9,7 +9,7 @@ export KATCP_LABEL=cmc.hardware
 # valid command names and their minimum parameter count
 declare -A -r command_set=([start-monitor]=1)
 declare -A -r command_help=([start-monitor]="start monitor for a given skarab")
-declare -A -r inform_set=([relay]=1 [client-disconnected]=1 [sensor-status])
+declare -A -r inform_set=([relay]=1 [client-disconnected]=1 [sensor-status]=1)
 
 #################################################
 
