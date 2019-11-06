@@ -94,7 +94,7 @@ function sensor_status()
   fetch_var "${prefix}"
 
   if ! pop_failure ; then
-    kcpmsg -l warn "unable to query resource set"
+    kcpmsg -l warn "unable to query resource set for ${prefix}"
     return 1
   fi
 
@@ -103,6 +103,8 @@ function sensor_status()
   mode="${var_result[${prefix}:mode]}"
 
   update="${prev}"
+
+  kcpmsg "considering sensor ${sensor}, previous skarab status ${prev} in mode ${mode} with holder ${holder:-undefined}"
 
   if [ "${sensor#*.}" != boot-image ] ; then
     image="${3}"
@@ -132,7 +134,10 @@ function sensor_status()
 
   if [ "${update}" != "${prev}" ] ; then
 # what about drop mode ?
+
     if [ "${mode}" = auto ] ; then
+
+      kcpmsg "attempting status update for skarab ${skarab} from ${prev} to ${update}"
 
       push_failure
 
