@@ -80,7 +80,7 @@ function sensor_status()
 
   sensor=${1}
 
-  skarab = "${sensor%%.*}"
+  skarab="${sensor%%.*}"
 
   if [ "${skarab:0:6}" != skarab ] ; then
     kcpmsg -l warn "saw an unsolicited update of sensor ${sensor}"
