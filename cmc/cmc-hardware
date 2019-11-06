@@ -78,7 +78,7 @@ function sensor_status()
 
   shift
 
-  sensor=${1}
+  sensor="${1}"
 
   skarab="${sensor%%.*}"
 
@@ -87,7 +87,7 @@ function sensor_status()
     return
   fi
 
-  prefix="resources:{skarab}"
+  prefix="resources:${skarab}"
 
   push_failure
 
