@@ -9,7 +9,7 @@ export KATCP_LABEL=cmc.hardware
 # valid command names and their minimum parameter count
 declare -A -r command_set=([start-monitor]=1)
 declare -A -r command_help=([start-monitor]="start monitor for a given skarab")
-declare -A -r inform_set=([relay]=1 [client-disconnected]=1 [sensor-status]=1)
+declare -A -r inform_set=([client-disconnected]=1 [sensor-status]=1)
 
 #################################################
 
@@ -52,11 +52,12 @@ function make_misc_sensors()
 function client_disconnected()
 {
   shift
-  kcpmsg -l info "invoking disconnect handler for $*"
 
   if [ "${1##skarab}" = "${1}" ] ; then
     return
   fi
+
+  kcpmsg -l info "skarab ${1} disconnected, marking it unreachable"
 
   now=$(date +%s.%N)
 
@@ -65,7 +66,7 @@ function client_disconnected()
 
 function sensor_status()
 {
-  local skarab
+  local skarab image prefix prev holder mode sensor image update reset
 
   shift
   shift
@@ -77,28 +78,100 @@ function sensor_status()
 
   shift
 
-  if [ "${1%boot-image}" != "${1}" ] ; then
-    skarab = "${1%%.boot-image}"
-    kcpmsg -l info "skarab ${skarab} has changed image to ${3}"
-  fi
-}
+  sensor=${1}
 
-function relay()
-{
-  shift
+  skarab = "${sensor%%.*}"
 
-  if [ "$#" -ne 5 ] ; then
-    kcpmsg -l info "odd sensor status update $*"
+  if [ "${skarab:0:6}" != skarab ] ; then
+    kcpmsg -l warn "saw an unsolicited update of sensor ${sensor}"
     return
   fi
 
-  if [ "$1" != 1 ] ; then
-    kcpmsg -l info "malformed sensor status update $*"
-    return
+  prefix="resources:{skarab}"
+
+  push_failure
+
+  fetch_var "${prefix}"
+
+  if ! pop_failure ; then
+    kcpmsg -l warn "unable to query resource set"
+    return 1
   fi
 
-  echo "#sensor-status $*"
+  prev="${var_result[${prefix}:status]}"
+  holder="${var_result[${prefix}:holder]}"
+  mode="${var_result[${prefix}:mode]}"
+
+  update="${prev}"
+
+  if [ "${sensor#*.}" != boot-image ] ; then
+    image="${3}"
+
+    kcpmsg -l info "skarab ${skarab} has changed image to ${image}"
+
+    if [ -z "${holder}" ] ; then
+      if [ "${image}" = multiboot ] ; then
+        update=up
+      else
+        update=standby
+        reset=true
+      fi
+    fi
+  fi
+
+  if [ "${sensor#*.}" != device-status ] ; then
+
+    kcpmsg -l info "skarab ${skarab} has changed status to ${2}"
+
+    if [ "${2}" = nominal ] ; then
+      update=up
+    else
+      update=standby
+    fi
+  fi
+
+  if [ "${update}" != "${prev}" ] ; then
+# what about drop mode ?
+    if [ "${mode}" = auto ] ; then
+
+      push_failure
+
+      send_request   var-set  resources hardware string "${skarab}:holder"
+      if retrieve_reply var-set ; then
+
+        send_request   var-delete  "${prefix}:status"
+        retrieve_reply var-delete
+
+        send_request   var-set      resources ${update} string ":${skarab}:status"
+        retrieve_reply var-set
+
+        send_request   var-delete  "${prefix}:holder"
+        retrieve_reply var-delete
+      fi
+
+      if ! pop_failure ; then
+        kcpmsg -l error "problem adjusting the status of ${skarab} to ${update}"
+      fi
+    fi
+  fi
 }
+
+# function relay()
+# {
+#   shift
+#
+#   if [ "$#" -ne 5 ] ; then
+#     kcpmsg -l info "odd sensor status update $*"
+#     return
+#   fi
+#
+#   if [ "$1" != 1 ] ; then
+#     kcpmsg -l info "malformed sensor status update $*"
+#     return
+#   fi
+#
+#   echo "#sensor-status $*"
+# }
 
 function subscribe_sensors()
 {
@@ -129,6 +202,9 @@ function subscribe_sensors()
 #  done
 
   send_request sensor-sampling "${remote}.boot-image" auto
+  retrieve_reply sensor-sampling
+
+  send_request sensor-sampling "${remote}.device-status" auto
   retrieve_reply sensor-sampling
 
   if ! pop_failure ; then
