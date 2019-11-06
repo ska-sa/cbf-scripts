@@ -106,7 +106,7 @@ function sensor_status()
 
   kcpmsg "considering sensor ${sensor}, previous skarab status ${prev} in mode ${mode} with holder ${holder:-undefined}"
 
-  if [ "${sensor#*.}" != boot-image ] ; then
+  if [ "${sensor#*.}" = boot-image ] ; then
     image="${3}"
 
     kcpmsg -l info "skarab ${skarab} has changed image to ${image}"
@@ -121,7 +121,7 @@ function sensor_status()
     fi
   fi
 
-  if [ "${sensor#*.}" != device-status ] ; then
+  if [ "${sensor#*.}" = device-status ] ; then
 
     kcpmsg -l info "skarab ${skarab} has changed status to ${2}"
 
