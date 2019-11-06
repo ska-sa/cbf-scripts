@@ -123,7 +123,7 @@ function sensor_status()
 
   if [ "${sensor#*.}" = device-status ] ; then
 
-    kcpmsg -l info "skarab ${skarab} has changed status to ${2}"
+    kcpmsg -l info "skarab ${skarab} has changed device-status to ${2}"
 
     if [ "${2}" = nominal ] ; then
       update=up
@@ -132,7 +132,7 @@ function sensor_status()
     fi
   fi
 
-  if [ "${update}" != "${prev}" ] ; then
+  if [ "${update}" != "${prev}" -o "${reset}" = true ] ; then
 # what about drop mode ?
 
     if [ "${mode}" = auto ] ; then
@@ -143,6 +143,17 @@ function sensor_status()
 
       send_request   var-set  resources hardware string "${skarab}:holder"
       if retrieve_reply var-set ; then
+
+        if [ -n "${reset}" ] ; then
+          kcpmsg "about to issue reset request to ${skarab}"
+
+          send_request relay "${remote}" relay "${remote}" reset-hardware-platform
+          retrieve_reply relay
+
+          kcpmsg "completed reset request to ${skarab}"
+
+          clear_failure
+        fi
 
         send_request   var-delete  "${prefix}:status"
         retrieve_reply var-delete
@@ -157,6 +168,8 @@ function sensor_status()
       if ! pop_failure ; then
         kcpmsg -l error "problem adjusting the status of ${skarab} to ${update}"
       fi
+    else
+      kcpmsg "would have changed ${skarab} status from ${prev} to ${update} if it were not in mode ${mode}"
     fi
   fi
 }
