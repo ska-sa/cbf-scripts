@@ -147,7 +147,7 @@ function sensor_status()
         if [ -n "${reset}" ] ; then
           kcpmsg "about to issue reset request to ${skarab}"
 
-          send_request relay "${remote}" relay "${remote}" reset-hardware-platform
+          send_request relay "${skarab}" relay "${skarab}" reset-hardware-platform
           retrieve_reply relay
 
           kcpmsg "completed reset request to ${skarab}"
