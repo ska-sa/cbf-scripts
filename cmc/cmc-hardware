@@ -141,7 +141,7 @@ function sensor_status()
 
       push_failure
 
-      send_request   var-set  resources hardware string "${skarab}:holder"
+      send_request   var-set  resources hardware string ":${skarab}:holder"
       if retrieve_reply var-set ; then
 
         if [ -n "${reset}" ] ; then
