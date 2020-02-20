@@ -23,6 +23,18 @@ if [ -z "${HAVE_PARENT}" ] ; then
   exit 0
 fi
 
+if [ "${TERM/xterm/}" != "${TERM}" ] ; then
+  TERM=xterm+sl tsl=$(tput tsl)
+  TERM=xterm+sl fsl=$(tput fsl)
+
+  if [ -z "${tsl}" ] ; then
+    tsl=$(echo -e '\e]0;')
+    fsl=$(echo -e '\007')
+  fi
+
+  echo -n "${tsl}${KATCP_SERVER/:/ }${fsl}"
+fi
+
 echo "Connected to ${KATCP_SERVER} to collect logs"
 
 declare -a vector
