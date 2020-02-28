@@ -267,7 +267,154 @@ int strategy_disjoint(struct distribute_state *ds)
   return 0;
 }
 
-#define STRATEGIES 3
+int strategy_brute(struct distribute_state *ds)
+{
+  /* brute force the state space. O(n!) in bin size (!) */
+
+  unsigned int least_bin, least_waste, bin, waste, need, use;
+  unsigned int i, x, y, z, *t, pos;
+
+  least_bin = ds->d_bin_count + 1;
+  least_waste = 0; /* can do better */
+
+  for(i = 0; i < ds->d_bin_count; i++){
+    least_waste += ds->d_bin_vector[i];
+  }
+
+  for(;;){
+
+    if(ds->d_verbose > 3){
+      for(i = 0; i < ds->d_bin_count; i++){
+        fprintf(stderr, "%u ", *(ds->d_bin_shadow[i]));
+      }
+    }
+
+    x = ds->d_bin_count;
+    for(i = 0; i < (ds->d_bin_count - 1); i++){
+      if(*(ds->d_bin_shadow[i]) < *(ds->d_bin_shadow[i + 1])){
+        x = i;
+      }
+    }
+
+    if(x >= ds->d_bin_count){
+      if(ds->d_verbose > 3){
+        fprintf(stderr, "\n");
+      }
+
+      /* todo - qsort the now unsorted bin shadow ? */
+
+      if(least_bin > ds->d_bin_count){
+        if(ds->d_verbose > 1){
+          fprintf(stderr, "no solution found used brute force method\n");
+        }
+        return 1;
+      }
+      if(ds->d_verbose > 0){
+        fprintf(stderr, "found brute force solution with %u bins used and %u slots wasted\n", least_bin, least_waste);
+      }
+      return 0;
+    }
+
+    y = ds->d_bin_count;
+    for(i = x + 1; i < ds->d_bin_count ; i++){
+      if(*(ds->d_bin_shadow[x]) < *(ds->d_bin_shadow[i])){
+        y = i;
+      }
+    }
+
+    if(ds->d_verbose > 3){
+      fprintf(stderr, " x[%u]=%u, y[%u]=%u", x, *(ds->d_bin_shadow[x]), y, *(ds->d_bin_shadow[y]));
+    }
+
+    if(x >= y){
+      abort();
+    }
+    if(*(ds->d_bin_shadow[x]) >= *(ds->d_bin_shadow[y])){
+      abort();
+    }
+
+    t = ds->d_bin_shadow[x];
+    ds->d_bin_shadow[x] = ds->d_bin_shadow[y];
+    ds->d_bin_shadow[y] = t;
+
+    z = ((ds->d_bin_count - (x + 1)) / 2);
+
+    if(ds->d_verbose > 3){
+      fprintf(stderr, " z=%u", z);
+    }
+
+    for(i = 0; i < z; i++){
+      t = ds->d_bin_shadow[x + 1 + i];
+      ds->d_bin_shadow[x + 1 + i] = ds->d_bin_shadow[ds->d_bin_count - (1 + i)];
+      ds->d_bin_shadow[ds->d_bin_count - (1 + i)] = t;
+    }
+
+    if(ds->d_verbose > 3){
+      fprintf(stderr, "\n");
+    }
+
+    bin = 0;
+    waste = 0;
+    for(i = 0; i < ds->d_item_count; i++){
+      need = ds->d_item_vector[i];
+      while((need > 0) && (bin < ds->d_bin_count)){
+        if(need > *(ds->d_bin_shadow[bin])){
+          need -= *(ds->d_bin_shadow[bin]);
+        } else {
+          waste += (*(ds->d_bin_shadow[bin])) - need;
+          need = 0;
+        }
+        bin++;
+      }
+    }
+
+    if((bin < least_bin) || ((bin == least_bin) && (waste < least_waste))){
+
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "sofar best (%u bins, %u items wasted):", bin, waste);
+      }
+
+      least_bin = bin;
+      least_waste = waste;
+
+      clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
+
+      bin = 0;
+      for(i = 0; i < ds->d_item_count; i++){
+        need = ds->d_item_vector[i];
+
+        while((need > 0) && (bin < ds->d_bin_count)){
+          if(need > *(ds->d_bin_shadow[bin])){
+            need -= *(ds->d_bin_shadow[bin]);
+            use = *(ds->d_bin_shadow[bin]);
+          } else {
+            use = need;
+            need = 0;
+          }
+
+
+          pos = ds->d_bin_shadow[bin] - &(ds->d_bin_vector[0]);
+
+          ds->d_allocation[(pos * ds->d_item_count) + i] = use;
+
+          if(ds->d_verbose > 2){
+            fprintf(stderr, " bin %u to hold %u of type %u,", pos, use, i);
+          }
+
+          bin++;
+        }
+      }
+
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "\n");
+      }
+
+    }
+  }
+
+}
+
+#define STRATEGIES 4
 
 struct strategy_option{
   char *s_name;
@@ -279,6 +426,7 @@ struct strategy_option strategy_table[STRATEGIES + 1] = {
   { "single",   &strategy_single,   "attempt to fit all items into the smallest bin" },
   { "binned",   &strategy_binned,   "attempt to distribute each different types into its own bin" },
   { "disjoint", &strategy_disjoint, "attempt to distribute so that no bin contains more than one type" },
+  { "brute",    &strategy_brute,    "brute force the search space so that least bins are used without having a type share a bin" },
   { NULL, NULL, NULL }
 };
 
@@ -392,7 +540,7 @@ void display_as_text(struct distribute_state *ds, unsigned int format)
   for(i = 0; i < ds->d_bin_count; i++){
     for(j = 0; j < ds->d_item_count; j++){
       if(ds->d_allocation[(i * ds->d_item_count) + j] > 0){
-        printf("assign %u of %s %u to %s %u\n", ds->d_allocation[(i * ds->d_item_count) + j], ds->d_item_name ? ds->d_item_name : "item number", j, ds->d_bin_name ? ds->d_bin_name : "bin", i);
+        printf("assign %u of %s %u to %s %u\n", ds->d_allocation[(i * ds->d_item_count) + j], ds->d_item_name ? ds->d_item_name : "item type", j, ds->d_bin_name ? ds->d_bin_name : "bin", i);
       }
     }
   }
