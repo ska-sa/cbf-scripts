@@ -8,7 +8,7 @@ CFLAGS += -Wall
 # amount of debugging logic to enable 
 #CFLAGS += -DDEBUG=4
 CFLAGS += -ggdb
-CFLAGS += -O0
+CFLAGS += -O2
 
 # what compiler to use 
 CC = $(CROSS_COMPILE)gcc

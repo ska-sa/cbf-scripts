@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <unistd.h>
+#include <signal.h>
+#include <stdint.h>
+
 #include <errno.h>
 #include <sysexits.h>
 
@@ -20,6 +24,7 @@ struct distribute_state{
   char *d_assigned_name;
 
   unsigned int d_verbose;
+  unsigned int d_bound;
 };
 
 int compare(const void *a, const void *b)
@@ -267,12 +272,24 @@ int strategy_disjoint(struct distribute_state *ds)
   return 0;
 }
 
-int strategy_brute(struct distribute_state *ds)
+/*************************/
+
+static volatile int may_run = 1;
+
+static void handle_alarm(int signal)
+{
+  may_run = 0;
+}
+
+static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned int timeout)
 {
   /* brute force the state space. O(n!) in bin size (!) */
 
   unsigned int least_bin, least_waste, bin, waste, need, use;
   unsigned int i, x, y, z, *t, pos;
+  unsigned long count;
+  sigset_t sset;
+  struct sigaction sag;
 
   least_bin = ds->d_bin_count + 1;
   least_waste = 0; /* can do better */
@@ -281,7 +298,23 @@ int strategy_brute(struct distribute_state *ds)
     least_waste += ds->d_bin_vector[i];
   }
 
-  for(;;){
+  if(timeout){
+    sigemptyset(&sset);
+    sigaddset(&sset, SIGALRM);
+
+    sigprocmask(SIG_BLOCK, &sset, NULL);
+
+    sag.sa_handler = &handle_alarm;
+    sag.sa_flags = SA_RESTART;
+    sigemptyset(&(sag.sa_mask));
+    sigaction(SIGALRM, &sag, NULL);
+
+    alarm(timeout);
+  }
+
+  count = 0;
+
+  for(count = 0; may_run; count++){
 
     if(ds->d_verbose > 3){
       for(i = 0; i < ds->d_bin_count; i++){
@@ -301,7 +334,14 @@ int strategy_brute(struct distribute_state *ds)
         fprintf(stderr, "\n");
       }
 
+      if(timeout){
+        alarm(0);
+      }
+
       /* todo - qsort the now unsorted bin shadow ? */
+      if(ds->d_verbose){
+        fprintf(stderr, "considered full %lu permutations\n", count);
+      }
 
       if(least_bin > ds->d_bin_count){
         if(ds->d_verbose > 1){
@@ -377,6 +417,10 @@ int strategy_brute(struct distribute_state *ds)
       least_bin = bin;
       least_waste = waste;
 
+      if(timeout){
+        sigprocmask(SIG_BLOCK, &sset, NULL);
+      }
+
       clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
 
       bin = 0;
@@ -409,12 +453,56 @@ int strategy_brute(struct distribute_state *ds)
         fprintf(stderr, "\n");
       }
 
+      if(timeout){
+        sigprocmask(SIG_UNBLOCK, &sset, NULL);
+      }
+
+      if((quick) && (waste == 0)){
+        if(timeout){
+          alarm(0);
+        }
+        if(ds->d_verbose){
+          fprintf(stderr, "found a solution without waste after %lu permutations\n", count);
+        }
+        return 0;
+      }
+
     }
   }
 
+  /* only reached if alarm was set */
+
+  alarm(0);
+
+  if(ds->d_verbose > 1){
+    fprintf(stderr, "examined partial search space of %lu permutations\n", count);
+  }
+
+  if(least_bin > ds->d_bin_count){
+    if(ds->d_verbose > 1){
+      fprintf(stderr, "no solution found within given constraint\n");
+    }
+    return 1;
+  }
+
+  if(ds->d_verbose > 1){
+    fprintf(stderr, "found a suboptimal solution within %us time limit\n", timeout);
+  }
+
+  return 0;
 }
 
-#define STRATEGIES 4
+int strategy_brute(struct distribute_state *ds)
+{
+  return do_strategy_brute(ds, 0, ds->d_bound);
+}
+
+int strategy_shorter(struct distribute_state *ds)
+{
+  return do_strategy_brute(ds, 1, ds->d_bound);
+}
+
+#define STRATEGIES 5
 
 struct strategy_option{
   char *s_name;
@@ -427,6 +515,7 @@ struct strategy_option strategy_table[STRATEGIES + 1] = {
   { "binned",   &strategy_binned,   "attempt to distribute each different types into its own bin" },
   { "disjoint", &strategy_disjoint, "attempt to distribute so that no bin contains more than one type" },
   { "brute",    &strategy_brute,    "brute force the search space so that least bins are used without having a type share a bin" },
+  { "tight",    &strategy_shorter,  "brute force the search space so that bins are used without having a type share a bin and no wasted bin space" },
   { NULL, NULL, NULL }
 };
 
@@ -587,6 +676,8 @@ void display(struct distribute_state *ds, char *name, unsigned int format)
  * 2 8
  */
 
+#define TIME_BOUND 7
+
 void usage(char *app)
 {
   unsigned int i;
@@ -597,6 +688,7 @@ void usage(char *app)
   printf("-h          this help\n");
   printf("-i count    number of items of a particular type\n");
   printf("-b count    number of slots in the given bin\n");
+  printf("-l limit    limit in seconds for bounded searches (default %us)\n", TIME_BOUND);
   printf("-n name     name given to each bin\n");
   printf("-t name     name given each type type\n");
   printf("-a name     variable used in assignment\n");
@@ -643,6 +735,8 @@ int main(int argc, char **argv)
   ds->d_allocation = NULL;
   ds->d_assigned_name = NULL;
   ds->d_verbose = 0;
+
+  ds->d_bound = TIME_BOUND;
 
   app = argv[0];
 
@@ -697,6 +791,7 @@ int main(int argc, char **argv)
         case 'n' :
         case 's' :
         case 't' :
+        case 'l' :
           j++;
           if (argv[i][j] == '\0') {
             j = 0;
@@ -710,6 +805,9 @@ int main(int argc, char **argv)
           switch(c){
             case 'a' :
               ds->d_assigned_name = argv[i] + j;
+              break;
+            case 'l' :
+              ds->d_bound = atoi(argv[i] + j);
               break;
             case 'n' :
               ds->d_bin_name = argv[i] + j;
