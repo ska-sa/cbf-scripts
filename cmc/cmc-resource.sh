@@ -348,7 +348,7 @@ function compute_resources()
 
     if [ $(sum_args ${items}) -gt 0 ] ; then
 
-      eval distribution=($(distribute -i ${items} -b ${bins} -s single -s brute -f shell))
+      eval distribution=($(distribute -i ${items} -b ${bins} -s single -s tight -f shell))
 
       if [ "$?" -ne 0 ] ; then
         kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
