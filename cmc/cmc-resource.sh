@@ -344,11 +344,11 @@ function compute_resources()
       done
     done
 
-    kcpmsg "bins ${bins} (${switch_map[*]}) and items ${items} (${engine_map[*]})"
+    kcpmsg "switch space ${bins} (on switches ${switch_map[*]}) and resource needs ${items} (named ${engine_map[*]})"
 
     if [ $(sum_args ${items}) -gt 0 ] ; then
 
-      eval distribution=($(distribute -i ${items} -b ${bins} -s single -s binned -s disjoint -f shell))
+      eval distribution=($(distribute -i ${items} -b ${bins} -s single -s brute -f shell))
 
       if [ "$?" -ne 0 ] ; then
         kcpmsg -l warn "unable to satisfy resource needs of ${instrument}"
