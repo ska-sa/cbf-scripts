@@ -344,7 +344,7 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
       }
 
       if(least_bin > ds->d_bin_count){
-        if(ds->d_verbose > 1){
+        if(ds->d_verbose > 0){
           fprintf(stderr, "no solution found used brute force method\n");
         }
         return 1;
@@ -461,8 +461,8 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
         if(timeout){
           alarm(0);
         }
-        if(ds->d_verbose){
-          fprintf(stderr, "found a solution without waste after %lu permutations\n", count);
+        if(ds->d_verbose > 0){
+          fprintf(stderr, "found a solution without waste using %u bins after %lu permutations\n", bin, count);
         }
         return 0;
       }
@@ -479,14 +479,14 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
   }
 
   if(least_bin > ds->d_bin_count){
-    if(ds->d_verbose > 1){
+    if(ds->d_verbose > 0){
       fprintf(stderr, "no solution found within given constraint\n");
     }
     return 1;
   }
 
-  if(ds->d_verbose > 1){
-    fprintf(stderr, "found a suboptimal solution within %us time limit\n", timeout);
+  if(ds->d_verbose > 0){
+    fprintf(stderr, "found a suboptimal solution using %u bins and wasting %u slots within %us time limit\n", least_bin, least_waste, timeout);
   }
 
   return 0;
