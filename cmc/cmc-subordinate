@@ -239,7 +239,7 @@ function retrieve_inputs()
   fi
 
   if [ "${geometry}" -ne "${count}" ] ; then
-    kcpmsg -l error "instrument ${instrument} requires ${count} inputs but we have only been given ${geometry}"
+    kcpmsg -l error "instrument ${instrument} requires ${count} inputs but we have been given ${geometry} instead"
     return 1
   fi
 

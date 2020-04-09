@@ -165,9 +165,9 @@ function group_destroyed()
         elif [ "${var_result[${prefix}:type]}" = skarab ] ; then
           board=${prefix#resources:}
 
-          kcpmsg "about to issue reset request to ${skarab}"
+          kcpmsg "about to issue reset request to ${board}"
 
-          send_request relay "${skarab}" relay "${skarab}" reset-hardware-platform
+          send_request relay "${board}" relay "${board}" reset-hardware-platform
           retrieve_reply relay
         else
           kcpmsg -l error "unexpected held board type ${var_result[${prefix}:type]} at ${prefix:type}"
@@ -700,13 +700,13 @@ function subordinate_create()
       fi
 
       if [ "${control_port}" -gt "${base_port}" ] ; then
-        kcpmsg "selecting name derived port ${control_port}"
+        kcpmsg "selecting name derived port ${control_port} for ${subarray}"
       else
-        kcpmsg -l warn "malformed port ${control_port} thus falling back to automatic selection"
+        kcpmsg -l warn "malformed port ${control_port} thus falling back to automatic selection for ${subarray}"
         control_port=0
       fi
     else
-      kcpmsg "will select a free port for array other than rts"
+      kcpmsg "will select a free port for array ${subarray}"
       control_port=0
       monitor_port=0
     fi

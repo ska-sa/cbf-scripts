@@ -82,6 +82,11 @@ function sensor_status()
 
   skarab="${sensor%%.*}"
 
+  if [ -z "${skarab}" ] ; then
+    kcpmsg -l warn "unparsable status message ending with $*"
+    return
+  fi
+
   if [ "${skarab:0:6}" != skarab ] ; then
     kcpmsg -l warn "saw an unsolicited update of sensor ${sensor}"
     return
