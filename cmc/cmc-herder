@@ -68,7 +68,7 @@ function iteration()
 
   if [ "${#vector[*]}" -gt 0 ] ; then
     kcpmsg -l debug "checking resources ${!vector[@]}"
-    answer=$(${skarab_check} ${!vector[@]} 2> ${LOGPREFIX:-/tmp}/skarab-check.log)
+    answer=$(${skarab_check} ${!vector[@]} 2>> ${LOGPREFIX:-/tmp}/skarab-check.log)
   fi
 
   for board in ${answer} ; do
