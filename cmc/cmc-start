@@ -33,12 +33,13 @@ if [ "${state/retain-path/}" = "${state}" ] ; then
 fi
 
 if [ "${state/tmp-log/}" != "${state}" ] ; then
-  LOGFILE=/tmp/${NAME}.kcplog
-  ERRFILE=/tmp/${NAME}.log
+  export LOGPREFIX=/tmp
 else
-  LOGFILE=/var/log/${NAME}.kcplog
-  ERRFILE=/var/log/${NAME}.log
+  export LOGPREFIX=/var/log
 fi
+
+LOGFILE=${LOGPREFIX}/${NAME}.kcplog
+ERRFILE=${LOGPREFIX}/${NAME}.log
 
 export MALLOC_CHECK_=1
 cd /var/tmp
