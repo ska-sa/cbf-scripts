@@ -7,3 +7,11 @@
   endscript
 }
 
+/var/log/skarab-check.log {
+  rotate 100
+  daily
+  delaycompress
+  compress
+  create cmc adm
+}
+
