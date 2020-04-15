@@ -55,8 +55,9 @@ fi
 sleep 0.5
 
 if [ "$(whoami)" = "root" ] ; then
+  touch ${LOGPREFIX}/skarab-check.log
   touch ${ERRFILE}
-  chown ${unprivileged_user:-nobody} ${ERRFILE}
+  chown ${unprivileged_user:-nobody} ${ERRFILE} ${LOGPREFIX}/skarab-check.log
   su ${unprivileged_user:-nobody} -c "env PATH=$PATH:/usr/local/sbin kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}"
 else
   kcs -d -p ${KATCP_SERVER} -l ${ERRFILE}
