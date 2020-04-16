@@ -314,12 +314,90 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
 
   count = 0;
 
-  for(count = 0; may_run; count++){
+  while(may_run){
 
     if(ds->d_verbose > 3){
       for(i = 0; i < ds->d_bin_count; i++){
         fprintf(stderr, "%u ", *(ds->d_bin_shadow[i]));
       }
+    }
+
+    bin = 0;
+    waste = 0;
+    for(i = 0; i < ds->d_item_count; i++){
+      need = ds->d_item_vector[i];
+      while((need > 0) && (bin < ds->d_bin_count)){
+        if(need > *(ds->d_bin_shadow[bin])){
+          need -= *(ds->d_bin_shadow[bin]);
+        } else {
+          waste += (*(ds->d_bin_shadow[bin])) - need;
+          need = 0;
+        }
+        bin++;
+      }
+    }
+
+    count++;
+
+    if((bin < least_bin) || ((bin == least_bin) && (waste < least_waste))){
+
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "sofar best (%u bins, %u items wasted):", bin, waste);
+      }
+
+      least_bin = bin;
+      least_waste = waste;
+
+      if(timeout){
+        sigprocmask(SIG_BLOCK, &sset, NULL);
+      }
+
+      clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
+
+      bin = 0;
+      for(i = 0; i < ds->d_item_count; i++){
+        need = ds->d_item_vector[i];
+
+        while((need > 0) && (bin < ds->d_bin_count)){
+          if(need > *(ds->d_bin_shadow[bin])){
+            need -= *(ds->d_bin_shadow[bin]);
+            use = *(ds->d_bin_shadow[bin]);
+          } else {
+            use = need;
+            need = 0;
+          }
+
+
+          pos = ds->d_bin_shadow[bin] - &(ds->d_bin_vector[0]);
+
+          ds->d_allocation[(pos * ds->d_item_count) + i] = use;
+
+          if(ds->d_verbose > 2){
+            fprintf(stderr, " bin %u to hold %u of type %u,", pos, use, i);
+          }
+
+          bin++;
+        }
+      }
+
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "\n");
+      }
+
+      if(timeout){
+        sigprocmask(SIG_UNBLOCK, &sset, NULL);
+      }
+
+      if((quick) && (waste == 0)){
+        if(timeout){
+          alarm(0);
+        }
+        if(ds->d_verbose > 0){
+          fprintf(stderr, "found a solution without waste using %u bins after %lu permutations\n", bin, count);
+        }
+        return 0;
+      }
+
     }
 
     x = ds->d_bin_count;
@@ -393,81 +471,6 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
       fprintf(stderr, "\n");
     }
 
-    bin = 0;
-    waste = 0;
-    for(i = 0; i < ds->d_item_count; i++){
-      need = ds->d_item_vector[i];
-      while((need > 0) && (bin < ds->d_bin_count)){
-        if(need > *(ds->d_bin_shadow[bin])){
-          need -= *(ds->d_bin_shadow[bin]);
-        } else {
-          waste += (*(ds->d_bin_shadow[bin])) - need;
-          need = 0;
-        }
-        bin++;
-      }
-    }
-
-    if((bin < least_bin) || ((bin == least_bin) && (waste < least_waste))){
-
-      if(ds->d_verbose > 2){
-        fprintf(stderr, "sofar best (%u bins, %u items wasted):", bin, waste);
-      }
-
-      least_bin = bin;
-      least_waste = waste;
-
-      if(timeout){
-        sigprocmask(SIG_BLOCK, &sset, NULL);
-      }
-
-      clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
-
-      bin = 0;
-      for(i = 0; i < ds->d_item_count; i++){
-        need = ds->d_item_vector[i];
-
-        while((need > 0) && (bin < ds->d_bin_count)){
-          if(need > *(ds->d_bin_shadow[bin])){
-            need -= *(ds->d_bin_shadow[bin]);
-            use = *(ds->d_bin_shadow[bin]);
-          } else {
-            use = need;
-            need = 0;
-          }
-
-
-          pos = ds->d_bin_shadow[bin] - &(ds->d_bin_vector[0]);
-
-          ds->d_allocation[(pos * ds->d_item_count) + i] = use;
-
-          if(ds->d_verbose > 2){
-            fprintf(stderr, " bin %u to hold %u of type %u,", pos, use, i);
-          }
-
-          bin++;
-        }
-      }
-
-      if(ds->d_verbose > 2){
-        fprintf(stderr, "\n");
-      }
-
-      if(timeout){
-        sigprocmask(SIG_UNBLOCK, &sset, NULL);
-      }
-
-      if((quick) && (waste == 0)){
-        if(timeout){
-          alarm(0);
-        }
-        if(ds->d_verbose > 0){
-          fprintf(stderr, "found a solution without waste using %u bins after %lu permutations\n", bin, count);
-        }
-        return 0;
-      }
-
-    }
   }
 
   /* only reached if alarm was set */
