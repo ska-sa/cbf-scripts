@@ -941,6 +941,8 @@ function instrument_probe()
     return 1
   fi
 
+  kcplog "probing for $@"
+
   compute_resources "$@"
 
   result="$?"

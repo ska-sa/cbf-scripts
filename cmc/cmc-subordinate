@@ -433,7 +433,7 @@ function instrument_activate()
     kcpmsg -l error "unable to allocate resources needed by ${instrument}"
     release_lock boards ${SUBARRAY}
 
-    echo "!instrument-activate fail read-logs"
+    echo "!instrument-activate fail oversubscribed"
     adjust_sensors
     return 1
   fi
