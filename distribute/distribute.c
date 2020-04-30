@@ -281,6 +281,234 @@ static void handle_alarm(int signal)
   may_run = 0;
 }
 
+static int do_strategy_lowaste(struct distribute_state *ds, unsigned int timeout)
+{
+  /* brute force the state space. O(n!) in bin size (!) */
+
+  unsigned int most_waste, least_waste, bin, waste, need, use;
+  unsigned int i, x, y, z, *t, pos;
+  unsigned long count;
+  sigset_t sset;
+  struct sigaction sag;
+
+  least_waste = 0; /* can do better */
+
+  for(i = 0; i < ds->d_bin_count; i++){
+    least_waste += ds->d_bin_vector[i];
+  }
+
+  most_waste = least_waste;
+
+  if(timeout){
+    sigemptyset(&sset);
+    sigaddset(&sset, SIGALRM);
+
+    sigprocmask(SIG_BLOCK, &sset, NULL);
+
+    sag.sa_handler = &handle_alarm;
+    sag.sa_flags = SA_RESTART;
+    sigemptyset(&(sag.sa_mask));
+    sigaction(SIGALRM, &sag, NULL);
+
+    alarm(timeout);
+  }
+
+  count = 0;
+
+  need = 0;
+  for(i = 0; i < ds->d_item_count; i++){
+    need += ds->d_item_vector[i];
+  }
+
+  if(need <= 0){
+    if(ds->d_verbose > 0){
+      fprintf(stderr, "nothing to allocate\n");
+    }
+    return 0;
+  }
+
+  while(may_run){
+
+    if(ds->d_verbose > 3){
+      for(i = 0; i < ds->d_bin_count; i++){
+        fprintf(stderr, "%u ", *(ds->d_bin_shadow[i]));
+      }
+    }
+
+    bin = 0;
+    waste = 0;
+    for(i = 0; i < ds->d_item_count; i++){
+      need = ds->d_item_vector[i];
+      while((need > 0) && (bin < ds->d_bin_count)){
+        if(need > *(ds->d_bin_shadow[bin])){
+          need -= *(ds->d_bin_shadow[bin]);
+        } else {
+          waste += (*(ds->d_bin_shadow[bin])) - need;
+          need = 0;
+        }
+        bin++;
+      }
+      if(need > 0){
+        bin = ds->d_bin_count + 1;
+      }
+    }
+
+    count++;
+
+    if((need <= 0) && (waste < least_waste)){
+
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "sofar best (%u bins, was %u now %u items wasted):", bin, least_waste, waste);
+      }
+
+      least_waste = waste;
+
+      if(timeout){
+        sigprocmask(SIG_BLOCK, &sset, NULL);
+      }
+
+      clear_allocation(ds->d_allocation, ds->d_bin_count, ds->d_item_count);
+
+      bin = 0;
+      for(i = 0; i < ds->d_item_count; i++){
+        need = ds->d_item_vector[i];
+
+        while((need > 0) && (bin < ds->d_bin_count)){
+          if(need > *(ds->d_bin_shadow[bin])){
+            need -= *(ds->d_bin_shadow[bin]);
+            use = *(ds->d_bin_shadow[bin]);
+          } else {
+            use = need;
+            need = 0;
+          }
+
+
+          pos = ds->d_bin_shadow[bin] - &(ds->d_bin_vector[0]);
+
+          ds->d_allocation[(pos * ds->d_item_count) + i] = use;
+
+          if(ds->d_verbose > 2){
+            fprintf(stderr, " bin %u to hold %u of type %u,", pos, use, i);
+          }
+
+          bin++;
+        }
+      }
+
+      if(ds->d_verbose > 2){
+        fprintf(stderr, "\n");
+      }
+
+      if(timeout){
+        sigprocmask(SIG_UNBLOCK, &sset, NULL);
+      }
+
+      if(waste == 0){
+        if(timeout){
+          alarm(0);
+        }
+        if(ds->d_verbose > 0){
+          fprintf(stderr, "found a solution without waste using %u bins after %lu permutations\n", bin, count);
+        }
+        return 0;
+      }
+    }
+
+    x = ds->d_bin_count;
+    for(i = 0; i < (ds->d_bin_count - 1); i++){
+      if(*(ds->d_bin_shadow[i]) < *(ds->d_bin_shadow[i + 1])){
+        x = i;
+      }
+    }
+
+    if(x >= ds->d_bin_count){
+      if(ds->d_verbose > 3){
+        fprintf(stderr, "\n");
+      }
+
+      if(timeout){
+        alarm(0);
+      }
+
+      /* todo - qsort the now unsorted bin shadow ? */
+      if(ds->d_verbose){
+        fprintf(stderr, "considered full %lu permutations\n", count);
+      }
+
+      if(least_waste >= most_waste){
+        if(ds->d_verbose > 0){
+          fprintf(stderr, "no solution found used brute force method\n");
+        }
+        return 1;
+      }
+      if(ds->d_verbose > 0){
+        fprintf(stderr, "found brute force solution with %u slots wasted\n", least_waste);
+      }
+      return 0;
+    }
+
+    y = ds->d_bin_count;
+    for(i = x + 1; i < ds->d_bin_count ; i++){
+      if(*(ds->d_bin_shadow[x]) < *(ds->d_bin_shadow[i])){
+        y = i;
+      }
+    }
+
+    if(ds->d_verbose > 3){
+      fprintf(stderr, " x[%u]=%u, y[%u]=%u", x, *(ds->d_bin_shadow[x]), y, *(ds->d_bin_shadow[y]));
+    }
+
+    if(x >= y){
+      abort();
+    }
+    if(*(ds->d_bin_shadow[x]) >= *(ds->d_bin_shadow[y])){
+      abort();
+    }
+
+    t = ds->d_bin_shadow[x];
+    ds->d_bin_shadow[x] = ds->d_bin_shadow[y];
+    ds->d_bin_shadow[y] = t;
+
+    z = ((ds->d_bin_count - (x + 1)) / 2);
+
+    if(ds->d_verbose > 3){
+      fprintf(stderr, " z=%u", z);
+    }
+
+    for(i = 0; i < z; i++){
+      t = ds->d_bin_shadow[x + 1 + i];
+      ds->d_bin_shadow[x + 1 + i] = ds->d_bin_shadow[ds->d_bin_count - (1 + i)];
+      ds->d_bin_shadow[ds->d_bin_count - (1 + i)] = t;
+    }
+
+    if(ds->d_verbose > 3){
+      fprintf(stderr, "\n");
+    }
+
+  }
+
+  /* only reached if alarm was set */
+
+  alarm(0);
+
+  if(ds->d_verbose > 1){
+    fprintf(stderr, "examined partial search space of %lu permutations\n", count);
+  }
+
+  if(least_waste >= most_waste){
+    if(ds->d_verbose > 0){
+      fprintf(stderr, "no solution found within given constraint\n");
+    }
+    return 1;
+  }
+
+  if(ds->d_verbose > 0){
+    fprintf(stderr, "found a possibly suboptimal solution wasting %u slots within %us time limit\n", least_waste, timeout);
+  }
+
+  return 0;
+}
+
 static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned int timeout)
 {
   /* brute force the state space. O(n!) in bin size (!) */
@@ -335,6 +563,10 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
         }
         bin++;
       }
+      if(need > 0){
+        bin = ds->d_bin_count + 1;
+        waste = least_waste;
+      }
     }
 
     count++;
@@ -342,7 +574,7 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
     if((bin < least_bin) || ((bin == least_bin) && (waste < least_waste))){
 
       if(ds->d_verbose > 2){
-        fprintf(stderr, "sofar best (%u bins, %u items wasted):", bin, waste);
+        fprintf(stderr, "sofar best (was %u, now %u bins, was %u now %u items wasted):", least_bin, bin, least_waste, waste);
       }
 
       least_bin = bin;
@@ -495,6 +727,11 @@ static int do_strategy_brute(struct distribute_state *ds, int quick, unsigned in
   return 0;
 }
 
+int strategy_lowaste(struct distribute_state *ds)
+{
+  return do_strategy_lowaste(ds, ds->d_bound);
+}
+
 int strategy_brute(struct distribute_state *ds)
 {
   return do_strategy_brute(ds, 0, ds->d_bound);
@@ -505,7 +742,7 @@ int strategy_shorter(struct distribute_state *ds)
   return do_strategy_brute(ds, 1, ds->d_bound);
 }
 
-#define STRATEGIES 5
+#define STRATEGIES 6
 
 struct strategy_option{
   char *s_name;
@@ -519,6 +756,7 @@ struct strategy_option strategy_table[STRATEGIES + 1] = {
   { "disjoint", &strategy_disjoint, "attempt to distribute so that no bin contains more than one type" },
   { "brute",    &strategy_brute,    "brute force the search space so that least bins are used without having a type share a bin" },
   { "tight",    &strategy_shorter,  "brute force the search space so that bins are used without having a type share a bin and no wasted bin space" },
+  { "lowaste",  &strategy_lowaste,  "brute force the search space so that bins are used without having a type share a bin and limited wasted bin space" },
   { NULL, NULL, NULL }
 };
 
