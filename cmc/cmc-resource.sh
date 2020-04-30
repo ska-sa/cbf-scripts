@@ -304,7 +304,8 @@ function compute_resources()
   for index in ${!switch_map[@]} ; do
     name=${switch_map[${index}]}
     if [ -n "${location_busy[${name}]}" ] ; then
-      bins="${bins} 0"
+      unset switch_map[${index}]
+#      bins="${bins} 0"
     else
       bins="${bins} ${location_free[${name}]}"
     fi
