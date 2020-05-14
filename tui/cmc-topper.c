@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#include <fcntl.h>
 
 #include <ncurses.h>
 #include <netc.h>
@@ -26,7 +27,10 @@ struct ct_row{
   unsigned int c_refs;
 };
 
-unsigned int PREFIX = 8;
+unsigned int ct_prefix = 8;
+unsigned int ct_filter = 0;
+
+char *ct_host = NULL;
 
 static volatile int ct_finished = 0;
 unsigned long ct_allocated = 0;
@@ -104,7 +108,7 @@ int recheck_time()
 
   ct_base = mktime(tp);
 
-  if(ct_base % DAY){
+  if(ct_base % 3600){
     fprintf(stderr, "odd - my day starts with a remainder of %lu\n", ct_base % DAY);
   }
 
@@ -112,6 +116,56 @@ int recheck_time()
 }
 
 /**********************************************************/
+
+struct ct_row *text_row(char *text)
+{
+  char *mod, *msg;
+  time_t now;
+  unsigned int reduced;
+  struct ct_row *cr;
+
+  msg = strdup(text);
+
+  if(msg == NULL){
+    return NULL;
+  }
+
+  mod = strdup("logger");
+  if(mod == NULL){
+    free(msg);
+    return NULL;
+  }
+
+  cr = malloc(sizeof(struct ct_row));
+  if(cr == NULL){
+    free(msg);
+    free(mod);
+    return NULL;
+  }
+
+  time(&now);
+  reduced = now - ct_base;
+
+  cr->c_level = (ct_filter < KATCP_LEVEL_INFO) ? KATCP_LEVEL_INFO : ct_filter;
+  cr->c_time  = reduced;
+
+  cr->c_module  = mod;
+  cr->c_message = msg;
+
+  cr->c_refs = 0;
+  cr->c_same = NULL;
+  cr->c_next = NULL;
+
+  ct_allocated++;
+
+#ifdef DEBUG
+  if(ct_allocated > 10000){
+    fprintf(stderr, "eek, %lu messages in flight\n", ct_allocated);
+  }
+#endif
+
+  return cr;
+}
 
 struct ct_row *make_row(struct katcl_parse *px)
 {
@@ -195,10 +249,13 @@ struct ct_row *make_row(struct katcl_parse *px)
   }
 
   mod = copy_string_parse_katcl(px, 3);
-  msg = copy_string_parse_katcl(px, 4);
+  if(mod == NULL){
+    return NULL;
+  }
 
-  if((msg == NULL) || (mod == NULL)){
-    fprintf(stderr, "no module or message to log\n");
+  msg = copy_string_parse_katcl(px, 4);
+  if(msg == NULL){
+    free(mod);
     return NULL;
   }
 
@@ -281,12 +338,12 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
   }
 
   if(common < len){ /* a difference */
-    if(common > (dot + PREFIX)){ /* in a weird place */
+    if(common > (dot + ct_prefix)){ /* in a weird place */
       dot = common;
-      for(i = 0; i < (PREFIX / 2); i++){
+      for(i = 0; i < (ct_prefix / 2); i++){
         switch(ct->c_module[common - i]){
           case '-' :
-          case '_' : 
+          case '_' :
           case ':' :
             dot = common - i;
             break;
@@ -298,7 +355,7 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
   fprintf(stderr, "%s vs %p %u/%u/%u\n", ct->c_module, pt, dot, common, len);
 #endif
 
-    for(i = 0; i < PREFIX; i++){
+    for(i = 0; i < ct_prefix; i++){
       if(dot < common){
         addch(ct->c_module[dot++] | A_DIM);
       } else if(dot < len){
@@ -316,9 +373,9 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
       printw("%02u:%02u:%02u", ct->c_time / 3600, (ct->c_time / 60) % 60, ct->c_time % 60);
       attrset(A_NORMAL);
       i = 8;
-    } 
+    }
 
-    while(i < PREFIX){
+    while(i < ct_prefix){
       addch(' ');
       i++;
     }
@@ -327,8 +384,8 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
   addch(' ');
 
   len = strlen(ct->c_message);
-  if(len > (COLS - (PREFIX + 1))){
-    len = (COLS - (PREFIX + 1));
+  if(len > (COLS - (ct_prefix + 1))){
+    len = (COLS - (ct_prefix + 1));
   }
 
   for(j = 0; j < len; j++){
@@ -348,6 +405,72 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
 #endif
 
   return 0;
+}
+
+void show_status()
+{
+  unsigned int i, j, len, avail;
+  char *ptr;
+  time_t now;
+  unsigned int reduced;
+
+  move(LINES - 1, 0);
+
+  j = 0;
+  i = 0;
+  while(i <= KATCP_LEVEL_FATAL){
+    ptr = log_to_string_katcl(i);
+    if(ptr == NULL){
+      break;
+    }
+
+    if(i < ct_filter){
+      attrset(A_DIM);
+    } else {
+      attrset(ct_map[i] | A_REVERSE);
+    }
+
+    addstr(ptr);
+    j += strlen(ptr);
+    attrset(A_NORMAL);
+
+    i++;
+    if(COLS > 50){
+      addch(' ');
+      addch(' ');
+      j += 2;
+    }
+  }
+
+  if(COLS <= (j + 9)){
+    return;
+  }
+
+  len = strlen(ct_host);
+  avail = COLS - (j + 9);
+
+  if(avail > len){
+    j += (avail - len);
+    move(LINES - 1, j);
+    avail = len;
+  }
+
+  for(i = 0; i < avail; i++){
+    addch(ct_host[i]);
+  }
+  addch(' ');
+
+  time(&now);
+
+  reduced = now - ct_base;
+  if(now >= DAY){
+    recheck_time();
+    reduced = now - ct_base;
+  }
+
+  attrset(A_REVERSE);
+  printw("%02u:%02u:%02u", reduced / 3600, (reduced / 60) % 60, reduced % 60);
+  attrset(A_NORMAL);
 }
 
 /************************************************************/
@@ -425,8 +548,9 @@ int ct_redraw()
 
   p = NULL;
   r = ct_recent;
-  for(i = 0; i < LINES; i++){
+  for(i = 0; i < (LINES - 1); i++){
     if(r == NULL){
+      show_status();
       refresh();
       return 0;
     }
@@ -438,7 +562,6 @@ int ct_redraw()
 
   ct_trim_next(r);
 
-  refresh();
   return 0;
 }
 
@@ -457,10 +580,14 @@ int main(int argc, char **argv)
   struct katcl_line *l;
   struct katcl_parse *px;
   struct ct_row *cr;
-
-  int fd, c, i, j;
+  fd_set fsr;
+  int kfd, sr, flags;
+  struct timeval delta;
+  char key;
+  int fd, c, i, j, idle;
   int result, update;
   char *server;
+  int user;
 #if 0
   char *cmd;
   SCREEN *sc;
@@ -472,6 +599,7 @@ int main(int argc, char **argv)
     server = "localhost";
   }
 
+  user = 0;
   i = 1;
   j = 1;
   while (i < argc) {
@@ -498,14 +626,16 @@ int main(int argc, char **argv)
     }
   }
 
-  fprintf(stderr, "*** still a prototype - crashy and unfriendly\n");
-  sleep(2);
+  fprintf(stderr, "*** still a prototype - crashy and unfriendly ***\n");
+  sleep(1);
 
   fd = net_connect(server, 0, 0);
   if(fd < 0){
     fprintf(stderr, "unable to connect to %s\n", server);
     return 2;
   }
+
+  ct_host = server;
 
   l = create_katcl(fd);
   if(l == NULL){
@@ -547,43 +677,135 @@ int main(int argc, char **argv)
   noecho();
   erase();
 
-  update = 0;
+  flags = fcntl(STDOUT_FILENO, F_GETFL, NULL);
+  if(flags >= 0){
+    flags = fcntl(STDOUT_FILENO, F_SETFL, flags | O_NONBLOCK);
+  }
+
+  idle = 1;
+  update = 1;
+  kfd = fileno_katcl(l);
+
+  show_status();
+
+  cr = text_row("q to quit, <tab> to cycle, +/- to adjust");
+  if(cr){
+    cr->c_next = ct_recent;
+    ct_recent = cr;
+    cr->c_refs++;
+    /* don't forget about levels ... */
+  }
 
   while(!ct_finished){
-    result = read_katcl(l);
-    if(result){
-      ct_finished = result;
-      break;
+
+    FD_ZERO(&fsr);
+    FD_SET(STDIN_FILENO, &fsr);
+    FD_SET(kfd, &fsr);
+
+    delta.tv_sec = 1;
+    delta.tv_usec = 1;
+
+    sr = select(kfd + 1, &fsr, NULL, NULL, &delta);
+    if(sr <= 0){
+      if(idle == 0){
+        if(user == 0){
+          ct_prefix = 8;
+          if(COLS > 80){
+            ct_prefix += (COLS - 80) / 10;
+          }
+        }
+        redrawwin(rt);
+      }
+
+      idle++;
+      show_status();
+      refresh();
+      continue;
     }
 
-    while((result = parse_katcl(l)) > 0){
-      px = ready_katcl(l);
-      if(px){
-        cr = make_row(px);
-        if(cr){
-          cr->c_next = ct_recent;
-          ct_recent = cr;
-          cr->c_refs++;
+    idle = 0;
 
-#if 0
-          /* LATER */
-          cr->c_same = ct_vector[cr->c_level];
-          ct_vector[cr->c_level] = cr;
-          cr->c_refs++;
-#endif
-
-          update = 1;
+    if(FD_ISSET(STDIN_FILENO, &fsr)){
+      if(read(STDIN_FILENO, &key, 1) > 0){
+        switch(key){
+          case '\t' :
+            ct_filter++;
+            if(ct_filter > KATCP_LEVEL_FATAL){
+              ct_filter = 0;
+            }
+            show_status();
+            update = 1;
+            break;
+          case 'Q' :
+          case 'q' :
+            ct_finished = 1;
+            break;
+          case '*' :
+            user = 0;
+            break;
+          case '+' :
+          case '=' :
+            if(ct_prefix < (COLS / 2)){
+              ct_prefix++;
+            }
+            ct_redraw();
+            update = 1;
+            user = 1;
+            break;
+          case '-' :
+            if(ct_prefix > 8){
+              ct_prefix--;
+            }
+            ct_redraw();
+            update = 1;
+            user = 1;
+            break;
+          case 'h' :
+          case '?' :
+            break;
         }
-        clear_katcl(l);
       }
     }
 
-    if(result < 0){
-      ct_finished = result;
+    if(FD_ISSET(kfd, &fsr)){
+      result = read_katcl(l);
+      if(result){
+        ct_finished = result;
+        break;
+      }
+
+      while((result = parse_katcl(l)) > 0){
+        px = ready_katcl(l);
+        if(px){
+          cr = make_row(px);
+          if(cr){
+            cr->c_next = ct_recent;
+            ct_recent = cr;
+            cr->c_refs++;
+
+#if 0
+            /* LATER */
+            cr->c_same = ct_vector[cr->c_level];
+            ct_vector[cr->c_level] = cr;
+            cr->c_refs++;
+#endif
+
+            update = 1;
+          }
+          clear_katcl(l);
+        }
+      }
+
+      if(result < 0){
+        ct_finished = result;
+      }
+
+      ct_redraw();
+      update = 1;
     }
 
     if(update){
-      ct_redraw();
+      refresh();
       update = 0;
     }
   }
