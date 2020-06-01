@@ -241,6 +241,8 @@ function launch_sensors()
     return 1
   fi
 
+  kcpmsg "monitor up now attempting to subscribe to sensors"
+
   if ! activate_servlet_sensors monitor ; then
     kcpmsg -l warn "unable to subscribe to sensors for instrument ${INSTRUMENT}"
     adjust_sensors
