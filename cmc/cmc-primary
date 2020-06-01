@@ -292,7 +292,7 @@ function resource_list()
       if [ -n "${board}" ] ; then
 
         if [ "${var_result[${prefix}:mode]}" != "auto" ] ; then
-          ignored="${ignored}${ignored:+ }${board}"
+          ignored+="${ignored:+ }${board}"
         fi
 
         if [ -n "${var_result[${prefix}:holder]}" ] ; then
