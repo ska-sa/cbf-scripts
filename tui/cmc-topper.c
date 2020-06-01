@@ -22,10 +22,18 @@ struct ct_row{
   char *c_module;
   char *c_message;
 
+  unsigned int c_index;
+
   struct ct_row *c_next;
+#if 0
   struct ct_row *c_same;
+#endif
   unsigned int c_refs;
 };
+
+char **ct_modules = NULL;
+unsigned int ct_size = 0;
+int ct_current = (-1);
 
 unsigned int ct_prefix = 8;
 unsigned int ct_filter = 0;
@@ -81,7 +89,7 @@ int ct_color_setup()
     ct_map[KATCP_LEVEL_TRACE] = A_DIM;
     ct_map[KATCP_LEVEL_DEBUG] = A_DIM;
     ct_map[KATCP_LEVEL_INFO]  = A_NORMAL;
-    ct_map[KATCP_LEVEL_WARN]  = A_ITALIC;
+    ct_map[KATCP_LEVEL_WARN]  = A_NORMAL;
     ct_map[KATCP_LEVEL_ERROR] = A_BOLD;
     ct_map[KATCP_LEVEL_FATAL] = A_BLINK | A_BOLD;
   }
@@ -117,12 +125,53 @@ int recheck_time()
 
 /**********************************************************/
 
+int find_module(char *module)
+{
+  unsigned int len, i;
+  char *ptr, **t;
+
+  ptr = strchr(module, '.');
+  if(ptr == NULL){
+    len = strlen(module);
+  } else {
+    len = ptr - module;
+  }
+
+  for(i = 0; i < ct_size; i++){
+    if(strncmp(ct_modules[i], module, len) == 0){
+      return i;
+    }
+  }
+
+  t = realloc(ct_modules, sizeof(char *) * (ct_size + 1));
+  if(t == NULL){
+    return -1;
+  }
+  ct_modules = t;
+
+  ptr = malloc(len + 1);
+  if(ptr == NULL){
+    return -1;
+  }
+
+  strncpy(ptr, module, len);
+  ptr[len] = '\0';
+  ct_modules[i] = ptr;
+
+  ct_size++;
+
+  return i;
+}
+
+/**********************************************************/
+
 struct ct_row *text_row(char *text)
 {
   char *mod, *msg;
   time_t now;
   unsigned int reduced;
   struct ct_row *cr;
+  int index;
 
   msg = strdup(text);
 
@@ -133,6 +182,12 @@ struct ct_row *text_row(char *text)
   mod = strdup("logger");
   if(mod == NULL){
     free(msg);
+    return NULL;
+  }
+
+  index = find_module(mod);
+  if(index < 0){
+    free(mod);
     return NULL;
   }
 
@@ -152,8 +207,12 @@ struct ct_row *text_row(char *text)
   cr->c_module  = mod;
   cr->c_message = msg;
 
+  cr->c_index = index;
+
   cr->c_refs = 0;
+#if 0
   cr->c_same = NULL;
+#endif
   cr->c_next = NULL;
 
   ct_allocated++;
@@ -170,7 +229,7 @@ struct ct_row *text_row(char *text)
 struct ct_row *make_row(struct katcl_parse *px)
 {
   char *inform, *level, *msg, *mod, *ptr, *end;
-  int code;
+  int code, index;
   unsigned int i, j;
   struct ct_row *cr;
   unsigned long full, fraction, reduced;
@@ -253,6 +312,12 @@ struct ct_row *make_row(struct katcl_parse *px)
     return NULL;
   }
 
+  index = find_module(mod);
+  if(index < 0){
+    free(mod);
+    return NULL;
+  }
+
   msg = copy_string_parse_katcl(px, 4);
   if(msg == NULL){
     free(mod);
@@ -275,9 +340,14 @@ struct ct_row *make_row(struct katcl_parse *px)
   cr->c_module  = mod;
   cr->c_message = msg;
 
+
   cr->c_refs = 0;
+#if 0
   cr->c_same = NULL;
+#endif
   cr->c_next = NULL;
+
+  cr->c_index = index;
 
   ct_allocated++;
 
@@ -315,9 +385,26 @@ void destroy_row(struct ct_row *cr)
   free(cr);
 }
 
+int load_row(struct ct_row *cr)
+{
+
+  cr->c_next = ct_recent;
+  ct_recent = cr;
+  cr->c_refs++;
+
+#if 0
+  /* LATER */
+  cr->c_same = ct_vector[cr->c_level];
+  ct_vector[cr->c_level] = cr;
+  cr->c_refs++;
+#endif
+  return 0;
+}
+
 int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
 {
   int common, i, j, len, dot;
+  unsigned int a;
 
   move(pos, 0);
 
@@ -325,6 +412,7 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
   common = 0;
   dot = 0;
 
+  a = A_BOLD;
   if(pt){
     common = len;
     for(i = 0; i < len; i++){
@@ -334,6 +422,10 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
       } else if(ct->c_module[i] == '.'){
         dot = i;
       }
+    }
+  } else {
+    if(ct_current >= 0){
+      a = ct_map[KATCP_LEVEL_WARN];
     }
   }
 
@@ -359,7 +451,7 @@ int show_row(struct ct_row *ct, struct ct_row *pt, unsigned int pos)
       if(dot < common){
         addch(ct->c_module[dot++] | A_DIM);
       } else if(dot < len){
-        addch(ct->c_module[dot++] | A_BOLD);
+        addch(ct->c_module[dot++] | a);
       } else {
         addch(' ');
       }
@@ -499,15 +591,18 @@ void ct_trim_next(struct ct_row *ct)
       abort();
     }
     if(pt->c_refs <= 0){
+#if 0
       if(pt->c_same){
         fprintf(stderr, "same link still valid\n");
         abort();
       }
+#endif
       destroy_row(pt);
     }
   }
 }
 
+#if 0
 void ct_trim_same(struct ct_row *ct)
 {
   struct ct_row *nt, *pt;
@@ -540,6 +635,7 @@ void ct_trim_same(struct ct_row *ct)
     }
   }
 }
+#endif
 
 int ct_redraw()
 {
@@ -548,19 +644,28 @@ int ct_redraw()
 
   p = NULL;
   r = ct_recent;
-  for(i = 0; i < (LINES - 1); i++){
+  i = 0;
+
+  while(i < (LINES - 1)){
     if(r == NULL){
       show_status();
       refresh();
       return 0;
     }
 
-    show_row(r, p, i);
-    p = r;
+    if((ct_current < 0) || (ct_current == r->c_index)){
+      if(r->c_level >= ct_filter){
+        show_row(r, p, i);
+        i++;
+        p = r;
+      }
+    }
     r = r->c_next;
   }
 
+#if 0
   ct_trim_next(r);
+#endif
 
   return 0;
 }
@@ -626,6 +731,10 @@ int main(int argc, char **argv)
     }
   }
 
+  if(argc <= 1){
+    fprintf(stderr, "*** you probably want to supply a host:port parameter ***\n");
+  }
+
   fprintf(stderr, "*** still a prototype - crashy and unfriendly ***\n");
   sleep(1);
 
@@ -688,14 +797,27 @@ int main(int argc, char **argv)
 
   show_status();
 
-  cr = text_row("q to quit, <tab> to cycle, +/- to adjust");
+  cr = text_row("+ or - to adjust module display");
   if(cr){
-    cr->c_next = ct_recent;
-    ct_recent = cr;
-    cr->c_refs++;
-    /* don't forget about levels ... */
+    load_row(cr);
   }
-
+  cr = text_row("tab    to cycle through different modules");
+  if(cr){
+    load_row(cr);
+  }
+  cr = text_row("< or > to adjust log priorities");
+  if(cr){
+    load_row(cr);
+  }
+  cr = text_row("q      to quit");
+  if(cr){
+    load_row(cr);
+  }
+  cr = text_row("simple realtime katcp log display");
+  if(cr){
+    load_row(cr);
+  }
+  
   while(!ct_finished){
 
     FD_ZERO(&fsr);
@@ -728,16 +850,68 @@ int main(int argc, char **argv)
     if(FD_ISSET(STDIN_FILENO, &fsr)){
       if(read(STDIN_FILENO, &key, 1) > 0){
         switch(key){
-          case '\t' :
+          case 'W' :
+          case 'w' :
+            ct_filter = KATCP_LEVEL_WARN;
+            clear();
+            show_status();
+            ct_redraw();
+            update = 1;
+            break;
+          case 'I' :
+          case 'i' :
+            ct_filter = KATCP_LEVEL_INFO;
+            clear();
+            show_status();
+            ct_redraw();
+            update = 1;
+            break;
+          case 'E' :
+          case 'e' :
+            ct_filter = KATCP_LEVEL_ERROR;
+            clear();
+            show_status();
+            ct_redraw();
+            update = 1;
+            break;
+          case ',' :
+          case '<' :
+            if(ct_filter == 0){
+              ct_filter = KATCP_LEVEL_FATAL;
+            } else {
+              ct_filter--;
+            }
+            clear();
+            show_status();
+            ct_redraw();
+            update = 1;
+            break;
+          case '.' :
+          case '>' :
             ct_filter++;
             if(ct_filter > KATCP_LEVEL_FATAL){
               ct_filter = 0;
             }
+            clear();
             show_status();
+            ct_redraw();
+            update = 1;
+            break;
+          case '\t' :
+            ct_current++;
+            if(ct_current >= ct_size){
+              ct_current = (-1);
+            }
+            ct_filter = KATCP_LEVEL_INFO;
+            clear();
+            show_status();
+            ct_redraw();
             update = 1;
             break;
           case 'Q' :
           case 'q' :
+          case 'X' :
+          case 'x' :
             ct_finished = 1;
             break;
           case '*' :
@@ -779,17 +953,7 @@ int main(int argc, char **argv)
         if(px){
           cr = make_row(px);
           if(cr){
-            cr->c_next = ct_recent;
-            ct_recent = cr;
-            cr->c_refs++;
-
-#if 0
-            /* LATER */
-            cr->c_same = ct_vector[cr->c_level];
-            ct_vector[cr->c_level] = cr;
-            cr->c_refs++;
-#endif
-
+            load_row(cr);
             update = 1;
           }
           clear_katcl(l);
