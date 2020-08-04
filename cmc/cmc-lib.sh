@@ -352,7 +352,7 @@ function init_locks()
 
 function acquire_lock()
 {
-  local resource owner attempts sofar
+  local resource owner attempts sofar value
 
   resource=$1
   if [ -z "${resource}" ] ; then
@@ -388,7 +388,22 @@ function acquire_lock()
     sleep 1
   done
 
-  kcpmsg "unable to acquire ${resource} for ${owner} after ${attempts} tries"
+  kcpmsg "unable to acquire lock ${resource} for ${owner} after ${attempts} tries"
+
+  push_failure
+
+  fetch_var "locks"
+
+  if ! pop_failure ; then
+    kcpmsg -l fatal "unable to retrieve lock state during lock for ${owner}"
+    return 1
+  fi
+
+  value="${var_result[locks:${resource}]}"
+
+  if [ -n "${value}" ] ; then
+    kcpmsg "lock ${resource} appears to be held by ${value}"
+  fi
 
   return 1
 }

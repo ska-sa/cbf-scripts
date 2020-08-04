@@ -987,6 +987,7 @@ register_commands primary
 
 #################################################
 
+# could be removed if resource- end up in their own script
 reload_resource_exclusions
 
 init_locks
@@ -995,6 +996,7 @@ init_resources
 
 reload_instruments
 
+# also removable ?
 check_resources
 
 #################################################
