@@ -1,0 +1,296 @@
+#!/bin/bash
+
+#################################################
+
+export KATCP_LABEL=cmc.resources
+
+# valid command names and their minimum parameter count
+
+declare -A -r command_set=([resource-list]=1 [resource-mark]=3 [resource-reload]=1 [resource-add]=2)
+declare -A -r command_help=([resource-list]="show processing resources (?resource-list [resource])" [resource-mark]="set availability of a processing resource (?resource-mark resource marking)" [resource-reload]="refresh the set of available resources (?resource-reload)" [resource-add]="manuall add a new resource (?resource-add resource)")
+
+# support: auto-reload ##########################
+
+declare -i config_file_time=$(date +%s)
+declare -i template_dir_time=$(date +%s)
+
+function recheck_configs()
+{
+  local current_time update
+
+  update=""
+
+  if [ -f "${configuration}" ] ; then
+
+    current_time=$(stat -L -c %Y ${configuration})
+
+    if [ -n "${current_time}" ] ; then
+      if [ "${current_time}" -gt "${config_file_time}" ] ; then
+        config_file_time=${current_time}
+        if source "${configuration}" ; then
+          kcpmsg "reloaded configuration ${configuration}"
+          update=1
+        else
+          kcpmsg -l error "failed to reload configuration ${configuration}"
+          return 1
+        fi
+
+        reload_resource_exclusions
+      fi
+    fi
+  else
+    kcpmsg -l error "no configuration available"
+  fi
+
+  if [ -d "${CORR_TEMPLATE}" ] ; then
+    current_time=$(stat -L -c %Y ${CORR_TEMPLATE})
+    if [ "${current_time}" -gt "${template_dir_time}" ] ; then
+      template_dir_time=${current_time}
+      update=1
+    fi
+  fi
+
+  if [ -n "${update}" ] ; then
+    reload_instruments
+  fi
+}
+
+### api functions ### resources #########################
+
+function resource_add()
+{
+  local code
+
+  shift
+
+  code=fail
+
+  if ! acquire_lock boards primary 5 ; then
+    kcpmsg -l warn "unable to acquire exclusive access to resource pool"
+    echo "!resource-add ${code}"
+  fi
+
+  if add_resource "$1" ; then
+    code=ok
+  fi
+
+  release_lock boards primary
+
+  echo "!resource-add ${code}"
+
+}
+
+function resource_reload()
+{
+  local code
+
+  shift
+
+  if ! recheck_configs ; then
+    echo "!resource-reload fail"
+    return 1
+  fi
+
+  code=fail
+
+  if ! acquire_lock boards primary 5 ; then
+    kcpmsg -l warn "unable to acquire exclusive access to resource pool"
+    echo "!resource-reload ${code}"
+  fi
+
+  if check_resources ; then
+    code=ok
+  fi
+
+  release_lock boards primary
+
+  echo "!resource-reload ${code}"
+}
+
+function resource_list()
+{
+  local key board prefix setting ignored
+
+  shift
+
+# check_resources
+
+  push_failure
+
+  if [ -n "$1" ] ; then
+    fetch_var "resources:${1,,}"
+  else
+    fetch_var "resources"
+  fi
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to retrieve resource variables"
+    echo "!resource-list fail"
+  fi
+
+  for key in "${!var_result[@]}" ; do
+
+    if [ "${key##*:}" = status ] ; then
+      prefix="${key%:status}"
+      board="${prefix#resources:}"
+
+      if [ -n "${board}" ] ; then
+
+        if [ "${var_result[${prefix}:mode]}" != "auto" ] ; then
+          ignored+="${ignored:+ }${board}"
+        fi
+
+        if [ -n "${var_result[${prefix}:holder]}" ] ; then
+          echo "#resource-list ${board} ${var_result[${prefix}:status]} ${var_result[${prefix}:holder]}"
+        else
+          echo "#resource-list ${board} ${var_result[${prefix}:status]}"
+        fi
+      else
+        kcpmsg -l error "problems processing resource status ${key}"
+      fi
+    fi
+  done
+
+  kcpmsg "set of manually managed resources is ${ignored}"
+
+  echo "!resource-list ok"
+}
+
+function resource_mark()
+{
+  local board status
+
+  shift
+
+  board=${1,,}
+  status=$2
+
+  push_failure
+
+  fetch_var "resources:${board}"
+
+  if ! pop_failure ; then
+    kcpmsg -l error "unable to retrieve resource ${board}"
+    echo "!resource-mark fail unknown-item"
+    return 1
+  fi
+
+  case "${status}" in
+    (up)
+      if [ -n "${resources_excluded[${board}]}" ] ; then
+        kcpmsg -l warn "resource ${board} was excluded via configuration in ${configuration} thus not honouring this request"
+        echo "!resource-mark fail denied"
+        return 1
+      fi
+
+      if [ "${var_result[resources:${board}:type]}" = "roach" ] ; then
+        if ! kcpcmd -kirs "${board}" watchdog >& /dev/null ; then
+          if [ "${state/missing-roaches/}" = "${state}" ] ; then
+            kcpmsg -l error "roach resource ${board} unresponsive"
+            echo "!resource-mark fail network"
+            return 1
+          fi
+          kcpmsg -l warn "roach resource ${board} not responsive but taking it to be ok"
+        fi
+      elif [ "${var_result[resources:${board}:type]}" = "skarab" ] ; then
+        if ! ping -c 1 "${board}" >& /dev/null ; then
+          if [ "${state/missing-roaches/}" = "${state}" ] ; then
+            kcpmsg -l error "skarab resource ${board} unresponsive"
+            echo "!resource-mark fail network"
+            return 1
+          fi
+          kcpmsg -l warn "skarab resource ${board} not responsive but taking it to be ok"
+        fi
+      fi
+
+      push_failure
+
+      if [ "${var_result[resources:${board}:status]}" != "up" ] ; then
+# WARNING: this clause could be removed - the herder will mark it up if appropriate ?
+        send_request   var-delete  "resources:${board}:status"
+        retrieve_reply var-delete
+
+        send_request   var-set  "resources" up     string ":${board}:status"
+        retrieve_reply var-set
+      fi
+
+# WARNING: introduces asymmetry: marking it up puts it into auto mode again
+      if [ "${var_result[resources:${board}:mode]}" != "auto" ] ; then
+        send_request   var-delete  "resources:${board}:mode"
+        retrieve_reply var-delete
+
+        send_request   var-set  "resources" auto   string ":${board}:mode"
+        retrieve_reply var-set
+      fi
+
+      if ! pop_failure ; then
+        kcpmsg -l error "unable to update resource state for ${board}"
+        echo "!resource-mark fail read-logs"
+        return 1
+      fi
+
+      echo "!resource-mark ok"
+      return 0
+    ;;
+    (standby)
+
+      push_failure
+
+      if [ "${var_result[resources:${board}:status]}" != "standby" ] ; then
+        send_request   var-delete  "resources:${board}:status"
+        retrieve_reply var-delete
+
+        send_request   var-set  "resources" standby  string ":${board}:status"
+        retrieve_reply var-set
+      fi
+
+      if [ "${var_result[resources:${board}:mode]}" = "auto" ] ; then
+        send_request   var-delete  "resources:${board}:mode"
+        retrieve_reply var-delete
+
+        if [ -z "${var_result[resources:${board}:holder]}" ] ; then
+          send_request   var-set  "resources" user   string ":${board}:mode"
+          retrieve_reply var-set
+        else
+          send_request   var-set  "resources" drop   string ":${board}:mode"
+          retrieve_reply var-set
+        fi
+
+      fi
+
+      if ! pop_failure ; then
+        kcpmsg -l error "unable to update resource state for ${board}"
+        echo "!resource-mark fail read-logs"
+        return 1
+      fi
+
+      echo "!resource-mark ok"
+      return 0
+    ;;
+    (*)
+      kcpmsg -l error "unknown marking ${status} for resource ${board}"
+      echo "!resource-mark fail usage"
+      return 1
+    ;;
+  esac
+}
+
+#################################################
+
+source cmc-lib.sh
+source cmc-resource.sh
+source cmc-instrument.sh
+
+inhibit_logging
+enable_misc_informs
+register_commands resources
+
+#################################################
+
+reload_resource_exclusions
+
+check_resources
+
+#################################################
+
+main_loop
