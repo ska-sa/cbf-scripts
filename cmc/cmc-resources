@@ -65,7 +65,7 @@ function resource_add()
 
   code=fail
 
-  if ! acquire_lock boards primary 5 ; then
+  if ! acquire_lock boards resource-add 5 ; then
     kcpmsg -l warn "unable to acquire exclusive access to resource pool"
     echo "!resource-add ${code}"
   fi
@@ -74,7 +74,7 @@ function resource_add()
     code=ok
   fi
 
-  release_lock boards primary
+  release_lock boards resource-add
 
   echo "!resource-add ${code}"
 
@@ -93,7 +93,7 @@ function resource_reload()
 
   code=fail
 
-  if ! acquire_lock boards primary 5 ; then
+  if ! acquire_lock boards resource-reload 5 ; then
     kcpmsg -l warn "unable to acquire exclusive access to resource pool"
     echo "!resource-reload ${code}"
   fi
@@ -102,7 +102,7 @@ function resource_reload()
     code=ok
   fi
 
-  release_lock boards primary
+  release_lock boards resource-reload
 
   echo "!resource-reload ${code}"
 }
