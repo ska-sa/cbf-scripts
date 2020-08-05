@@ -6,8 +6,8 @@ export KATCP_LABEL=cmc.primary
 
 # valid command names and their minimum parameter count
 
-declare -A -r command_set=([resource-list]=1 [resource-mark]=3 [resource-reload]=1 [resource-add]=2 [subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1 [instrument-probe]=2 [cmc-halt]=1)
-declare -A -r command_help=([resource-list]="show processing resources (?resource-list [resource])" [resource-mark]="set availability of a processing resource (?resource-mark resource marking)" [subordinate-halt]="halt a subarray (?subordinate-halt [subarray])" [subordinate-list]="show subarrays (?subordinate-list)" [subordinate-create]="define and launch a subarray (?subordinate-create subarray [inputs]*)" [instrument-list]="show available instruments (?instrument-list)" [instrument-probe]="test if a group of instruments can currently be run (?instrument-probe [instruments]*)" [cmc-halt]="power down the cmc server (?cmc-halt)")
+declare -A -r command_set=([subordinate-create]=3 [subordinate-list]=1 [subordinate-halt]=2 [instrument-list]=1 [instrument-probe]=2 [cmc-halt]=1)
+declare -A -r command_help=([subordinate-create]="define and launch a subarray (?subordinate-create subarray [inputs]*)" [subordinate-list]="show subarrays (?subordinate-list)" [subordinate-halt]="halt a subarray (?subordinate-halt [subarray])" [instrument-list]="show available instruments (?instrument-list)" [instrument-probe]="test if a group of instruments can currently be run (?instrument-probe [instruments]*)" [cmc-halt]="power down the cmc server (?cmc-halt)")
 
 declare -A -r inform_set=([group-destroyed]=1)
 
@@ -211,6 +211,10 @@ function group_destroyed()
 }
 
 ### api functions ### resources #########################
+
+###
+### On its way to cmc-resources as its own process, this to be retired
+###
 
 function resource_add()
 {
