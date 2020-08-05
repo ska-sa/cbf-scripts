@@ -96,7 +96,7 @@ kcpcmd -i client-exec primary primary ${NAME}-primary
 kcpcmd -i client-exec corr primary ${NAME}-null
 # pick between herder and hardware
 kcpcmd -i client-exec support hardware nice ${NAME}-hardware
-#kcpcmd -i client-exec herder primary ${NAME}-herder
+kcpcmd -i client-exec herder primary nice ${NAME}-herder
 kcpcmd -i client-config info-none corr
 kcpcmd -i client-config client corr
 
