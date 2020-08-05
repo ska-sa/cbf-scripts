@@ -273,7 +273,7 @@ function launch_skarab()
 
   push_failure
 
-  send_request   client-exec "monitor-${skarab}" hardware nice kcprun -s ${skarab} -e error -o info corr2_hardware_sensor_servlet.py -p "${port}" --host "${skarab}"
+  send_request   client-exec "monitor-${skarab}" hardware nice kcprun -s ${skarab} -e error -o info corr2_hardware_sensor_servlet.py -p "${port}" --host "${skarab} --timeout=1"
   retrieve_reply client-exec
 
   send_request   client-config client "monitor-${skarab}"
