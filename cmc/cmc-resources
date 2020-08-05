@@ -151,7 +151,9 @@ function resource_list()
     fi
   done
 
-  kcpmsg "set of manually managed resources is ${ignored}"
+  if [ -n "${ignored}" ] ; then
+    kcpmsg "set of manually managed resources is ${ignored}"
+  fi
 
   echo "!resource-list ok"
 }
