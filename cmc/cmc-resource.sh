@@ -321,7 +321,6 @@ function compute_resources()
   fi
 
 # now the hardcoded heuristics/rules
-# BIG FAT WARNING: can't split same engine over multiple switches yet
 
   failed=""
   total=0
